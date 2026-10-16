@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "canvas": {"width": 4, "height": 4},
+  "palette": ["#17334AFF", "#00000000", "#F4C95DFF"],
+  "cels": [
+    {"id": "spark", "pixels": [[1,2,1,1], [2,2,2,1], [1,2,1,1], [1,1,1,1]]}
+  ],
+  "frames": [{"duration_ms": 125}],
+  "layers": [{"id": "spark", "name": "Spark", "timeline": [{"cel": "spark"}]}]
+}

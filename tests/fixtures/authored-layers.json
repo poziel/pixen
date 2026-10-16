@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "canvas": {"width": 2, "height": 1},
+  "palette": ["#FF0000FF", "#00000000", "#0000FF80", "#00FF00FF"],
+  "cels": [
+    {"id": "base", "pixels": [[0, 1]]},
+    {"id": "top", "pixels": [[2, 2]]},
+    {"id": "hidden", "pixels": [[3, 3]]}
+  ],
+  "frames": [{"duration_ms": 125}],
+  "layers": [
+    {"id": "base", "name": "Base", "timeline": [{"cel": "base"}]},
+    {"id": "top", "name": "Top", "opacity": 0.5, "timeline": [{"cel": "top", "opacity": 0.5}]},
+    {"id": "hidden", "name": "Hidden", "visible": false, "timeline": [{"cel": "hidden"}]}
+  ]
+}
