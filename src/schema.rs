@@ -268,6 +268,28 @@ pub fn validate_document(doc: &Document) -> Result<()> {
             }
         }
     }
+    validate_structure(doc)
+}
+
+/// Validate metadata and timeline references without inspecting pixel payloads.
+pub fn validate_structure(doc: &Document) -> Result<()> {
+    pixel_bytes(doc.canvas.width, doc.canvas.height)?;
+    ensure!(
+        matches!(doc.version, 1 | 2),
+        "unsupported authoring version"
+    );
+    ensure!(
+        !doc.palette.is_empty() && doc.palette.len() <= 1_048_576,
+        "invalid palette size"
+    );
+    for color in &doc.palette {
+        decode_color(color)?;
+    }
+    let len = pixel_bytes(doc.canvas.width, doc.canvas.height)? as u64;
+    ensure!(
+        doc.cels.len() <= MAX_SLOTS && doc.cels.len() as u64 * len <= MAX_IMAGE_BYTES as u64,
+        "cel buffers exceed memory budget"
+    );
     ensure!(
         !doc.frames.is_empty() && doc.frames.len() <= MAX_FRAMES,
         "invalid frame count"

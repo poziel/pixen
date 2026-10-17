@@ -3,7 +3,6 @@ use crate::{
     export::ExportOptions,
     formats::{OutputFormat, ProjectFormat},
     output::{self, LimitedFile, Prepared},
-    schema,
     video::VideoOptions,
 };
 use anyhow::{Result, ensure};
@@ -28,7 +27,7 @@ pub fn export(
         images.frame.is_none() || !formats.iter().any(|f| matches!(f, OutputFormat::Video(_))),
         "--frame cannot be used when video output is requested; video exports the full animation"
     );
-    let sprite = schema::parse(&output::read_bounded(input, schema::MAX_JSON)?)?;
+    let sprite = crate::input::compile(input)?;
     for format in formats {
         match format {
             OutputFormat::Image(f) => crate::export::validate(&sprite, *f, images)?,
@@ -73,7 +72,7 @@ pub fn build(
         &paths.iter().map(PathBuf::as_path).collect::<Vec<_>>(),
         force,
     )?;
-    let sprite = schema::parse(&output::read_bounded(input, schema::MAX_JSON)?)?;
+    let sprite = crate::input::compile(input)?;
     let mut prepared = Vec::with_capacity(paths.len());
     for (format, path) in formats.iter().zip(&paths) {
         prepared.push(Prepared::new(path, |file| {

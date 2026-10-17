@@ -198,6 +198,10 @@ pub fn run(
     force: bool,
 ) -> Result<Report> {
     ensure!(
+        !crate::input::is_container(input),
+        "optimize requires self-contained JSON; unpack the container, optimize JSON, then pack (or pack JSON --optimize)"
+    );
+    ensure!(
         in_place != output_path.is_some(),
         "require --output or --in-place"
     );

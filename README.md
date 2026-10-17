@@ -195,3 +195,30 @@ fixtures remain historical evidence.
 Losslessly minimize authoring JSON with `spritex optimize INPUT --output OUTPUT`
 (or `--in-place`). See [optimizer search, bounds and verification](docs/optimizer.md).
 Author convenient valid encodings first; let the optimizer measure their storage costs.
+
+## Compressed authoring containers
+
+Use `.spritex.json` for self-contained editable JSON, or `.spritex` for a ZIP
+container with independently compressed cel payloads:
+
+```sh
+spritex pack character.spritex.json --output character.spritex
+spritex pack character.spritex.json --output optimized.spritex --optimize
+spritex unpack character.spritex --output restored.spritex.json
+spritex validate character.spritex
+spritex build character.spritex --output character --formats pxo,aseprite
+spritex export character.spritex --output character --formats png,svg
+```
+
+Packing preserves supplied encodings by default, including unused cels, exact
+palette indices, metadata and explicit editing links. `--optimize` runs the existing
+lossless JSON optimizer first; it does not promise the smallest ZIP. Outputs use
+the existing `--force` protections and staged writes; containers are fully verified
+before installation. Inputs are never changed. `inspect character.spritex` reads
+structure and references without reading cel payloads; full validation reads every
+cel. Native-project unpack/render/inspect workflows remain supported.
+
+Standalone `optimize` requires JSON: unpack, optimize, then pack, or pack JSON with
+`--optimize`. Legacy JSON filenames remain accepted. See the
+[container schema and compatibility policy](docs/container-format.md) and
+[benchmark methodology and results](docs/container-benchmarks.md).

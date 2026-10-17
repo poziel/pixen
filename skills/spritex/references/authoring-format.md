@@ -295,3 +295,17 @@ in `.spritex.json`. The optimizer measures complete serialized cels across a
 bounded search; do not manually predict the smallest encoding. Exact indices,
 palette order, metadata and editing links are preserved. Encoding savings and
 JSON formatting/normalization savings are reported separately.
+
+## Container storage
+
+The external JSON schema stays self-contained. `.spritex` packages the same
+Document fields into `document.json`, replacing each cel with an explicit
+`{ "id": "body", "payload": "cels/body.json" }` reference. Each payload uses
+that cel's existing encoding schema without `id`. Frames/timelines stay together;
+row/tile dictionaries remain local. All definitions, including unused ones, are
+retained. See [exact container schema](../../../docs/container-format.md).
+
+Pack without optimization to retain encoding choices. `pack --optimize` invokes
+the lossless JSON optimizer before packaging; JSON size does not predict smallest
+ZIP. Validate/build/export accept either format. Use unpack to reconstruct embedded
+payloads in `.spritex.json` before standalone optimization.

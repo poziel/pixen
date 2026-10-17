@@ -6,6 +6,21 @@ use std::fmt;
 pub fn check(bytes: &[u8]) -> anyhow::Result<()> {
     scan(bytes, &mut Counts::default())
 }
+pub(crate) fn check_cel(bytes: &[u8]) -> anyhow::Result<Option<String>> {
+    let mut counts = Counts {
+        container_payload: true,
+        ..Default::default()
+    };
+    let mut deserializer = serde_json::Deserializer::from_slice(bytes);
+    Scan {
+        counts: &mut counts,
+        limit: MAX_GRID_PIXELS,
+        context: Context::Cel,
+    }
+    .deserialize(&mut deserializer)?;
+    deserializer.end()?;
+    Ok(counts.encoding)
+}
 fn scan(bytes: &[u8], counts: &mut Counts) -> anyhow::Result<()> {
     let mut deserializer = serde_json::Deserializer::from_slice(bytes);
     Scan {
@@ -18,6 +33,8 @@ fn scan(bytes: &[u8], counts: &mut Counts) -> anyhow::Result<()> {
     Ok(())
 }
 struct Counts {
+    container_payload: bool,
+    encoding: Option<String>,
     values: usize,
     definitions: usize,
     tokens: usize,
@@ -27,6 +44,8 @@ struct Counts {
 impl Default for Counts {
     fn default() -> Self {
         Self {
+            container_payload: false,
+            encoding: None,
             values: 0,
             definitions: 0,
             tokens: 0,
@@ -158,7 +177,20 @@ impl<'de> Visitor<'de> for Scan<'_> {
         Ok(())
     }
     fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<(), A::Error> {
+        let mut keys = std::collections::HashSet::new();
         while let Some(key) = map.next_key::<std::borrow::Cow<'de, str>>()? {
+            if !keys.insert(key.clone()) {
+                return Err(serde::de::Error::custom("duplicate JSON field"));
+            }
+            if self.counts.container_payload && matches!(self.context, Context::Cel) {
+                if key == "id" {
+                    return Err(serde::de::Error::custom("payload ID belongs in document"));
+                }
+                if key == "encoding" {
+                    self.counts.encoding = Some(map.next_value::<String>()?);
+                    continue;
+                }
+            }
             let (context, limit) = match (self.context, key.as_ref()) {
                 (Context::Root, "cels") => (Context::Cels, MAX_SLOTS),
                 (Context::Root, "frames") => (Context::Other, MAX_FRAMES),

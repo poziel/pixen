@@ -160,6 +160,9 @@ impl Prepared {
             path: path.to_owned(),
         })
     }
+    pub fn staged_path(&self) -> &Path {
+        self.temp.path()
+    }
     pub fn commit(self, force: bool) -> Result<()> {
         if force {
             self.temp.persist(&self.path).map_err(|e| e.error)?;

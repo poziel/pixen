@@ -2,7 +2,7 @@ use anyhow::{Context, Result, ensure};
 use std::{
     collections::HashSet,
     fs::File,
-    io::{Read, Seek, SeekFrom},
+    io::{BufReader, Read, Seek, SeekFrom},
     path::Path,
 };
 pub const MAX_ARCHIVE: u64 = 512 * 1024 * 1024;
@@ -12,8 +12,8 @@ pub const MAX_ENTRIES: usize = 65534;
 
 // zip 2.x indexes names in a map and hides duplicate central-directory entries.
 // Check the bounded classic ZIP directory before it allocates or normalizes names.
-fn check_directory(file: &mut File) -> Result<usize> {
-    let size = file.metadata()?.len();
+fn check_directory(file: &mut BufReader<File>) -> Result<usize> {
+    let size = file.get_ref().metadata()?.len();
     let tail_len = size.min(65557) as usize;
     file.seek(SeekFrom::End(-(tail_len as i64)))?;
     let mut tail = vec![0; tail_len];
@@ -75,33 +75,43 @@ fn check_directory(file: &mut File) -> Result<usize> {
                 "ZIP64 entries are unsupported"
             );
         }
-        file.seek(SeekFrom::Current((extra_len + comment_len) as i64))?;
+        file.seek_relative((extra_len + comment_len) as i64)?;
     }
     ensure!(consumed == length, "unexpected ZIP directory data");
     file.seek(SeekFrom::Start(0))?;
     Ok(count)
 }
 pub struct Archive {
-    zip: zip::ZipArchive<File>,
+    zip: zip::ZipArchive<BufReader<File>>,
+    inventory: Vec<(String, u64)>,
 }
 impl Archive {
     pub fn open(path: &Path) -> Result<Self> {
-        let mut file = File::open(path).with_context(|| format!("open {}", path.display()))?;
+        let file = File::open(path).with_context(|| format!("open {}", path.display()))?;
         ensure!(
             file.metadata()?.is_file(),
-            "PXO input must be a regular file"
+            "ZIP input must be a regular file"
         );
         ensure!(
             file.metadata()?.len() <= MAX_ARCHIVE,
             "ZIP exceeds 512 MiB compressed"
         );
+        let mut file = BufReader::with_capacity(64 * 1024, file);
         let count = check_directory(&mut file)?;
         let mut zip = zip::ZipArchive::new(file).context("invalid ZIP archive")?;
         ensure!(zip.len() == count, "duplicate decoded ZIP names");
         let mut names = HashSet::new();
         let mut total = 0u64;
+        let mut inventory = Vec::with_capacity(count);
         for i in 0..zip.len() {
-            let entry = zip.by_index(i)?;
+            let entry = zip.by_index_raw(i)?;
+            ensure!(
+                matches!(
+                    entry.compression(),
+                    zip::CompressionMethod::Stored | zip::CompressionMethod::Deflated
+                ),
+                "unsupported ZIP compression"
+            );
             let name = entry.name();
             ensure!(
                 !name.is_empty() && !name.starts_with('/') && !name.contains(['\\', ':', '\0']),
@@ -129,8 +139,13 @@ impl Archive {
                 .checked_add(entry.size())
                 .context("ZIP size overflow")?;
             ensure!(total <= MAX_EXPANDED, "ZIP exceeds 8 GiB decompressed");
+            inventory.push((name.to_owned(), entry.size()));
         }
-        Ok(Self { zip })
+        Ok(Self { zip, inventory })
+    }
+    /// Reuse metadata collected by the safety pass, without reopening ZIP entries.
+    pub fn inventory(&self) -> Result<Vec<(String, u64)>> {
+        Ok(self.inventory.clone())
     }
     pub fn contains(&self, name: &str) -> bool {
         self.zip.index_for_name(name).is_some()

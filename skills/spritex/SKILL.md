@@ -82,3 +82,21 @@ JSON. The report separates formatting/normalization savings from encoding saving
 The bounded search is deterministic, byte-idempotent, and does not promise global
 optimality. Version-1 files retain legacy grids. See the repository
 [search and safety contract](../../docs/optimizer.md) for candidate choices and limits.
+
+## Compressed container workflow
+
+Use `spritex pack sprite.spritex.json --output sprite.spritex` to preserve all
+encoding choices, or add `--optimize` to run lossless JSON optimization first.
+Containers accept the same validate/build/export workflows. Unpack with
+`spritex unpack sprite.spritex --output sprite.spritex.json`; native unpack still
+works. Never rename JSON to `.spritex`: it is a ZIP format.
+
+`inspect sprite.spritex` checks structure/references without loading cel payloads;
+`validate` checks all payloads, including unused definitions. Individual cel
+loading is available through the repository Reader API. Build/export fully load
+and validate the document. Shared storage never implies linked editing.
+Standalone optimize rejects containers with unpack/repack guidance. Preserve the
+source and use fresh destinations or explicitly authorized `--force` replacement.
+See [container format](../../docs/container-format.md) for exact schemas, versions,
+strict entry policy and resource limits, and
+[benchmarks](../../docs/container-benchmarks.md) for compression tradeoffs.

@@ -23,6 +23,16 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Commands {
+    /// Package authoring JSON as a compressed split-cel .spritex container.
+    Pack {
+        input: PathBuf,
+        #[arg(long)]
+        output: PathBuf,
+        #[arg(long)]
+        optimize: bool,
+        #[arg(long)]
+        force: bool,
+    },
     /// Losslessly minimize JSON cel storage; destination is explicit.
     Optimize {
         input: PathBuf,
@@ -37,9 +47,9 @@ enum Commands {
         #[arg(long, conflicts_with = "in_place")]
         force: bool,
     },
-    /// Validate authoring JSON, including all pixels and editing links.
+    /// Validate authoring JSON or .spritex, including all pixels and editing links.
     Validate { input: PathBuf },
-    /// Build editable projects from authoring JSON; append each format to OUTPUT.
+    /// Build editable projects from authoring JSON or .spritex; append each format to OUTPUT.
     Build {
         input: PathBuf,
         #[arg(long)]
@@ -83,7 +93,7 @@ enum Commands {
         #[arg(long)]
         force: bool,
     },
-    /// Convert a supported native project to the authoring JSON filename OUTPUT.
+    /// Convert a .spritex container or supported native project to the authoring JSON filename OUTPUT.
     Unpack {
         input: PathBuf,
         #[arg(long)]
@@ -94,6 +104,15 @@ enum Commands {
 }
 fn execute(cli: Cli) -> Result<()> {
     match cli.command {
+        Commands::Pack {
+            input,
+            output,
+            optimize,
+            force,
+        } => {
+            spritex::container::pack(&input, &output, optimize, force)?;
+            println!("packed {}", output.display());
+        }
         Commands::Optimize {
             input,
             output,
@@ -113,7 +132,7 @@ fn execute(cli: Cli) -> Result<()> {
             );
         }
         Commands::Validate { input } => {
-            let s = schema::parse(&output::read_bounded(&input, schema::MAX_JSON)?)?;
+            let s = spritex::input::compile(&input)?;
             println!(
                 "valid: {}x{}, {} layer(s), {} frame(s)",
                 s.width,
@@ -156,7 +175,11 @@ fn execute(cli: Cli) -> Result<()> {
             }
         }
         Commands::Inspect { input } => {
-            let report = native::inspect(&input)?;
+            let report = if spritex::input::is_container(&input) {
+                spritex::container::Reader::open(&input)?.structure
+            } else {
+                native::inspect(&input)?
+            };
             let stdout = io::stdout();
             let mut lock = stdout.lock();
             serde_json::to_writer_pretty(&mut lock, &report)?;
@@ -171,7 +194,11 @@ fn execute(cli: Cli) -> Result<()> {
             force,
         } => {
             output::preflight(&input, &[&destination], force)?;
-            let s = native::read(&input)?;
+            let s = if spritex::input::is_container(&input) {
+                spritex::input::compile(&input)?
+            } else {
+                native::read(&input)?
+            };
             let (width, height, pixels) = if contact_sheet {
                 let columns = columns.unwrap_or((s.frames.len() as f64).sqrt().ceil() as u32);
                 raster::contact_sheet(&s, columns)?
@@ -192,8 +219,11 @@ fn execute(cli: Cli) -> Result<()> {
             force,
         } => {
             output::preflight(&input, &[&destination], force)?;
-            let sprite = native::read(&input)?;
-            let doc = schema::to_document(&sprite)?;
+            let doc = if spritex::input::is_container(&input) {
+                spritex::input::read(&input)?
+            } else {
+                schema::to_document(&native::read(&input)?)?
+            };
             Prepared::new(&destination, |file| output::write_document(file, &doc))?
                 .commit(force)?;
             println!("unpacked {}", destination.display());
