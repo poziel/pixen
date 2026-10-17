@@ -1,5 +1,5 @@
 use serde_json::{Value, json};
-use spritec::{archive::Archive, pxo, raster, schema};
+use spritex::{archive::Archive, pxo, raster, schema};
 use std::{
     io::{Read, Write},
     path::Path,
@@ -50,7 +50,15 @@ fn reads_independent_pixelorama_fixture_and_thumbnail_matches_actual_pixels() {
     let id = s.layers[0].timeline[0].cel.as_ref().unwrap();
     let pixels = &s.images[id];
     assert_eq!(pixels.len(), 4096);
-    assert_eq!(pixels.chunks_exact(4).filter(|p| p[3] > 0).count(), 532);
+    assert_eq!(
+        pixels
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .filter(|p| p[3] > 0)
+            .count(),
+        532
+    );
     let mut zip = ZipArchive::new(std::fs::File::open(fixture()).unwrap()).unwrap();
     let mut raw = Vec::new();
     zip.by_name("image_data/frames/1/layer_1")

@@ -22,7 +22,7 @@ original files; their ZIP compression/order is consequently not native evidence.
 | Preview | `OpenSave.save_pxo_file` composites the selected native frame and scales its longest side to 256. `spritec` deliberately embeds a full-resolution frame-1 preview and selects native frame 0; target Pixelorama successfully loaded these archives. |
 | Native validation CLI | [Main.gd](https://github.com/Orama-Interactive/Pixelorama/blob/v1.2.3/src/Main.gd) accepts files and export options after `--`, with `--headless --quit` before it. |
 
-`spritec` writes raw full-canvas buffers for every timeline slot, including linked
+`spritex` writes raw full-canvas buffers for every timeline slot, including linked
 duplicates. It never depends on an embedded thumbnail for rendering. Empty
 authoring cels serialize as zero-filled raster images, because native raster
 layers still require a cel at every frame.
@@ -46,7 +46,8 @@ The reader is intentionally narrower than Pixelorama's archive reader: classic
 single-disk ZIP only, no ZIP64/encryption/special files. It checks raw central
 directory records before the ZIP library can hide duplicate names, limits entry
 counts and sizes, checks decompression lengths/CRC for read entries, and rejects
-unsafe paths. `unpack` writes newly generated `sprite.json`; it does not extract
+unsafe paths. `unpack` writes newly generated authoring JSON to the requested
+output filename; it does not extract
 archive paths onto the filesystem. Unused thumbnails/extra files are not decoded
 or CRC-verified and are not preserved.
 

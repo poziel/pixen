@@ -3,7 +3,7 @@ use std::{
     process::{Command, Output},
 };
 fn run(args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_spritec"))
+    Command::new(env!("CARGO_BIN_EXE_spritex"))
         .args(args)
         .output()
         .unwrap()
@@ -11,7 +11,7 @@ fn run(args: &[&str]) -> Output {
 fn input() -> &'static str {
     concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/skills/spritec/examples/animated.json"
+        "/skills/spritex/examples/animated.json"
     )
 }
 fn s(p: &Path) -> &str {
@@ -22,13 +22,19 @@ fn cli_build_render_unpack_and_contact_sheet() {
     assert!(run(&["--version"]).status.success());
     assert!(run(&["validate", input()]).status.success());
     let dir = tempfile::tempdir().unwrap();
+    let base = dir.path().join("a");
     let pxo = dir.path().join("a.pxo");
     let png = dir.path().join("a.png");
-    let result = run(&["build", input(), "--output", s(&pxo), "--preview", s(&png)]);
+    let result = run(&["build", input(), "--output", s(&base)]);
     assert!(
         result.status.success(),
         "{}",
         String::from_utf8_lossy(&result.stderr)
+    );
+    assert!(
+        run(&["export", input(), "--output", s(&base)])
+            .status
+            .success()
     );
     assert!(run(&["inspect", s(&pxo)]).status.success());
     let frame = dir.path().join("frame.png");
@@ -40,17 +46,16 @@ fn cli_build_render_unpack_and_contact_sheet() {
     assert_eq!(std::fs::read(&png).unwrap(), std::fs::read(&frame).unwrap());
     let second = dir.path().join("second.pxo");
     let second_png = dir.path().join("second.png");
+    let second_base = dir.path().join("second");
     assert!(
-        run(&[
-            "build",
-            input(),
-            "--output",
-            s(&second),
-            "--preview",
-            s(&second_png)
-        ])
-        .status
-        .success()
+        run(&["build", input(), "--output", s(&second_base)])
+            .status
+            .success()
+    );
+    assert!(
+        run(&["export", input(), "--output", s(&second_base)])
+            .status
+            .success()
     );
     assert_eq!(std::fs::read(&pxo).unwrap(), std::fs::read(second).unwrap());
     assert_eq!(
@@ -75,43 +80,53 @@ fn cli_build_render_unpack_and_contact_sheet() {
         .read_info()
         .unwrap();
     assert_eq!((decoder.info().width, decoder.info().height), (8, 8));
-    let unpack = dir.path().join("editable");
+    let unpack = dir.path().join("editable.json");
     assert!(
         run(&["unpack", s(&pxo), "--output", s(&unpack)])
             .status
             .success()
     );
-    assert!(
-        run(&["validate", s(&unpack.join("sprite.json"))])
-            .status
-            .success()
-    );
+    assert!(run(&["validate", s(&unpack)]).status.success());
 }
 #[test]
 fn overwrite_preflight_preserves_both_outputs_and_input() {
     let dir = tempfile::tempdir().unwrap();
+    let base = dir.path().join("a");
     let pxo = dir.path().join("a.pxo");
     let png = dir.path().join("a.png");
+    let svg = dir.path().join("a.svg");
     std::fs::write(&png, b"keep").unwrap();
     assert!(
-        !run(&["build", input(), "--output", s(&pxo), "--preview", s(&png)])
-            .status
-            .success()
+        !run(&[
+            "export",
+            input(),
+            "--output",
+            s(&base),
+            "--formats",
+            "svg,png"
+        ])
+        .status
+        .success()
     );
-    assert!(!pxo.exists());
+    assert!(!svg.exists());
     assert_eq!(std::fs::read(&png).unwrap(), b"keep");
     assert!(
         run(&[
-            "build",
+            "export",
             input(),
             "--output",
-            s(&pxo),
-            "--preview",
-            s(&png),
+            s(&base),
+            "--formats",
+            "svg,png",
             "--force"
         ])
         .status
         .success()
+    );
+    assert!(
+        run(&["build", input(), "--output", s(&base)])
+            .status
+            .success()
     );
     let original = std::fs::read(&pxo).unwrap();
     assert!(
@@ -120,19 +135,7 @@ fn overwrite_preflight_preserves_both_outputs_and_input() {
             .success()
     );
     assert_eq!(std::fs::read(&pxo).unwrap(), original);
-    assert!(
-        !run(&[
-            "build",
-            input(),
-            "--output",
-            s(&pxo),
-            "--preview",
-            s(&pxo),
-            "--force"
-        ])
-        .status
-        .success()
-    );
+    assert!(spritex::output::preflight(Path::new(input()), &[&pxo, &pxo], true).is_err());
     assert_eq!(std::fs::read(&pxo).unwrap(), original);
 }
 #[test]
@@ -152,20 +155,15 @@ fn invalid_frame_and_source_do_not_leave_outputs() {
         assert!(!output.exists());
     }
     let input = dir.path().join("bad.json");
+    let base = dir.path().join("bad");
     std::fs::write(&input, b"{}").unwrap();
     assert!(
-        !run(&[
-            "build",
-            s(&input),
-            "--output",
-            s(&output),
-            "--preview",
-            s(&dir.path().join("p.png"))
-        ])
-        .status
-        .success()
+        !run(&["build", s(&input), "--output", s(&base)])
+            .status
+            .success()
     );
     assert!(!output.exists());
+    assert!(!base.with_extension("pxo").exists());
 }
 
 #[test]
@@ -174,19 +172,7 @@ fn output_aliases_with_different_case_are_rejected_before_creation() {
     let dir = tempfile::tempdir().unwrap();
     let a = dir.path().join("alias.pxo");
     let b = dir.path().join("ALIAS.PXO");
-    assert!(
-        !run(&[
-            "build",
-            input(),
-            "--output",
-            s(&a),
-            "--preview",
-            s(&b),
-            "--force"
-        ])
-        .status
-        .success()
-    );
+    assert!(spritex::output::preflight(Path::new(input()), &[&a, &b], true).is_err());
     assert!(!a.exists());
 }
 
@@ -198,17 +184,7 @@ fn ambiguous_windows_output_names_cannot_replace_the_other_output() {
         let a = dir.path().join("alias.pxo");
         let b = dir.path().join(name);
         assert!(
-            !run(&[
-                "build",
-                input(),
-                "--output",
-                s(&a),
-                "--preview",
-                s(&b),
-                "--force"
-            ])
-            .status
-            .success(),
+            spritex::output::preflight(Path::new(input()), &[&a, &b], true).is_err(),
             "{name}"
         );
         assert!(!a.exists());

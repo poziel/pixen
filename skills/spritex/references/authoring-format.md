@@ -27,6 +27,7 @@ names contain 1..128 ASCII letters, digits, underscores or hyphens, with no
 spaces or filesystem paths. A cel definition may be reused across layers or
 frames. Unused definitions are valid, but a PXO round-trip may remove or rename
 them because Pixelorama stores actual cels rather than reusable definitions.
+Aseprite builds reject unused definitions to avoid dropping orphan pixel data.
 
 ## Layers and explicit timelines
 
@@ -60,7 +61,7 @@ use opacity zero or an explicit empty cel where appropriate. Alpha is multiplied
 by layer opacity and entry opacity; raw cel bytes remain unchanged.
 
 `link` is optional. Entries with the same link name **within one layer** share
-pixel edits in Pixelorama. Each group must reference the same definition ID (or
+pixel edits in supported native projects. Each group must reference the same definition ID (or
 all null). A group may contain a single entry. Distinct names remain separate
 groups even when their pixel grids are identical. Reusing `"idle"` without
 `link` produces independent cels; the middle frame above can be edited alone.
@@ -85,6 +86,9 @@ Each frame's duration applies to all layers. Pixelorama stores
 `duration = duration_ms / 1000 * fps`. Thus these frames use native multipliers
 1 and 2 at 8 FPS. FPS does not round a frame to a whole tick. Millisecond values
 may be fractional, and their native representation must remain finite/positive.
+Aseprite builds require integer milliseconds in 1..65535 and reject other values;
+layer/cel opacity rounds to the nearest native byte. Rendered exports apply
+their documented format timing precision using cumulative endpoint rounding.
 
 Tags require unique nonempty names and integer `from`/`to` satisfying
 `1 <= from <= to <= frame count`. Tag ranges may overlap. Colour defaults to
@@ -100,6 +104,9 @@ Projects, layers, frames and timeline entries accept
 Both fields are optional and default to empty. Metadata is a JSON object;
 keys beginning `_spritec` are reserved for internal provenance. Annotations are
 stored as Pixelorama metadata/user-data and returned by supported conversions.
+The reserved spelling remains unchanged for compatibility after the spritex
+rename. Aseprite preserves supported annotations through standard user-data JSON
+envelopes; they may be visible as text in editors.
 
 `pixelorama` optionally carries native `palettes` (an array of maps from palette
 name to serialized native palette JSON), `project_current_palette_name`,

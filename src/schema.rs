@@ -375,8 +375,8 @@ pub fn to_document(s: &Sprite) -> Result<Document> {
         let mut pixels = Vec::new();
         for row in bytes.chunks_exact(s.width as usize * 4) {
             let mut output = Vec::with_capacity(s.width as usize);
-            for p in row.chunks_exact(4) {
-                let rgba: [u8; 4] = p.try_into()?;
+            for p in row.as_chunks::<4>().0 {
+                let rgba = *p;
                 let next = palette.len() as u32;
                 let index = *indices.entry(rgba).or_insert_with(|| {
                     palette.push(format!("#{:02X}{:02X}{:02X}{:02X}", p[0], p[1], p[2], p[3]));

@@ -1,6 +1,12 @@
 pub mod archive;
+pub mod aseprite;
+pub mod export;
+pub mod formats;
 pub mod model;
+pub mod native;
+pub mod operations;
 pub mod output;
 pub mod pxo;
 pub mod raster;
 pub mod schema;
+pub mod video;

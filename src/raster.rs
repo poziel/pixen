@@ -16,7 +16,7 @@ pub fn render(sprite: &Sprite, frame: usize) -> Result<Vec<u8>> {
         let cel = &layer.timeline[frame];
         let Some(id) = &cel.cel else { continue };
         let opacity = layer.opacity * cel.opacity;
-        for (d, p) in acc.iter_mut().zip(sprite.images[id].chunks_exact(4)) {
+        for (d, p) in acc.iter_mut().zip(sprite.images[id].as_chunks::<4>().0) {
             let a = p[3] as f64 / 255.0 * opacity;
             for c in 0..3 {
                 d[c] = p[c] as f64 * a + d[c] * (1.0 - a);
@@ -49,6 +49,27 @@ pub fn png<W: std::io::Write>(writer: W, width: u32, height: u32, rgba: &[u8]) -
     writer.write_image_data(rgba)?;
     writer.finish()?;
     Ok(())
+}
+
+/// Convert rendered RGBA to RGB, requiring an opaque matte for transparent pixels.
+pub fn opaque_rgb(rgba: &[u8], background: Option<[u8; 4]>) -> Result<Vec<u8>> {
+    ensure!(rgba.len().is_multiple_of(4), "invalid RGBA buffer length");
+    if let Some(bg) = background {
+        ensure!(bg[3] == 255, "background colour must be opaque (#RRGGBBFF)");
+    }
+    ensure!(
+        background.is_some() || rgba.as_chunks::<4>().0.iter().all(|p| p[3] == 255),
+        "transparent content requires an explicit opaque --background #RRGGBBAA for this format"
+    );
+    let bg = background.unwrap_or([0, 0, 0, 255]);
+    let mut rgb = Vec::with_capacity(rgba.len() / 4 * 3);
+    for p in rgba.as_chunks::<4>().0 {
+        let a = u32::from(p[3]);
+        for c in 0..3 {
+            rgb.push(((u32::from(p[c]) * a + u32::from(bg[c]) * (255 - a) + 127) / 255) as u8);
+        }
+    }
+    Ok(rgb)
 }
 pub fn contact_sheet(s: &Sprite, columns: u32) -> Result<(u32, u32, Vec<u8>)> {
     ensure!(
@@ -86,9 +107,20 @@ pub fn contact_sheet(s: &Sprite, columns: u32) -> Result<(u32, u32, Vec<u8>)> {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn opaque_formats_require_background_and_composite_exactly() {
+        let pixels = [255, 0, 0, 128, 10, 20, 30, 255];
+        assert!(super::opaque_rgb(&pixels, None).is_err());
+        assert_eq!(
+            super::opaque_rgb(&pixels, Some([255; 4])).unwrap(),
+            [255, 127, 127, 10, 20, 30]
+        );
+        assert_eq!(super::opaque_rgb(&pixels[4..], None).unwrap(), [10, 20, 30]);
+        assert!(super::opaque_rgb(&pixels, Some([0, 0, 0, 128])).is_err());
+    }
+    #[test]
     fn contact_sheet_orders_frames_and_pads_with_transparency() {
         let sprite =
-            crate::schema::parse(include_bytes!("../skills/spritec/examples/animated.json"))
+            crate::schema::parse(include_bytes!("../skills/spritex/examples/animated.json"))
                 .unwrap();
         let (w, h, rgba) = super::contact_sheet(&sprite, 3).unwrap();
         assert_eq!((w, h), (12, 8));

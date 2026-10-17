@@ -91,12 +91,11 @@ fn load(path: &Path) -> Result<(Archive, Value)> {
     // Native tag colours omit '#'; authoring colours always include it.
     if let Some(tags) = data.get_mut("tags").and_then(Value::as_array_mut) {
         for tag in tags {
-            if let Some(color) = tag.get_mut("color") {
-                if let Some(s) = color.as_str() {
-                    if !s.starts_with('#') {
-                        *color = json!(format!("#{s}"));
-                    }
-                }
+            if let Some(color) = tag.get_mut("color")
+                && let Some(s) = color.as_str()
+                && !s.starts_with('#')
+            {
+                *color = json!(format!("#{s}"));
             }
         }
     }
