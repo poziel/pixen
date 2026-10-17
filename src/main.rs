@@ -23,6 +23,20 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Commands {
+    /// Losslessly minimize JSON cel storage; destination is explicit.
+    Optimize {
+        input: PathBuf,
+        #[arg(
+            long,
+            required_unless_present = "in_place",
+            conflicts_with = "in_place"
+        )]
+        output: Option<PathBuf>,
+        #[arg(long, conflicts_with = "output")]
+        in_place: bool,
+        #[arg(long, conflicts_with = "in_place")]
+        force: bool,
+    },
     /// Validate authoring JSON, including all pixels and editing links.
     Validate { input: PathBuf },
     /// Build editable projects from authoring JSON; append each format to OUTPUT.
@@ -80,6 +94,24 @@ enum Commands {
 }
 fn execute(cli: Cli) -> Result<()> {
     match cli.command {
+        Commands::Optimize {
+            input,
+            output,
+            in_place,
+            force,
+        } => {
+            let r = spritex::optimize::run(&input, output.as_deref(), in_place, force)?;
+            println!(
+                "{} -> {} bytes (minified original: {}); JSON formatting/normalization: {} bytes; encoding savings: {} bytes; evaluated {} candidates, skipped {}",
+                r.before,
+                r.after,
+                r.minified_before,
+                r.before as i64 - r.minified_before as i64,
+                r.minified_before as i64 - r.after as i64,
+                r.evaluated,
+                r.skipped
+            );
+        }
         Commands::Validate { input } => {
             let s = schema::parse(&output::read_bounded(&input, schema::MAX_JSON)?)?;
             println!(

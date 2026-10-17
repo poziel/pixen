@@ -6,6 +6,7 @@ pub mod formats;
 pub mod model;
 pub mod native;
 pub mod operations;
+pub mod optimize;
 pub mod output;
 pub mod pxo;
 pub mod raster;

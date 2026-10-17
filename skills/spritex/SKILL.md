@@ -70,3 +70,15 @@ inspection currently runs the full reader.
 Report JSON/native/export paths, visual checks actually performed, and relevant
 compatibility limits. The CLI owns validation, output preparation and resource
 bounds; this skill supplies the authoring/inspection workflow without an art style.
+
+## Optimize storage after authoring
+
+Use any convenient valid encoding; do not predict the smallest representation.
+Run `spritex optimize sprite.spritex.json --in-place`, or use
+`--output optimized` to generate `optimized.spritex.json`. An explicit destination
+is required; separate existing files require `--force`. Optimization preserves
+exact palette indices, palette order, IDs and editing links and emits minified
+JSON. The report separates formatting/normalization savings from encoding savings.
+The bounded search is deterministic, byte-idempotent, and does not promise global
+optimality. Version-1 files retain legacy grids. See the repository
+[search and safety contract](../../docs/optimizer.md) for candidate choices and limits.

@@ -286,3 +286,12 @@ Pixelorama's intermediate RGBA8 quantization. Nonzero z-index, groups, effects,
 clipping and non-normal blends are rejected. Conversion does not preserve all
 editor/UI/export settings or arbitrary archive entries. It is not an archival
 round-trip guarantee.
+
+## Storage optimization
+
+Author convenient valid encodings, then run `spritex optimize INPUT --in-place`
+or `spritex optimize INPUT --output OUTPUT`. Generated separate output names end
+in `.spritex.json`. The optimizer measures complete serialized cels across a
+bounded search; do not manually predict the smallest encoding. Exact indices,
+palette order, metadata and editing links are preserved. Encoding savings and
+JSON formatting/normalization savings are reported separately.

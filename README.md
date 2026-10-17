@@ -151,7 +151,7 @@ memory can exceed the unique-raster budget.
 
 ## Build and distribute
 
-Rust **1.88 or later** is required:
+Rust **1.89 or later** is required:
 
 ```sh
 cargo build --release --locked
@@ -191,3 +191,7 @@ timing, editing links, malformed inputs, cleanup and overwrite regressions.
 See the [spritex verification record](docs/spritex-verification.md).
 The original [spritec verification record](docs/verification.md) and research
 fixtures remain historical evidence.
+
+Losslessly minimize authoring JSON with `spritex optimize INPUT --output OUTPUT`
+(or `--in-place`). See [optimizer search, bounds and verification](docs/optimizer.md).
+Author convenient valid encodings first; let the optimizer measure their storage costs.
