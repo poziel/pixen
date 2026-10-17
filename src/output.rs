@@ -177,6 +177,7 @@ pub struct BoundedWriter<W> {
 }
 
 pub fn write_document<W: Write>(writer: W, doc: &crate::schema::Document) -> Result<()> {
+    crate::schema::validate_document(doc)?;
     let mut writer = std::io::BufWriter::new(BoundedWriter::new(writer, crate::schema::MAX_JSON));
     serde_json::to_writer(&mut writer, doc)?;
     writer.flush()?;

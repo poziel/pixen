@@ -1,22 +1,22 @@
 # spritex
 
 Compile exact pixel-art JSON into editable projects, rendered images, or animation
-video. The Rust CLI authors directly from palette-index grids; PNG is optional.
+video. The Rust CLI authors directly from palette-index cels; PNG is optional.
 Image exports and native projects need no editor, MCP server, or image service.
 Only MP4 and WebM require an optional FFmpeg installation.
 
 ## Use
 
 ```sh
-spritex validate skills/spritex/examples/animated.json
-spritex build skills/spritex/examples/animated.json --output heart --formats pxo,aseprite
-spritex export skills/spritex/examples/animated.json --output heart --formats png,svg,gif,webp,apng
-spritex export skills/spritex/examples/animated.json --output heart-video --formats mp4,webm --background "#203040FF"
-spritex export skills/spritex/examples/animated.json --output selected --formats png,jpeg --frame 3 --background "#FFFFFFFF"
+spritex validate skills/spritex/examples/animated.spritex.json
+spritex build skills/spritex/examples/animated.spritex.json --output heart --formats pxo,aseprite
+spritex export skills/spritex/examples/animated.spritex.json --output heart --formats png,svg,gif,webp,apng
+spritex export skills/spritex/examples/animated.spritex.json --output heart-video --formats mp4,webm --background "#203040FF"
+spritex export skills/spritex/examples/animated.spritex.json --output selected --formats png,jpeg --frame 3 --background "#FFFFFFFF"
 spritex inspect heart.aseprite
 spritex render heart.pxo --contact-sheet --columns 2 --output sheet.png
-spritex unpack heart.aseprite --output editable.json
-spritex build editable.json --output rebuilt --formats pxo,aseprite
+spritex unpack heart.aseprite --output editable.spritex.json
+spritex build editable.spritex.json --output rebuilt --formats pxo,aseprite
 ```
 
 For **export/build**, `--output` is an **extensionless path containing the
@@ -28,7 +28,7 @@ Do not pass `heart.png` or a directory alone. The defaults are `png` for
 canonical: `.jpeg`, `.tiff`, and `.aseprite`.
 
 For **unpack**, `--output` is the JSON **filename**, such as
-`editable/heart.json`. For **render**, it is the PNG filename.
+`editable/heart.spritex.json`. For **render**, it is the PNG filename.
 Frame numbers start at **1**.
 
 Static formats use frame 1. GIF, WebP, and APNG use the complete timeline once.
@@ -79,18 +79,18 @@ See the [image encoder policies](docs/image-encoders.md),
 
 ## Author exact pixels
 
-The [version-1 reference](skills/spritex/references/authoring-format.md) defines
-the canonical JSON. Start with the [static](skills/spritex/examples/static.json)
-or [animated](skills/spritex/examples/animated.json) example.
+The [authoring reference](skills/spritex/references/authoring-format.md) defines
+the canonical JSON. Start with the [static](skills/spritex/examples/static.spritex.json)
+or [animated](skills/spritex/examples/animated.spritex.json) example.
 
 - Palette colours are `#RRGGBBAA`; indices may exceed 255.
-- Named cels are full-canvas, row-major grids of palette indices.
+- Named cels decode to full-canvas palette-index images. Each version-2 cel chooses `grid`, `hybrid-rle`, `sparse-rows`, `row-table`, or `tiles`, with optional paired placement fields.
 - Layers are ordered bottom to top and explicitly supply every timeline entry.
 - Reusing a cel definition creates independent editing. Only an explicit
   layer-local `link` group shares editing; equal pixels never imply links.
 - Durations are explicit milliseconds. There are no implicit holds or repeats.
 
-The schema remains **version 1** and existing authoring JSON stays valid.
+New authoring documents use **version 2** with explicit per-cel encodings and `.spritex.json` filenames. Existing **version 1** grid documents and legacy filenames remain readable. Exact-index round trips use the authoring APIs; native RGBA unpack cannot recover distinct indices for identical colours.
 Legacy `_spritec*` PXO provenance keys remain compatible. The renamed
 [companion skill](skills/spritex/SKILL.md) provides the author → validate →
 build/export → inspect → revise workflow; art direction belongs in separate

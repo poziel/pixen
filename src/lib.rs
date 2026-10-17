@@ -1,5 +1,6 @@
 pub mod archive;
 pub mod aseprite;
+pub mod encoding;
 pub mod export;
 pub mod formats;
 pub mod model;

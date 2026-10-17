@@ -1,0 +1,185 @@
+{
+  "version": 2,
+  "canvas": {
+    "width": 4,
+    "height": 3
+  },
+  "palette": [
+    "#DD6600FF",
+    "#12345600",
+    "#DD6600FF"
+  ],
+  "cels": [
+    {
+      "id": "grid",
+      "encoding": "grid",
+      "offset": [
+        1,
+        1
+      ],
+      "size": [
+        2,
+        1
+      ],
+      "default_index": 1,
+      "pixels": [
+        [
+          0,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "hybrid",
+      "encoding": "hybrid-rle",
+      "offset": [
+        1,
+        1
+      ],
+      "size": [
+        2,
+        1
+      ],
+      "default_index": 1,
+      "rows": [
+        [
+          0,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "sparse",
+      "encoding": "sparse-rows",
+      "default_index": 1,
+      "rows": [
+        {
+          "y": 1,
+          "spans": [
+            {
+              "x": 1,
+              "pixels": [
+                0,
+                2
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "row_table",
+      "encoding": "row-table",
+      "row_definitions": [
+        [
+          [
+            1,
+            4
+          ]
+        ],
+        [
+          1,
+          0,
+          2,
+          1
+        ]
+      ],
+      "rows": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "id": "tiles",
+      "encoding": "tiles",
+      "tile_size": [
+        2,
+        2
+      ],
+      "default_index": 1,
+      "tiles": [
+        [
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            0
+          ]
+        ],
+        [
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            1
+          ]
+        ],
+        [
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      ],
+      "map": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          2
+        ]
+      ]
+    }
+  ],
+  "frames": [
+    {
+      "duration_ms": 125
+    },
+    {
+      "duration_ms": 125
+    },
+    {
+      "duration_ms": 125
+    },
+    {
+      "duration_ms": 125
+    },
+    {
+      "duration_ms": 125
+    }
+  ],
+  "layers": [
+    {
+      "id": "art",
+      "name": "Equivalent storage",
+      "timeline": [
+        {
+          "cel": "grid"
+        },
+        {
+          "cel": "hybrid"
+        },
+        {
+          "cel": "sparse"
+        },
+        {
+          "cel": "row_table"
+        },
+        {
+          "cel": "tiles"
+        }
+      ]
+    }
+  ]
+}

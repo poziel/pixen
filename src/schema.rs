@@ -72,10 +72,24 @@ pub struct Canvas {
     pub height: u32,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CelDefinition {
+    Legacy(LegacyCel),
+    Encoded(crate::encoding::Encoding),
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CelDefinition {
+pub struct LegacyCel {
     pub id: String,
     pub pixels: Vec<Vec<u32>>,
+}
+impl CelDefinition {
+    pub fn id(&self) -> &str {
+        match self {
+            Self::Legacy(c) => &c.id,
+            Self::Encoded(c) => c.id(),
+        }
+    }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -181,18 +195,25 @@ pub fn decode_color(s: &str) -> Result<[u8; 4]> {
     }
     Ok(rgba)
 }
-pub fn parse(bytes: &[u8]) -> Result<Sprite> {
+/// Read and validate storage without converting palette indices through RGBA.
+pub fn read_document(bytes: &[u8]) -> Result<Document> {
     ensure!(
         bytes.len() as u64 <= MAX_JSON,
         "authoring JSON exceeds {MAX_JSON} bytes"
     );
+    crate::encoding::preflight::check(bytes)?;
     let doc: Document = serde_json::from_slice(bytes).context("invalid sprite JSON")?;
-    compile(doc)
+    validate_document(&doc)?;
+    Ok(doc)
 }
-pub fn compile(doc: Document) -> Result<Sprite> {
+pub fn parse(bytes: &[u8]) -> Result<Sprite> {
+    compile(read_document(bytes)?)
+}
+
+pub fn validate_document(doc: &Document) -> Result<()> {
     ensure!(
-        doc.version == 1,
-        "unsupported authoring version {}; expected 1",
+        matches!(doc.version, 1 | 2),
+        "unsupported authoring version {}; expected 1 or 2",
         doc.version
     );
     let len = pixel_bytes(doc.canvas.width, doc.canvas.height)?;
@@ -205,7 +226,6 @@ pub fn compile(doc: Document) -> Result<Sprite> {
         .iter()
         .map(|s| decode_color(s))
         .collect::<Result<_>>()?;
-    let mut images = BTreeMap::new();
     ensure!(doc.cels.len() <= MAX_SLOTS, "too many cel definitions");
     ensure!(
         doc.cels
@@ -221,28 +241,103 @@ pub fn compile(doc: Document) -> Result<Sprite> {
             .is_some_and(|n| n <= MAX_IMAGE_BYTES),
         "cel buffers exceed memory budget"
     );
-    for cel in doc.cels {
-        identifier(&cel.id)?;
-        ensure!(!images.contains_key(&cel.id), "duplicate cel id {}", cel.id);
-        ensure!(
-            cel.pixels.len() == doc.canvas.height as usize,
-            "cel {}: wrong grid height",
-            cel.id
-        );
-        let mut pixels = Vec::with_capacity(len);
-        for row in cel.pixels {
-            ensure!(
-                row.len() == doc.canvas.width as usize,
-                "cel {}: wrong grid width",
-                cel.id
-            );
-            for index in row {
-                pixels.extend_from_slice(palette.get(index as usize).with_context(|| {
-                    format!("cel {}: palette index {index} is out of range", cel.id)
-                })?);
+    // Preflight every cel and cumulative dictionary before expanding any image.
+    let mut budget = crate::encoding::Budget::default();
+    let mut ids = HashSet::new();
+    for cel in &doc.cels {
+        identifier(cel.id())?;
+        ensure!(ids.insert(cel.id()), "duplicate cel id {}", cel.id());
+        match cel {
+            CelDefinition::Legacy(c) => {
+                ensure!(doc.version == 1, "version 2 requires explicit encoding");
+                ensure!(
+                    c.pixels.len() == doc.canvas.height as usize,
+                    "wrong grid height"
+                );
+                for row in &c.pixels {
+                    ensure!(row.len() == doc.canvas.width as usize, "wrong grid width");
+                    ensure!(
+                        row.iter().all(|&i| (i as usize) < palette.len()),
+                        "invalid palette index"
+                    );
+                }
+            }
+            CelDefinition::Encoded(c) => {
+                ensure!(doc.version == 2, "version 1 requires legacy grid cels");
+                c.validate(&doc.canvas, palette.len(), &mut budget)?;
             }
         }
-        images.insert(cel.id, Arc::from(pixels));
+    }
+    ensure!(
+        !doc.frames.is_empty() && doc.frames.len() <= MAX_FRAMES,
+        "invalid frame count"
+    );
+    ensure!(
+        !doc.layers.is_empty() && doc.layers.len() <= MAX_LAYERS,
+        "invalid layer count"
+    );
+    ensure!(
+        doc.layers.len() * doc.frames.len() <= MAX_SLOTS,
+        "too many timeline cels"
+    );
+    let structure = Sprite {
+        width: doc.canvas.width,
+        height: doc.canvas.height,
+        fps: doc.fps,
+        annotations: doc.annotations.clone(),
+        pixelorama: doc.pixelorama.clone(),
+        frames: doc.frames.clone(),
+        layers: doc.layers.clone(),
+        tags: doc.tags.clone(),
+        images: doc
+            .cels
+            .iter()
+            .map(|c| (c.id().to_owned(), Arc::from([])))
+            .collect(),
+    };
+    validate_model_inner(&structure, false)
+}
+
+/// Full-canvas exact indices; identical RGBA palette entries remain distinct.
+pub fn decode_indices(doc: &Document) -> Result<BTreeMap<String, Vec<Vec<u32>>>> {
+    validate_document(doc)?;
+    doc.cels
+        .iter()
+        .map(|cel| {
+            let pixels = match cel {
+                CelDefinition::Legacy(c) => c.pixels.clone(),
+                CelDefinition::Encoded(c) => c.decode_validated(&doc.canvas, doc.palette.len())?,
+            };
+            Ok((cel.id().to_owned(), pixels))
+        })
+        .collect()
+}
+
+pub fn compile(doc: Document) -> Result<Sprite> {
+    validate_document(&doc)?;
+    let len = pixel_bytes(doc.canvas.width, doc.canvas.height)?;
+    let palette = doc
+        .palette
+        .iter()
+        .map(|s| decode_color(s))
+        .collect::<Result<Vec<_>>>()?;
+    let mut images = BTreeMap::new();
+    for cel in &doc.cels {
+        let decoded;
+        let rows = match cel {
+            CelDefinition::Legacy(c) => &c.pixels,
+            CelDefinition::Encoded(c) => {
+                decoded = c.decode_validated(&doc.canvas, palette.len())?;
+                &decoded
+            }
+        };
+        let mut pixels = Vec::with_capacity(len);
+        for row in rows {
+            for &index in row {
+                pixels.extend_from_slice(&palette[index as usize]);
+            }
+        }
+        images.insert(cel.id().to_owned(), Arc::from(pixels));
     }
     let sprite = Sprite {
         width: doc.canvas.width,
@@ -259,6 +354,9 @@ pub fn compile(doc: Document) -> Result<Sprite> {
     Ok(sprite)
 }
 pub fn validate_model(s: &Sprite) -> Result<()> {
+    validate_model_inner(s, true)
+}
+fn validate_model_inner(s: &Sprite, check_image_bytes: bool) -> Result<()> {
     let bytes = pixel_bytes(s.width, s.height)?;
     positive(s.fps, "fps")?;
     ensure!(
@@ -346,7 +444,10 @@ pub fn validate_model(s: &Sprite) -> Result<()> {
     }
     for (id, image) in &s.images {
         identifier(id)?;
-        ensure!(image.len() == bytes, "cel {id}: invalid RGBA byte count");
+        ensure!(
+            !check_image_bytes || image.len() == bytes,
+            "cel {id}: invalid RGBA byte count"
+        );
     }
     Ok(())
 }
@@ -386,10 +487,15 @@ pub fn to_document(s: &Sprite) -> Result<Document> {
             }
             pixels.push(output);
         }
-        cels.push(CelDefinition {
-            id: id.clone(),
-            pixels,
-        });
+        cels.push(CelDefinition::Encoded(crate::encoding::Encoding::Grid(
+            crate::encoding::grid::Grid {
+                id: id.clone(),
+                pixels,
+                offset: None,
+                size: None,
+                default_index: None,
+            },
+        )));
     }
     if palette.is_empty() {
         palette.push("#00000000".into());
@@ -399,7 +505,7 @@ pub fn to_document(s: &Sprite) -> Result<Document> {
         "unpacked palette exceeds 1048576 colours"
     );
     Ok(Document {
-        version: 1,
+        version: 2,
         canvas: Canvas {
             width: s.width,
             height: s.height,
