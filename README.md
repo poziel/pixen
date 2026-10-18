@@ -1,224 +1,233 @@
-# spritex
+<div align="center">
 
-Compile exact pixel-art JSON into editable projects, rendered images, or animation
-video. The Rust CLI authors directly from palette-index cels; PNG is optional.
-Image exports and native projects need no editor, MCP server, or image service.
-Only MP4 and WebM require an optional FFmpeg installation.
+# Pixloom
 
-## Use
+**Weave pixels into projects.**
+
+A Rust CLI that turns structured pixel-art JSON into editable Aseprite and Pixelorama projects, images, and animations.
+
+[Get started](#get-started) · [Authoring reference](skills/pixloom/references/authoring-format.md) · [Examples](#examples) · [Commands](#commands)
+
+![Animated bronze duelist created with Pixloom](examples/sword-slash-96/preview.gif)
+
+*96 × 96 pixels · 7 layers · 10 frames. [Explore the example](examples/sword-slash-96/README.md).*
+
+</div>
+
+## What is Pixloom?
+
+Pixloom gives pixel art a structured, editable source. You describe a canvas, a palette, pixel data, layers, and frame timing in JSON. Pixloom validates that document and turns it into the files you need.
+
+Use it to build game assets from scripts, keep artwork in version control, automate exports, or hand off generated artwork to a pixel-art editor. The same source can produce a layered native project, a transparent PNG, an SVG, and an animation.
+
+- **Explicit pixels:** palette indices describe the artwork directly, with no tracing or image-generation service.
+- **Editable projects:** export supported raster layers and animation to Aseprite or Pixelorama.
+- **Multiple outputs:** write images and animations directly from the source, without a PNG intermediate.
+- **Portable sources:** keep readable `.pixloom.json` files or compressed `.pixloom` containers.
+- **Lossless source optimization:** compact pixel storage while preserving palette indices, metadata, and editing links.
+
+Pixloom is a command-line tool. Author JSON by hand, produce it with your own scripts, or use the included [AI agent skill](skills/pixloom/SKILL.md). An editor is optional; only video exports require FFmpeg.
+
+## Get started
+
+### Install from source
+
+You need **Rust 1.89 or later**, including Cargo, and a local checkout of this repository. Run these commands from the repository root:
 
 ```sh
-spritex validate skills/spritex/examples/animated.spritex.json
-spritex build skills/spritex/examples/animated.spritex.json --output heart --formats pxo,aseprite
-spritex export skills/spritex/examples/animated.spritex.json --output heart --formats png,svg,gif,webp,apng
-spritex export skills/spritex/examples/animated.spritex.json --output heart-video --formats mp4,webm --background "#203040FF"
-spritex export skills/spritex/examples/animated.spritex.json --output selected --formats png,jpeg --frame 3 --background "#FFFFFFFF"
-spritex inspect heart.aseprite
-spritex render heart.pxo --contact-sheet --columns 2 --output sheet.png
-spritex unpack heart.aseprite --output editable.spritex.json
-spritex build editable.spritex.json --output rebuilt --formats pxo,aseprite
+cargo install --path . --locked
+pixloom --version
+pixloom --help
 ```
 
-For **export/build**, `--output` is an **extensionless path containing the
-destination directory and filename stem**: `assets/heart` produces
-`assets/heart.png`, `assets/heart.svg`, etc. The parent directory must exist.
-Do not pass `heart.png` or a directory alone. The defaults are `png` for
-`export` and `pxo` for `build`. Format lists ignore case, accept aliases
-`jpg`, `tif`, and `ase`, and deduplicate selections. Output extensions are
-canonical: `.jpeg`, `.tiff`, and `.aseprite`.
+Cargo installs the executable in its bin directory, which must be on your `PATH`. With the default Cargo setup, that is `~/.cargo/bin` on Linux/macOS or `%USERPROFILE%\.cargo\bin` on Windows.
 
-For **unpack**, `--output` is the JSON **filename**, such as
-`editable/heart.spritex.json`. For **render**, it is the PNG filename.
-Frame numbers start at **1**.
-
-Static formats use frame 1. GIF, WebP, and APNG use the complete timeline once.
-An explicit `--frame N` produces a still image for every image choice.
-Single-frame sources produce still images. Video requires at least two source
-frames and rejects `--frame`. In a mixed `png,gif,mp4` request, PNG uses frame
-1 and GIF/MP4 use every frame; tags never repeat or add frames.
-
-## Capabilities
-
-“Read” means native-project input for `inspect`, `render`, or `unpack`.
-All writes below consume schema-1 authoring JSON. Image/video writes flatten
-visible layers; native writes retain supported editable structure.
-
-| Format | Read | Write | Layers | Animation | Alpha | Lossless pixels / limits |
-| --- | --- | --- | --- | --- | --- | --- |
-| Pixelorama PXO 7 | Yes | Yes | Editable raster | Yes | RGBA | Exact raw cels; supported v1.2.3 subset |
-| Aseprite / ASE input | Yes | Yes | Editable raster | Yes | RGBA | Exact raw cels; opacity rounds to a byte; integer ms timing |
-| PNG | No | Yes | Flattened | Frame 1 | RGBA | Exact rendered RGBA |
-| SVG | No | Yes | Flattened | Frame 1 | Opacity | Pixel-aligned runs; no embedded PNG or tracing |
-| JPEG / JPG | No | Yes | Flattened | Frame 1 | None | Lossy, quality 95 |
-| BMP | No | Yes | Flattened | Frame 1 | None | Exact rendered RGB |
-| TIFF / TIF | No | Yes | Flattened | Frame 1 | RGBA | Exact rendered RGBA; single image |
-| GIF | No | Yes | Flattened | Full timeline | Binary | Local palettes; quantization above 256 colours |
-| WebP | No | Yes | Flattened | Full timeline | RGBA | Lossless VP8L, including animation |
-| APNG | No | Yes | Flattened | Full timeline | RGBA | Exact rendered RGBA; separate from still `png` |
-| MP4 | No | Yes | Flattened | Full timeline | None | H.264 `libx264rgb`, CRF 0, RGB 4:4:4 |
-| WebM | No | Yes | Flattened | Full timeline | None | VP9 `libvpx-vp9`, lossless YUV 4:4:4; RGB conversion rounds |
-
-JPEG, BMP, MP4, and WebM require an explicit opaque `--background "#RRGGBB"`
-or `"#RRGGBBFF"` whenever rendered pixels contain transparency. GIF accepts
-binary alpha but requires a background for partial alpha. **Supplying a
-background composites it into every requested image/video**, including formats
-that otherwise preserve alpha. Omit it to keep alpha in PNG/TIFF/WebP/APNG/SVG.
-The CLI does not resize, pad, smooth, interpolate, or antialias pixels.
-
-Animated images encode one pass: GIF omits repeat metadata; WebP/APNG use a
-play count of one. Timing rounds cumulative endpoints, bounding total error to
-half a format tick: GIF 10 ms, WebP/video 1 ms, and APNG normally 0.1 ms.
-APNG lowers precision for long frames; zero-tick or overflowing delays are
-errors. Video preserves variable timing and the original dimensions, including
-odd sizes. The chosen RGB/4:4:4 codecs prioritize pixel detail; player and
-hardware compatibility varies. Neither video configuration preserves alpha.
-
-See the [image encoder policies](docs/image-encoders.md),
-[video codecs and limits](docs/video-export.md), and
-[Aseprite subset](docs/aseprite-format.md).
-
-## Author exact pixels
-
-The [authoring reference](skills/spritex/references/authoring-format.md) defines
-the canonical JSON. Start with the [static](skills/spritex/examples/static.spritex.json)
-or [animated](skills/spritex/examples/animated.spritex.json) example.
-
-- Palette colours are `#RRGGBBAA`; indices may exceed 255.
-- Named cels decode to full-canvas palette-index images. Each version-2 cel chooses `grid`, `hybrid-rle`, `sparse-rows`, `row-table`, or `tiles`, with optional paired placement fields.
-- Layers are ordered bottom to top and explicitly supply every timeline entry.
-- Reusing a cel definition creates independent editing. Only an explicit
-  layer-local `link` group shares editing; equal pixels never imply links.
-- Durations are explicit milliseconds. There are no implicit holds or repeats.
-
-New authoring documents use **version 2** with explicit per-cel encodings and `.spritex.json` filenames. Existing **version 1** grid documents and legacy filenames remain readable. Exact-index round trips use the authoring APIs; native RGBA unpack cannot recover distinct indices for identical colours.
-Legacy `_spritec*` PXO provenance keys remain compatible. The renamed
-[companion skill](skills/spritex/SKILL.md) provides the author → validate →
-build/export → inspect → revise workflow; art direction belongs in separate
-sprite-design skills.
-
-## Native conversion and inspection
-
-PXO targets Pixelorama **v1.2.3-stable, version 7**, for supported RGBA raster
-layers, normal blends, visibility, opacity, locks, timing, tags, explicit edit
-links, annotations, native swatches, and credits. Groups, effects, hierarchy,
-clipping, nonzero cel z-index, non-RGBA modes and unsupported visual features
-are rejected. Editor/UI/export settings and arbitrary ZIP entries are not
-archived. See [PXO format evidence](docs/pxo-v7.md).
-
-Aseprite supports root RGBA raster layers, native locks/link defaults, timing,
-forward tags and explicit linked-cel records. Fractional or >65535 ms frame
-durations, unsupported features, and unused authoring cel definitions are
-rejected. Layer/cel opacity rounds to the nearest native byte. Cropped native
-cels must fit the canvas; linked cels with differing offsets are rejected.
-Supported annotations use standard user-data envelopes. These can appear as
-JSON text in editors, and an editor that removes them loses that extra metadata.
-Neither native format is a general archival round-trip guarantee.
-
-Native inputs are detected by signature; extension/signature mismatches produce
-an error. `.ase` is an accepted Aseprite input alias. `inspect` emits JSON:
-PXO inspection reads metadata without decompressing raster data; Aseprite
-inspection currently uses the full bounded decoder. Use `render`/`unpack`
-for full supported-subset/raster validation. PXO unsupported-feature reports
-may succeed; Aseprite unsupported features fail during decoding.
-
-`render` stays PNG-only: frame 1 by default, `--frame N`, or a contact sheet.
-Sheets contain each frame once, left to right then top to bottom, with
-transparent unused cells. The default columns are ceil(sqrt(frame count)).
-Rendering uses straight RGBA source-over in encoded colour space and rounds at
-output. It is not colour-managed; Pixelorama intermediate blends can differ
-by a channel level. Raw native cel bytes round-trip exactly.
-
-## Output safety and resource limits
-
-Existing outputs require `--force`. Output/input aliases, colliding paths,
-output symlinks/directories, and ambiguous Windows filenames are rejected.
-Every requested path is preflighted, and every file is prepared before any is
-installed. Installation is atomic per file, **not a cross-file transaction**;
-a crash or concurrent filesystem change between installs can leave a subset.
-Encoding failures before installation leave no requested finished outputs.
-`unpack` writes compact buffered JSON directly to the requested file.
-
-Shared limits include 4096 per canvas side, 4 Mi canvas pixels, 4096 frames,
-256 layers, 32768 timeline slots, 64 Mi definition pixels, and 256 MiB JSON/
-resident unique cel data. PXO retains its ZIP limits: 512 MiB compressed,
-64 MiB per entry, 8 GiB expanded, 65534 entries, 1024-byte names, and 16 MiB
-metadata. Contact sheets allow 64 Mi pixels. Aseprite adds bounded files/chunks/
-metadata; rendered images cap encoded output at 256 MiB, with SVG also capped
-at 100000 runs/16 MiB. Video caps rendered temporary frames at 256 MiB and
-accepted encoded output below 128 MiB, with cleanup on success/failure.
-See individual codec documents for precise limits and timeouts. Total process
-memory can exceed the unique-raster budget.
-
-## Build and distribute
-
-Rust **1.89 or later** is required:
+To build without installing:
 
 ```sh
 cargo build --release --locked
-# target/release/spritex (Windows: target/release/spritex.exe)
-# Optional user-controlled installation:
-cargo install --path . --locked
 ```
 
-Put Cargo's bin directory on PATH if you choose to install it.
-No global installation, release publication, or push is performed here.
-FFmpeg is optional and only queried for video; use `--ffmpeg PATH` to select
-a build containing the required encoders.
+Then use `./target/release/pixloom` on Linux/macOS or `.\target\release\pixloom.exe` in PowerShell in place of `pixloom` below.
 
-For versioned release binaries, build on each target and package the executable,
-README, license, references, and skill. Name archives
-`spritex-v0.2.0-<target-triple>.zip` (Windows) or `.tar.gz` (Unix), include
-SHA-256 checksums, and verify `spritex --version` after extraction.
-Hosted binaries are not included or promised.
+### Export your first artwork
 
-## Development and verification
+From the repository root, validate the included animated example and export it:
+
+```sh
+pixloom validate skills/pixloom/examples/animated.pixloom.json
+pixloom export skills/pixloom/examples/animated.pixloom.json --output heart --formats png,svg,gif
+pixloom build skills/pixloom/examples/animated.pixloom.json --output heart --formats pxo,aseprite
+```
+
+You now have:
+
+| File | What it contains |
+| --- | --- |
+| `heart.png` | A transparent still of the first frame |
+| `heart.svg` | Pixel-aligned vector artwork of the first frame |
+| `heart.gif` | The full animation, encoded for one pass |
+| `heart.pxo` | An editable Pixelorama project |
+| `heart.aseprite` | An editable Aseprite project |
+
+Open the native project in its editor to continue drawing, or use the exported images in your game or application.
+
+**Output paths:** `build` and `export` take a filename stem without an extension. For example, `--output assets/heart` creates `assets/heart.png`. Create the destination directory first. Existing outputs require `--force` to overwrite.
+
+## Make your own pixel art
+
+Save this as `spark.pixloom.json`:
+
+```json
+{
+  "version": 2,
+  "canvas": { "width": 3, "height": 3 },
+  "palette": ["#00000000", "#F4C95DFF"],
+  "cels": [
+    {
+      "id": "spark",
+      "encoding": "grid",
+      "pixels": [
+        [0, 1, 0],
+        [1, 1, 1],
+        [0, 1, 0]
+      ]
+    }
+  ],
+  "frames": [{ "duration_ms": 125 }],
+  "layers": [
+    { "id": "art", "name": "Art", "timeline": [{ "cel": "spark" }] }
+  ]
+}
+```
+
+Each number selects a zero-based entry in `palette`. Here, `0` is transparent and `1` is gold. Colours use `#RRGGBBAA`; transparency comes from the alpha value, not a special palette index.
+
+A **cel** holds pixel data. A layer's **timeline** selects a cel for each frame. To animate, add frames with durations in milliseconds, define the artwork for them, and add a matching timeline entry to every layer. Layers are ordered from bottom to top.
+
+```sh
+pixloom validate spark.pixloom.json
+pixloom export spark.pixloom.json --output spark --formats png,svg
+pixloom build spark.pixloom.json --output spark --formats pxo,aseprite
+```
+
+Version 2 supports five pixel encodings: `grid`, `hybrid-rle`, `sparse-rows`, `row-table`, and `tiles`. Start with a grid and let the optimizer find a more compact representation later. Version 1 documents remain readable.
+
+See the [complete authoring reference](skills/pixloom/references/authoring-format.md) for placement, palettes, tags, annotations, and explicit editing links. Reusing a cel definition does not link edits; shared editing requires a layer-local `link` group.
+
+## Commands
+
+Run `pixloom <command> --help` for all options.
+
+| Command | Input | Purpose |
+| --- | --- | --- |
+| `validate` | Authoring JSON or `.pixloom` | Check the document, pixels, and editing links |
+| `build` | Authoring JSON or `.pixloom` | Create editable `.pxo` and `.aseprite` projects |
+| `export` | Authoring JSON or `.pixloom` | Export images, animations, or video |
+| `pack` | Authoring JSON | Create a compressed `.pixloom` container |
+| `unpack` | `.pixloom`, `.pxo`, or `.aseprite` | Write editable authoring JSON |
+| `optimize` | Authoring JSON | Losslessly compact JSON pixel storage |
+| `inspect` | `.pixloom`, `.pxo`, or `.aseprite` | Print structure or native metadata as JSON |
+| `render` | `.pixloom`, `.pxo`, or `.aseprite` | Render a PNG frame or contact sheet |
+
+### Inspect and convert native projects
+
+```sh
+pixloom inspect heart.aseprite
+pixloom render heart.pxo --contact-sheet --columns 2 --output heart-sheet.png
+pixloom unpack heart.aseprite --output editable.pixloom.json
+pixloom build editable.pixloom.json --output converted --formats pxo
+```
+
+`render` and `unpack` take a complete output filename. Frame numbers start at **1**; use `render --frame N` to select a frame. `render` writes PNG only.
+
+Native input supports a defined subset of each editor's format. Pixelorama targets **v1.2.3, PXO version 7**. Supported raster layers, animation timing, tags, and editing links are retained. Unsupported features such as groups, effects, and non-RGBA modes produce errors. Native projects are not a general archival round-trip format; see the [PXO](docs/pxo-v7.md) and [Aseprite](docs/aseprite-format.md) documentation for details.
+
+### Optimize and package a source
+
+```sh
+pixloom optimize spark.pixloom.json --output spark-small
+pixloom pack spark-small.pixloom.json --output spark.pixloom
+pixloom validate spark.pixloom
+pixloom unpack spark.pixloom --output restored.pixloom.json
+```
+
+Separate optimizer outputs get the `.pixloom.json` suffix. Use `--in-place` instead of `--output` to optimize the original file.
+
+A `.pixloom` file is a ZIP container with independently compressed cel payloads. Packing preserves encodings by default; add `pack --optimize` to optimize first. Containers retain unused cels, palette indices, metadata, and explicit links. Use either authoring format with `build` and `export`.
+
+Read more about [optimization](docs/optimizer.md) and [containers](docs/container-format.md).
+
+## Export formats
+
+| Format | Output | Transparency | Notes |
+| --- | --- | --- | --- |
+| PNG | Still | Full alpha | Exact rendered RGBA |
+| SVG | Still | Opacity | Pixel-aligned shapes; no embedded PNG or tracing |
+| JPEG | Still | None | Lossy, quality 95 |
+| BMP | Still | None | Exact rendered RGB |
+| TIFF | Still | Full alpha | Exact rendered RGBA |
+| GIF | Animation | Binary alpha | Quantizes palettes above 256 colours |
+| WebP | Still or animation | Full alpha | Lossless VP8L |
+| APNG | Animation | Full alpha | Exact rendered RGBA |
+| MP4 | Video | None | FFmpeg; H.264 RGB, CRF 0 |
+| WebM | Video | None | FFmpeg; lossless VP9 with RGB/YUV conversion rounding |
+
+Still outputs use frame 1 by default. GIF, WebP, and APNG use the full timeline once; single-frame sources produce still images. `export --frame N` selects a still frame for any image format. Video requires at least two frames and does not accept `--frame`.
+
+JPEG, BMP, MP4, and WebM need an opaque `--background` when the artwork contains transparency. GIF also needs one for partial alpha. A supplied background is applied to **every image and video in that export request**. Leave it out to preserve transparency in formats that support it.
+
+```sh
+pixloom export skills/pixloom/examples/animated.pixloom.json --output frame --formats png,svg --frame 3
+pixloom export skills/pixloom/examples/animated.pixloom.json --output opaque --formats jpeg,bmp --background "#203040"
+```
+
+Pixloom preserves the canvas dimensions without resizing, smoothing, or antialiasing. Image animations encode one pass; a looping preview may have separate playback settings. See [image encoder policies](docs/image-encoders.md) for timing precision and format limits.
+
+### Optional video export
+
+Install FFmpeg with the `libx264rgb` encoder for MP4 or `libvpx-vp9` for WebM, then make it available on `PATH`:
+
+```sh
+pixloom export skills/pixloom/examples/animated.pixloom.json --output heart-video --formats mp4,webm --background "#203040"
+```
+
+Use `--ffmpeg PATH` to select a specific executable. Video uses variable frame timing and the original canvas dimensions. See [video codecs and limits](docs/video-export.md) for codec details and playback compatibility.
+
+## Examples
+
+- [Small static source](skills/pixloom/examples/static.pixloom.json): a simple grid to edit by hand.
+- [Small animated source](skills/pixloom/examples/animated.pixloom.json): explicit frame timing and cel reuse.
+- [All five encodings](skills/pixloom/examples/encodings.pixloom.json): equivalent artwork stored in different ways.
+- [Bronze duelist](examples/sword-slash-96/README.md): a complete layered animation with source, native projects, and exports. Download or clone the repository and open `examples/sword-slash-96/preview.html` locally for playback, frame stepping, and layer toggles.
+
+## Output safety and compatibility
+
+Pixloom checks output paths before writing and requires `--force` to replace existing files. Input/output aliases, colliding destinations, and output symlinks are rejected. Files are staged before installation; installation is atomic per file, rather than a transaction across all outputs.
+
+Canvas sizes, frame counts, expanded pixel data, archives, and encoded outputs have bounded resource limits. Rendering uses RGBA source-over compositing without colour management; editor blend rounding can differ slightly. Consult the individual format documents for precise bounds and supported features.
+
+Pixloom was previously named Spritex. Existing `.spritex.json` documents, `.spritex` containers, and legacy Aseprite metadata envelopes remain readable. Reserved `_spritec*` provenance keys are retained for compatibility.
+
+## Development
 
 ```sh
 cargo test --locked
-cargo fmt --check
+cargo fmt --all --check
 cargo clippy --locked --all-targets -- -D warnings
-# Optional external FFmpeg/ffprobe checks:
-cargo test --test video -- --ignored --nocapture
-cargo test --test commands -- --ignored --nocapture
+cargo build --release --locked
 ```
 
-CLI parsing is separate from `operations`, the model/schema, native codecs,
-rendering and encoders. Each multi-output request parses JSON and constructs
-the model once, then dispatches directly without serializing through PNG.
-Tests include independent native fixtures, lossless image decode comparisons,
-timing, editing links, malformed inputs, cleanup and overwrite regressions.
-
-See the [spritex verification record](docs/spritex-verification.md).
-The original [spritec verification record](docs/verification.md) and research
-fixtures remain historical evidence.
-
-Losslessly minimize authoring JSON with `spritex optimize INPUT --output OUTPUT`
-(or `--in-place`). See [optimizer search, bounds and verification](docs/optimizer.md).
-Author convenient valid encodings first; let the optimizer measure their storage costs.
-
-## Compressed authoring containers
-
-Use `.spritex.json` for self-contained editable JSON, or `.spritex` for a ZIP
-container with independently compressed cel payloads:
+Optional video integration checks require FFmpeg and ffprobe:
 
 ```sh
-spritex pack character.spritex.json --output character.spritex
-spritex pack character.spritex.json --output optimized.spritex --optimize
-spritex unpack character.spritex --output restored.spritex.json
-spritex validate character.spritex
-spritex build character.spritex --output character --formats pxo,aseprite
-spritex export character.spritex --output character --formats png,svg
+cargo test --locked --test video --test commands -- --ignored --nocapture
 ```
 
-Packing preserves supplied encodings by default, including unused cels, exact
-palette indices, metadata and explicit editing links. `--optimize` runs the existing
-lossless JSON optimizer first; it does not promise the smallest ZIP. Outputs use
-the existing `--force` protections and staged writes; containers are fully verified
-before installation. Inputs are never changed. `inspect character.spritex` reads
-structure and references without reading cel payloads; full validation reads every
-cel. Native-project unpack/render/inspect workflows remain supported.
+The Rust library separates authoring/schema validation, rendering, native codecs, and export operations from CLI parsing. Tests cover independent editor fixtures, pixel comparisons, animation timing, editing links, malformed inputs, and output safety.
 
-Standalone `optimize` requires JSON: unpack, optimize, then pack, or pack JSON with
-`--optimize`. Legacy JSON filenames remain accepted. See the
-[container schema and compatibility policy](docs/container-format.md) and
-[benchmark methodology and results](docs/container-benchmarks.md).
+Technical references: [authoring](skills/pixloom/references/authoring-format.md) · [Aseprite](docs/aseprite-format.md) · [Pixelorama](docs/pxo-v7.md) · [images](docs/image-encoders.md) · [video](docs/video-export.md) · [containers](docs/container-format.md) · [benchmarks](docs/container-benchmarks.md).
+
+## License
+
+[MIT](LICENSE).
