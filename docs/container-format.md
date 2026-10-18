@@ -1,10 +1,10 @@
-# SpriteX container v1
+# Pixloom container v1
 
 The container layout version is independent of authoring versions 1 and 2.
 Released readers must read older released container versions; unsupported versions
 and nonempty required_features are errors. No implicit field reinterpretation.
 
-`manifest.json` is exactly `{ "format":"spritex", "container_version":1,
+`manifest.json` is exactly `{ "format":"pixloom", "container_version":1,
 "document":"document.json", "required_features":[] }` (all fields required).
 
 `document.json` uses the existing authoring Document schema and defaults, except
@@ -40,3 +40,6 @@ optimizer before splitting. JSON minimization does not guarantee smallest ZIP.
 Staged output is reopened and fully validated before replacement. Input is never
 modified. Standalone optimize rejects containers: unpack, optimize JSON, then pack
 (or pack JSON with --optimize). JSON input continues accepting legacy filenames.
+
+Legacy containers with the `spritex` format identifier and `.spritex` extension
+remain readable. New containers use `pixloom` and `.pixloom`.

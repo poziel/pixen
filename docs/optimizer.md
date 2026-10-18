@@ -1,11 +1,11 @@
 # Lossless JSON optimization
 
 ```
-spritex optimize art.spritex.json --output art-small
-spritex optimize art.spritex.json --in-place
+pixloom optimize art.pixloom.json --output art-small
+pixloom optimize art.pixloom.json --in-place
 ```
 
-A destination is mandatory. Separate outputs append `.spritex.json` unless already
+A destination is mandatory. Separate outputs append `.pixloom.json` unless already
 present; their parent must exist. Existing files require `--force`, and the usual
 output alias and symlink protections apply. `--force` is incompatible with
 `--in-place`. In-place retains the source filename.

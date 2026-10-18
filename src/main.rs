@@ -1,6 +1,6 @@
 use anyhow::{Result, ensure};
 use clap::{Parser, Subcommand};
-use spritex::{
+use pixloom::{
     export::ExportOptions,
     formats, native, operations,
     output::{self, Prepared},
@@ -23,7 +23,7 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Commands {
-    /// Package authoring JSON as a compressed split-cel .spritex container.
+    /// Package authoring JSON as a compressed split-cel .pixloom container.
     Pack {
         input: PathBuf,
         #[arg(long)]
@@ -47,9 +47,9 @@ enum Commands {
         #[arg(long, conflicts_with = "in_place")]
         force: bool,
     },
-    /// Validate authoring JSON or .spritex, including all pixels and editing links.
+    /// Validate authoring JSON or .pixloom, including all pixels and editing links.
     Validate { input: PathBuf },
-    /// Build editable projects from authoring JSON or .spritex; append each format to OUTPUT.
+    /// Build editable projects from authoring JSON or .pixloom; append each format to OUTPUT.
     Build {
         input: PathBuf,
         #[arg(long)]
@@ -93,7 +93,7 @@ enum Commands {
         #[arg(long)]
         force: bool,
     },
-    /// Convert a .spritex container or supported native project to the authoring JSON filename OUTPUT.
+    /// Convert a .pixloom container or supported native project to the authoring JSON filename OUTPUT.
     Unpack {
         input: PathBuf,
         #[arg(long)]
@@ -110,7 +110,7 @@ fn execute(cli: Cli) -> Result<()> {
             optimize,
             force,
         } => {
-            spritex::container::pack(&input, &output, optimize, force)?;
+            pixloom::container::pack(&input, &output, optimize, force)?;
             println!("packed {}", output.display());
         }
         Commands::Optimize {
@@ -119,7 +119,7 @@ fn execute(cli: Cli) -> Result<()> {
             in_place,
             force,
         } => {
-            let r = spritex::optimize::run(&input, output.as_deref(), in_place, force)?;
+            let r = pixloom::optimize::run(&input, output.as_deref(), in_place, force)?;
             println!(
                 "{} -> {} bytes (minified original: {}); JSON formatting/normalization: {} bytes; encoding savings: {} bytes; evaluated {} candidates, skipped {}",
                 r.before,
@@ -132,7 +132,7 @@ fn execute(cli: Cli) -> Result<()> {
             );
         }
         Commands::Validate { input } => {
-            let s = spritex::input::compile(&input)?;
+            let s = pixloom::input::compile(&input)?;
             println!(
                 "valid: {}x{}, {} layer(s), {} frame(s)",
                 s.width,
@@ -175,8 +175,8 @@ fn execute(cli: Cli) -> Result<()> {
             }
         }
         Commands::Inspect { input } => {
-            let report = if spritex::input::is_container(&input) {
-                spritex::container::Reader::open(&input)?.structure
+            let report = if pixloom::input::is_container(&input) {
+                pixloom::container::Reader::open(&input)?.structure
             } else {
                 native::inspect(&input)?
             };
@@ -194,8 +194,8 @@ fn execute(cli: Cli) -> Result<()> {
             force,
         } => {
             output::preflight(&input, &[&destination], force)?;
-            let s = if spritex::input::is_container(&input) {
-                spritex::input::compile(&input)?
+            let s = if pixloom::input::is_container(&input) {
+                pixloom::input::compile(&input)?
             } else {
                 native::read(&input)?
             };
@@ -219,8 +219,8 @@ fn execute(cli: Cli) -> Result<()> {
             force,
         } => {
             output::preflight(&input, &[&destination], force)?;
-            let doc = if spritex::input::is_container(&input) {
-                spritex::input::read(&input)?
+            let doc = if pixloom::input::is_container(&input) {
+                pixloom::input::read(&input)?
             } else {
                 schema::to_document(&native::read(&input)?)?
             };
@@ -246,7 +246,7 @@ fn parse_background(value: &str) -> Result<[u8; 4]> {
 }
 fn main() {
     if let Err(error) = execute(Cli::parse()) {
-        eprintln!("spritex: {error:#}");
+        eprintln!("pixloom: {error:#}");
         std::process::exit(1);
     }
 }

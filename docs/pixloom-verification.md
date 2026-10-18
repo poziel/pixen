@@ -1,4 +1,6 @@
-# Spritex 0.2 verification
+# Pixloom: historical Spritex 0.2 verification
+
+This record predates the Pixloom rename; historical commands and evidence paths are preserved.
 
 Verified on **2026-10-16**, Windows x86-64, Rust/Cargo 1.99.0.
 The declared minimum compiler is Rust 1.88; this run used 1.99.

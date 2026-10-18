@@ -1,4 +1,4 @@
-# Spritex 0.2 extension plan
+# Pixloom 0.2 extension plan
 
 The user's extension brief authorizes implementation in this checkout. Preserve
 schema version 1, PXO 7 compatibility, exact raw pixels, explicit editing links,

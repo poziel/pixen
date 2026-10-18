@@ -55,7 +55,10 @@ impl Reader {
             "container expanded JSON exceeds limit"
         );
         let manifest: Manifest = serde_json::from_value(json_read(&mut archive, "manifest.json")?)?;
-        ensure!(manifest.format == "spritex", "unsupported container format");
+        ensure!(
+            matches!(manifest.format.as_str(), "pixloom" | "spritex"),
+            "unsupported container format"
+        );
         ensure!(
             manifest.container_version == 1,
             "unsupported container version {}",
@@ -218,7 +221,7 @@ pub fn write<W: Write + Seek>(writer: W, doc: &Document) -> Result<()> {
     };
     entry(
         "manifest.json",
-        &json!({"format":"spritex","container_version":1,"document":"document.json","required_features":[]}),
+        &json!({"format":"pixloom","container_version":1,"document":"document.json","required_features":[]}),
     )?;
     entry("document.json", &structure)?;
     let mut cels: Vec<_> = doc.cels.iter().collect();
@@ -234,8 +237,8 @@ pub fn write<W: Write + Seek>(writer: W, doc: &Document) -> Result<()> {
 pub fn pack(input: &Path, destination: &Path, optimize: bool, force: bool) -> Result<()> {
     output::preflight(input, &[destination], force)?;
     ensure!(
-        destination.extension().is_some_and(|e| e == "spritex"),
-        "pack output must end in .spritex"
+        destination.extension().is_some_and(|e| e == "pixloom"),
+        "pack output must end in .pixloom"
     );
     let mut doc = crate::input::read(input)?;
     if optimize {

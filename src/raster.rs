@@ -120,7 +120,7 @@ mod tests {
     #[test]
     fn contact_sheet_orders_frames_and_pads_with_transparency() {
         let sprite =
-            crate::schema::parse(include_bytes!("../skills/spritex/examples/animated.json"))
+            crate::schema::parse(include_bytes!("../skills/pixloom/examples/animated.json"))
                 .unwrap();
         let (w, h, rgba) = super::contact_sheet(&sprite, 3).unwrap();
         assert_eq!((w, h), (12, 8));

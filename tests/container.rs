@@ -1,12 +1,12 @@
-use spritex::{container, schema};
+use pixloom::{container, schema};
 #[test]
 fn roundtrip_and_determinism() {
     let doc = schema::read_document(include_bytes!(
-        "../skills/spritex/examples/encodings.spritex.json"
+        "../skills/pixloom/examples/encodings.pixloom.json"
     ))
     .unwrap();
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("test.spritex");
+    let path = dir.path().join("test.pixloom");
     let mut a = std::io::Cursor::new(Vec::new());
     container::write(&mut a, &doc).unwrap();
     let mut b = std::io::Cursor::new(Vec::new());
@@ -49,14 +49,14 @@ fn archive(path: &std::path::Path, entries: &[(String, Vec<u8>)]) {
 }
 fn fixture() -> schema::Document {
     schema::read_document(include_bytes!(
-        "../skills/spritex/examples/encodings.spritex.json"
+        "../skills/pixloom/examples/encodings.pixloom.json"
     ))
     .unwrap()
 }
 #[test]
 fn metadata_and_one_cel_do_not_read_unrelated_malformed_payload() {
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.spritex");
+    let p = dir.path().join("a.pixloom");
     container::write(std::fs::File::create(&p).unwrap(), &fixture()).unwrap();
     let mut all = entries(&p);
     let bad = all
@@ -82,7 +82,7 @@ fn metadata_and_one_cel_do_not_read_unrelated_malformed_payload() {
 #[test]
 fn malformed_archives_and_references_fail() {
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.spritex");
+    let p = dir.path().join("a.pixloom");
     container::write(std::fs::File::create(&p).unwrap(), &fixture()).unwrap();
     let original = entries(&p);
     for case in 0..10 {
@@ -125,7 +125,7 @@ fn malformed_archives_and_references_fail() {
 fn pack_overwrite_and_input_safety_and_optimized_indices() {
     let dir = tempfile::tempdir().unwrap();
     let input = dir.path().join("input.json");
-    let out = dir.path().join("out.spritex");
+    let out = dir.path().join("out.pixloom");
     let bytes = serde_json::to_vec(&fixture()).unwrap();
     std::fs::write(&input, &bytes).unwrap();
     container::pack(&input, &out, true, false).unwrap();
@@ -145,14 +145,14 @@ fn pack_overwrite_and_input_safety_and_optimized_indices() {
 #[test]
 fn legacy_roundtrip_preserves_unused_cels_annotations_and_links() {
     let mut d: serde_json::Value =
-        serde_json::from_slice(include_bytes!("../skills/spritex/examples/animated.json")).unwrap();
+        serde_json::from_slice(include_bytes!("../skills/pixloom/examples/animated.json")).unwrap();
     let mut unused = d["cels"][0].clone();
     unused["id"] = "unused".into();
     d["cels"].as_array_mut().unwrap().push(unused);
     d["annotations"] = serde_json::json!({"metadata":{"test":[1,"x"]},"user_data":"hello"});
     let doc = schema::read_document(&serde_json::to_vec(&d).unwrap()).unwrap();
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.spritex");
+    let p = dir.path().join("a.pixloom");
     container::write(std::fs::File::create(&p).unwrap(), &doc).unwrap();
     assert_eq!(
         serde_json::to_value(&doc).unwrap(),
@@ -162,7 +162,7 @@ fn legacy_roundtrip_preserves_unused_cels_annotations_and_links() {
 #[test]
 fn single_cel_decode_checks_indices_without_other_payloads() {
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.spritex");
+    let p = dir.path().join("a.pixloom");
     let doc = fixture();
     container::write(std::fs::File::create(&p).unwrap(), &doc).unwrap();
     let mut r = container::Reader::open(&p).unwrap();
@@ -176,15 +176,15 @@ fn single_cel_decode_checks_indices_without_other_payloads() {
 fn cli_json_and_container_export_and_native_build_are_equivalent() {
     use std::process::Command;
     let dir = tempfile::tempdir().unwrap();
-    let input = dir.path().join("a.spritex.json");
-    let packed = dir.path().join("a.spritex");
+    let input = dir.path().join("a.pixloom.json");
+    let packed = dir.path().join("a.pixloom");
     std::fs::write(
         &input,
-        include_bytes!("../skills/spritex/examples/animated.spritex.json"),
+        include_bytes!("../skills/pixloom/examples/animated.pixloom.json"),
     )
     .unwrap();
     let run = |args: Vec<String>| {
-        let o = Command::new(env!("CARGO_BIN_EXE_spritex"))
+        let o = Command::new(env!("CARGO_BIN_EXE_pixloom"))
             .args(args)
             .output()
             .unwrap();
@@ -199,7 +199,7 @@ fn cli_json_and_container_export_and_native_build_are_equivalent() {
     ]);
     run(vec!["validate".into(), s(&packed)]);
     run(vec!["inspect".into(), s(&packed)]);
-    let unpack = dir.path().join("back.spritex.json");
+    let unpack = dir.path().join("back.pixloom.json");
     run(vec![
         "unpack".into(),
         s(&packed),
@@ -207,8 +207,8 @@ fn cli_json_and_container_export_and_native_build_are_equivalent() {
         s(&unpack),
     ]);
     assert_eq!(
-        serde_json::to_value(spritex::input::read(&input).unwrap()).unwrap(),
-        serde_json::to_value(spritex::input::read(&unpack).unwrap()).unwrap()
+        serde_json::to_value(pixloom::input::read(&input).unwrap()).unwrap(),
+        serde_json::to_value(pixloom::input::read(&unpack).unwrap()).unwrap()
     );
     for (i, source) in [&input, &packed].iter().enumerate() {
         let base = dir.path().join(format!("export{i}"));
@@ -236,8 +236,8 @@ fn cli_json_and_container_export_and_native_build_are_equivalent() {
         );
     }
     for ext in ["pxo", "aseprite"] {
-        let a = spritex::native::read(&dir.path().join(format!("export0.{ext}"))).unwrap();
-        let b = spritex::native::read(&dir.path().join(format!("export1.{ext}"))).unwrap();
+        let a = pixloom::native::read(&dir.path().join(format!("export0.{ext}"))).unwrap();
+        let b = pixloom::native::read(&dir.path().join(format!("export1.{ext}"))).unwrap();
         assert_eq!(
             serde_json::to_value(schema::to_document(&a).unwrap()).unwrap(),
             serde_json::to_value(schema::to_document(&b).unwrap()).unwrap()
@@ -247,7 +247,7 @@ fn cli_json_and_container_export_and_native_build_are_equivalent() {
 #[test]
 fn zip_security_and_declared_size_limits() {
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.spritex");
+    let p = dir.path().join("a.pixloom");
     container::write(std::fs::File::create(&p).unwrap(), &fixture()).unwrap();
     let original = std::fs::read(&p).unwrap();
     let central: Vec<_> = original
@@ -283,20 +283,20 @@ fn zip_security_and_declared_size_limits() {
         assert!(container::Reader::open(&p).is_err(), "case {case}");
         if case == 1 {
             assert!(
-                spritex::archive::Archive::open(&p).is_err(),
+                pixloom::archive::Archive::open(&p).is_err(),
                 "generic native archive reader must still reject unsupported compression"
             );
         }
     }
     let file = std::fs::File::create(&p).unwrap();
-    file.set_len(spritex::archive::MAX_ARCHIVE + 1).unwrap();
+    file.set_len(pixloom::archive::MAX_ARCHIVE + 1).unwrap();
     drop(file);
     assert!(container::Reader::open(&p).is_err());
 }
 #[test]
 fn too_many_small_entries_rejected() {
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.spritex");
+    let p = dir.path().join("a.pixloom");
     let all: Vec<_> = (0..schema::MAX_SLOTS + 3)
         .map(|i| (format!("cels/{i}.json"), Vec::new()))
         .collect();
@@ -306,7 +306,7 @@ fn too_many_small_entries_rejected() {
 #[test]
 fn duplicate_payload_fields_are_not_silently_reinterpreted() {
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.spritex");
+    let p = dir.path().join("a.pixloom");
     container::write(std::fs::File::create(&p).unwrap(), &fixture()).unwrap();
     let mut all = entries(&p);
     let e = all
@@ -322,15 +322,15 @@ fn duplicate_payload_fields_are_not_silently_reinterpreted() {
 fn corrupt_unused_payload_preserves_unpack_destination_and_source() {
     use std::process::Command;
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.spritex");
-    let destination = dir.path().join("a.spritex.json");
+    let p = dir.path().join("a.pixloom");
+    let destination = dir.path().join("a.pixloom.json");
     container::write(std::fs::File::create(&p).unwrap(), &fixture()).unwrap();
     let mut all = entries(&p);
     all.last_mut().unwrap().1 = b"{}".to_vec();
     archive(&p, &all);
     let before = std::fs::read(&p).unwrap();
     std::fs::write(&destination, b"manual content").unwrap();
-    let out = Command::new(env!("CARGO_BIN_EXE_spritex"))
+    let out = Command::new(env!("CARGO_BIN_EXE_pixloom"))
         .arg("unpack")
         .arg(&p)
         .arg("--output")
@@ -341,7 +341,7 @@ fn corrupt_unused_payload_preserves_unpack_destination_and_source() {
     assert!(!out.status.success());
     assert_eq!(std::fs::read(&destination).unwrap(), b"manual content");
     assert_eq!(std::fs::read(&p).unwrap(), before);
-    let out = Command::new(env!("CARGO_BIN_EXE_spritex"))
+    let out = Command::new(env!("CARGO_BIN_EXE_pixloom"))
         .arg("optimize")
         .arg(&p)
         .arg("--in-place")
@@ -354,7 +354,7 @@ fn corrupt_unused_payload_preserves_unpack_destination_and_source() {
 #[test]
 fn explicit_payload_references_work_independently_of_filenames_and_order() {
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.spritex");
+    let p = dir.path().join("a.pixloom");
     let doc = fixture();
     container::write(std::fs::File::create(&p).unwrap(), &doc).unwrap();
     let mut all = entries(&p);
@@ -377,7 +377,7 @@ fn explicit_payload_references_work_independently_of_filenames_and_order() {
 #[test]
 fn payload_header_order_and_strict_fields_survive_direct_loading() {
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.spritex");
+    let p = dir.path().join("a.pixloom");
     container::write(std::fs::File::create(&p).unwrap(), &fixture()).unwrap();
     let original = entries(&p);
     for tail in [
@@ -402,4 +402,27 @@ fn payload_header_order_and_strict_fields_survive_direct_loading() {
             assert!(r.load_cel(&id).is_err(), "{tail}");
         }
     }
+}
+
+#[test]
+fn legacy_spritex_extension_and_manifest_remain_readable() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("legacy.spritex");
+    let doc = fixture();
+    container::write(std::fs::File::create(&path).unwrap(), &doc).unwrap();
+    let mut all = entries(&path);
+    let manifest = all
+        .iter_mut()
+        .find(|(name, _)| name == "manifest.json")
+        .unwrap();
+    let mut value: serde_json::Value = serde_json::from_slice(&manifest.1).unwrap();
+    assert_eq!(value["format"], "pixloom");
+    value["format"] = serde_json::json!("spritex");
+    manifest.1 = serde_json::to_vec(&value).unwrap();
+    archive(&path, &all);
+    assert!(pixloom::input::is_container(&path));
+    assert_eq!(
+        serde_json::to_value(pixloom::input::read(&path).unwrap()).unwrap(),
+        serde_json::to_value(doc).unwrap()
+    );
 }

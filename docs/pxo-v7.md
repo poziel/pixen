@@ -22,7 +22,7 @@ original files; their ZIP compression/order is consequently not native evidence.
 | Preview | `OpenSave.save_pxo_file` composites the selected native frame and scales its longest side to 256. `spritec` deliberately embeds a full-resolution frame-1 preview and selects native frame 0; target Pixelorama successfully loaded these archives. |
 | Native validation CLI | [Main.gd](https://github.com/Orama-Interactive/Pixelorama/blob/v1.2.3/src/Main.gd) accepts files and export options after `--`, with `--headless --quit` before it. |
 
-`spritex` writes raw full-canvas buffers for every timeline slot, including linked
+`pixloom` writes raw full-canvas buffers for every timeline slot, including linked
 duplicates. It never depends on an embedded thumbnail for rendering. Empty
 authoring cels serialize as zero-filled raster images, because native raster
 layers still require a cel at every frame.

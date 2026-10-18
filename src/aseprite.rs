@@ -19,7 +19,7 @@ const MAX_FILE: u64 = 256 * 1024 * 1024;
 const MAX_CHUNK: usize = 32 * 1024 * 1024;
 const MAX_METADATA: usize = 16 * 1024 * 1024;
 const NATIVE: &str = "aseprite_native";
-const ENVELOPE: &str = "spritex-aseprite-v1:";
+const ENVELOPE: &str = "pixloom-aseprite-v1:";
 
 #[derive(Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -540,9 +540,12 @@ fn parse(path: &Path, pixels: bool) -> Result<Parsed> {
                         None
                     };
                     c.end()?;
-                    let mut env = if let Some(text) = text.strip_prefix(ENVELOPE) {
+                    let mut env = if let Some(text) = text
+                        .strip_prefix(ENVELOPE)
+                        .or_else(|| text.strip_prefix("spritex-aseprite-v1:"))
+                    {
                         serde_json::from_str::<Envelope>(text)
-                            .context("invalid Spritex Aseprite user-data envelope")?
+                            .context("invalid Pixloom Aseprite user-data envelope")?
                     } else {
                         Envelope {
                             annotations: Annotations {

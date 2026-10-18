@@ -2,13 +2,13 @@ use std::process::Command;
 #[test]
 fn optimizer_requires_destination_and_is_idempotent() {
     let dir = tempfile::tempdir().unwrap();
-    let input = dir.path().join("source.spritex.json");
+    let input = dir.path().join("source.pixloom.json");
     std::fs::write(
         &input,
-        include_bytes!("../skills/spritex/examples/encodings.spritex.json"),
+        include_bytes!("../skills/pixloom/examples/encodings.pixloom.json"),
     )
     .unwrap();
-    let cli = env!("CARGO_BIN_EXE_spritex");
+    let cli = env!("CARGO_BIN_EXE_pixloom");
     assert!(
         !Command::new(cli)
             .args(["optimize"])
@@ -41,10 +41,10 @@ fn optimizer_requires_destination_and_is_idempotent() {
 
 #[test]
 fn exact_indices_metadata_and_original_size_are_preserved() {
-    use spritex::{optimize, schema};
+    use pixloom::{optimize, schema};
     for input in [
-        include_bytes!("../skills/spritex/examples/encodings.spritex.json").as_slice(),
-        include_bytes!("../skills/spritex/examples/animated.spritex.json").as_slice(),
+        include_bytes!("../skills/pixloom/examples/encodings.pixloom.json").as_slice(),
+        include_bytes!("../skills/pixloom/examples/animated.pixloom.json").as_slice(),
     ] {
         let (out, report) = optimize::optimize(input).unwrap();
         optimize::verify(input, &out).unwrap();
@@ -72,11 +72,11 @@ fn exact_indices_metadata_and_original_size_are_preserved() {
 
 #[test]
 fn collisions_invalid_input_and_verification_failures_preserve_files() {
-    use spritex::optimize;
+    use pixloom::optimize;
     let dir = tempfile::tempdir().unwrap();
-    let input = dir.path().join("in.spritex.json");
-    let output = dir.path().join("out.spritex.json");
-    let bytes = include_bytes!("../skills/spritex/examples/encodings.spritex.json");
+    let input = dir.path().join("in.pixloom.json");
+    let output = dir.path().join("out.pixloom.json");
+    let bytes = include_bytes!("../skills/pixloom/examples/encodings.pixloom.json");
     std::fs::write(&input, bytes).unwrap();
     std::fs::write(&output, b"keep").unwrap();
     assert!(optimize::run(&input, Some(&output), false, false).is_err());
@@ -92,16 +92,16 @@ fn collisions_invalid_input_and_verification_failures_preserve_files() {
 
 #[test]
 fn bounded_pathological_noise_and_uniform_images() {
-    use spritex::optimize;
+    use pixloom::optimize;
     let mut value: serde_json::Value = serde_json::from_slice(include_bytes!(
-        "../skills/spritex/examples/encodings.spritex.json"
+        "../skills/pixloom/examples/encodings.pixloom.json"
     ))
     .unwrap();
     value["canvas"] = serde_json::json!({"width":1024,"height":1024});
     value["cels"] = serde_json::json!([]);
     // Keep existing IDs and structure, but make the decoded-work budget bind.
     let original: serde_json::Value = serde_json::from_slice(include_bytes!(
-        "../skills/spritex/examples/encodings.spritex.json"
+        "../skills/pixloom/examples/encodings.pixloom.json"
     ))
     .unwrap();
     let mut seed = 17u32;
@@ -131,14 +131,14 @@ fn bounded_pathological_noise_and_uniform_images() {
 
 #[test]
 fn separate_output_extension_force_and_legacy_contract() {
-    use spritex::optimize;
+    use pixloom::optimize;
     let dir = tempfile::tempdir().unwrap();
     let input = dir.path().join("legacy.json");
-    let bytes = include_bytes!("../skills/spritex/examples/animated.json");
+    let bytes = include_bytes!("../skills/pixloom/examples/animated.json");
     std::fs::write(&input, bytes).unwrap();
     let base = dir.path().join("optimized");
     optimize::run(&input, Some(&base), false, false).unwrap();
-    let output = dir.path().join("optimized.spritex.json");
+    let output = dir.path().join("optimized.pixloom.json");
     let first = std::fs::read(&output).unwrap();
     optimize::verify(bytes, &first).unwrap();
     assert_eq!(

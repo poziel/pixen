@@ -1,28 +1,28 @@
 ---
-name: spritex
-description: Author exact pixel-art JSON and compile editable Pixelorama/Aseprite projects or rendered static images, animations, and optional FFmpeg video with the standalone spritex CLI. Use for layered sprites and explicit frame timelines; combine with separate art-direction skills.
+name: pixloom
+description: Author exact pixel-art JSON and compile editable Pixelorama/Aseprite projects or rendered static images, animations, and optional FFmpeg video with the standalone pixloom CLI. Use for layered sprites and explicit frame timelines; combine with separate art-direction skills.
 ---
 
-# spritex
+# pixloom
 
-Use `spritex` to turn explicit pixel decisions into editable projects and rendered
+Use `pixloom` to turn explicit pixel decisions into editable projects and rendered
 exports. Read [the authoring reference](references/authoring-format.md) before
-authoring JSON. Use [static](examples/static.spritex.json) and
-[animated](examples/animated.spritex.json) as structural starting points; derive artwork
+authoring JSON. Use [static](examples/static.pixloom.json) and
+[animated](examples/animated.pixloom.json) as structural starting points; derive artwork
 from the user's brief and chosen sprite-design skill.
 
-1. Run `spritex --version`. These instructions target 0.2.0 and authoring versions 1 (legacy grids) and 2 (explicit cel encodings).
-   If unavailable, use the repository's locally built `target/release/spritex`
-   (`spritex.exe` on Windows). `cargo build --release --locked` is sufficient;
+1. Run `pixloom --version`. These instructions target 0.2.0 and authoring versions 1 (legacy grids) and 2 (explicit cel encodings).
+   If unavailable, use the repository's locally built `target/release/pixloom`
+   (`pixloom.exe` on Windows). `cargo build --release --locked` is sufficient;
    do not install globally or publish without the user's request.
-2. Author version-2 `.spritex.json` palette-index documents with exact `#RRGGBBAA` colours. Name cels/layers,
+2. Author version-2 `.pixloom.json` palette-index documents with exact `#RRGGBBAA` colours. Name cels/layers,
    supply every timeline entry, and choose editing links deliberately. Reusing a
    cel stays independent unless timeline entries share a layer-local `link`.
 3. Validate, then choose outputs:
    ```sh
-   spritex validate sprite.spritex.json
-   spritex build sprite.spritex.json --output assets/sprite --formats pxo,aseprite
-   spritex export sprite.spritex.json --output assets/sprite --formats png,svg,gif,webp,apng
+   pixloom validate sprite.pixloom.json
+   pixloom build sprite.pixloom.json --output assets/sprite --formats pxo,aseprite
+   pixloom export sprite.pixloom.json --output assets/sprite --formats png,svg,gif,webp,apng
    ```
    `--output` is an extensionless directory/filename stem; the parent must exist.
    Use fresh paths or `--force` for authorized replacements. PNG is optional.
@@ -31,8 +31,8 @@ from the user's brief and chosen sprite-design skill.
    inspection output; keep the numeric document as the authoring source.
 5. For animations, inspect the native project and a contact sheet:
    ```sh
-   spritex inspect assets/sprite.aseprite
-   spritex render assets/sprite.pxo --contact-sheet --columns 8 --output sheet.png
+   pixloom inspect assets/sprite.aseprite
+   pixloom render assets/sprite.pxo --contact-sheet --columns 8 --output sheet.png
    ```
    Use valid column counts (1..frame count). Static exports default to frame 1;
    GIF/WebP/APNG export every frame once. `--frame N` selects a still image and
@@ -46,7 +46,7 @@ Cropping uses paired `offset`/`size`, never a separate identifier. Sparse gaps u
 rows/tiles; pixel tokens and `default_index` address the root colour palette.
 Storage reuse never creates editing links. See the reference for exact payloads,
 fill/padding rules, canonical writers and resource limits, and the
-[all-encoding animation](examples/encodings.spritex.json) for equivalent cels.
+[all-encoding animation](examples/encodings.pixloom.json) for equivalent cels.
 
 Optional video uses `--formats mp4,webm`; only video requires FFmpeg. It needs at
 least two source frames and rejects `--frame`. MP4 uses lossless H.264 RGB;
@@ -58,7 +58,7 @@ separate request when retaining transparency in PNG/WebP/APNG is required.
 GIF quantizes palettes above 256 colours and timings to 10 ms; WebP/video use
 1 ms, APNG normally 0.1 ms, all using cumulative endpoint rounding.
 
-Use `spritex unpack existing.pxo --output editable/sprite.spritex.json` or the same
+Use `pixloom unpack existing.pxo --output editable/sprite.pixloom.json` or the same
 command with `.aseprite`/`.ase` input. Output identifies the JSON filename,
 not a directory. Unsupported features cause errors; do not flatten or silently
 remove them to force conversion. Aseprite requires whole-millisecond durations
@@ -74,29 +74,29 @@ bounds; this skill supplies the authoring/inspection workflow without an art sty
 ## Optimize storage after authoring
 
 Use any convenient valid encoding; do not predict the smallest representation.
-Run `spritex optimize sprite.spritex.json --in-place`, or use
-`--output optimized` to generate `optimized.spritex.json`. An explicit destination
+Run `pixloom optimize sprite.pixloom.json --in-place`, or use
+`--output optimized` to generate `optimized.pixloom.json`. An explicit destination
 is required; separate existing files require `--force`. Optimization preserves
 exact palette indices, palette order, IDs and editing links and emits minified
 JSON. The report separates formatting/normalization savings from encoding savings.
 The bounded search is deterministic, byte-idempotent, and does not promise global
 optimality. Version-1 files retain legacy grids. See the repository
-[search and safety contract](../../docs/optimizer.md) for candidate choices and limits.
+[search and safety contract](../../workspace/docs/optimizer.md) for candidate choices and limits.
 
 ## Compressed container workflow
 
-Use `spritex pack sprite.spritex.json --output sprite.spritex` to preserve all
+Use `pixloom pack sprite.pixloom.json --output sprite.pixloom` to preserve all
 encoding choices, or add `--optimize` to run lossless JSON optimization first.
 Containers accept the same validate/build/export workflows. Unpack with
-`spritex unpack sprite.spritex --output sprite.spritex.json`; native unpack still
-works. Never rename JSON to `.spritex`: it is a ZIP format.
+`pixloom unpack sprite.pixloom --output sprite.pixloom.json`; native unpack still
+works. Never rename JSON to `.pixloom`: it is a ZIP format.
 
-`inspect sprite.spritex` checks structure/references without loading cel payloads;
+`inspect sprite.pixloom` checks structure/references without loading cel payloads;
 `validate` checks all payloads, including unused definitions. Individual cel
 loading is available through the repository Reader API. Build/export fully load
 and validate the document. Shared storage never implies linked editing.
 Standalone optimize rejects containers with unpack/repack guidance. Preserve the
 source and use fresh destinations or explicitly authorized `--force` replacement.
-See [container format](../../docs/container-format.md) for exact schemas, versions,
+See [container format](../../workspace/docs/container-format.md) for exact schemas, versions,
 strict entry policy and resource limits, and
-[benchmarks](../../docs/container-benchmarks.md) for compression tradeoffs.
+[benchmarks](../../workspace/docs/container-benchmarks.md) for compression tradeoffs.

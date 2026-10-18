@@ -5,8 +5,8 @@ at least two source frames. `--frame` is rejected when any requested output is a
 video. Tags do not repeat or append frames. Neither output includes audio.
 
 ```powershell
-spritex export sprite.json --output assets/heart --formats png,mp4,webm --background '#203040FF'
-spritex export sprite.json --output assets/heart --formats mp4 --ffmpeg 'C:\Tools\ffmpeg.exe'
+pixloom export sprite.json --output assets/heart --formats png,mp4,webm --background '#203040FF'
+pixloom export sprite.json --output assets/heart --formats mp4 --ffmpeg 'C:\Tools\ffmpeg.exe'
 ```
 
 `--output` is an extensionless base path: these commands create `assets/heart.mp4`
@@ -35,7 +35,7 @@ is rejected even when the animation itself is opaque.
 
 ## Variable timing
 
-Both outputs preserve variable frame durations. Spritex rounds each cumulative
+Both outputs preserve variable frame durations. Pixloom rounds each cumulative
 timeline endpoint to the nearest millisecond, with positive half-milliseconds
 rounded upward, then subtracts adjacent rounded endpoints. Thus total drift is
 at most 0.5 ms rather than one rounding error per frame. A frame that collapses

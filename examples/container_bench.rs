@@ -1,11 +1,11 @@
 //! Reproducible local benchmark: cargo run --release --example container_bench
 use anyhow::Result;
-use serde_json::json;
-use spritex::{
+use pixloom::{
     container,
     encoding::{self, Kind, Placement},
     schema,
 };
+use serde_json::json;
 use std::{io::Write, path::Path, process::Command, time::Instant};
 fn peak() -> Option<u64> {
     #[cfg(windows)]
@@ -30,7 +30,7 @@ fn worker(mode: &str, path: &Path) -> Result<()> {
     for _ in 0..5 {
         match mode {
             "full" => {
-                std::hint::black_box(spritex::input::compile(path)?);
+                std::hint::black_box(pixloom::input::compile(path)?);
             }
             "frame" => {
                 let mut r = container::Reader::open(path)?;
@@ -115,9 +115,9 @@ fn main() -> Result<()> {
     for name in ["dense", "sparse", "rows", "tiled", "animated", "many-small"] {
         let doc = fixture(name)?;
         let bytes = serde_json::to_vec(&doc)?;
-        let json_path = dir.path().join(format!("{name}.spritex.json"));
+        let json_path = dir.path().join(format!("{name}.pixloom.json"));
         std::fs::write(&json_path, &bytes)?;
-        let packed = dir.path().join(format!("{name}.spritex"));
+        let packed = dir.path().join(format!("{name}.pixloom"));
         container::write(std::fs::File::create(&packed)?, &doc)?;
         let mut baseline = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
         baseline.start_file(

@@ -3,7 +3,7 @@ use std::{
     process::{Command, Output},
 };
 fn run(args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_spritex"))
+    Command::new(env!("CARGO_BIN_EXE_pixloom"))
         .args(args)
         .output()
         .unwrap()
@@ -11,7 +11,7 @@ fn run(args: &[&str]) -> Output {
 fn input() -> &'static str {
     concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/skills/spritex/examples/animated.json"
+        "/skills/pixloom/examples/animated.json"
     )
 }
 fn s(p: &Path) -> &str {
@@ -135,7 +135,7 @@ fn overwrite_preflight_preserves_both_outputs_and_input() {
             .success()
     );
     assert_eq!(std::fs::read(&pxo).unwrap(), original);
-    assert!(spritex::output::preflight(Path::new(input()), &[&pxo, &pxo], true).is_err());
+    assert!(pixloom::output::preflight(Path::new(input()), &[&pxo, &pxo], true).is_err());
     assert_eq!(std::fs::read(&pxo).unwrap(), original);
 }
 #[test]
@@ -172,7 +172,7 @@ fn output_aliases_with_different_case_are_rejected_before_creation() {
     let dir = tempfile::tempdir().unwrap();
     let a = dir.path().join("alias.pxo");
     let b = dir.path().join("ALIAS.PXO");
-    assert!(spritex::output::preflight(Path::new(input()), &[&a, &b], true).is_err());
+    assert!(pixloom::output::preflight(Path::new(input()), &[&a, &b], true).is_err());
     assert!(!a.exists());
 }
 
@@ -184,7 +184,7 @@ fn ambiguous_windows_output_names_cannot_replace_the_other_output() {
         let a = dir.path().join("alias.pxo");
         let b = dir.path().join(name);
         assert!(
-            spritex::output::preflight(Path::new(input()), &[&a, &b], true).is_err(),
+            pixloom::output::preflight(Path::new(input()), &[&a, &b], true).is_err(),
             "{name}"
         );
         assert!(!a.exists());

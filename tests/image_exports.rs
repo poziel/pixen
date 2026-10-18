@@ -1,10 +1,10 @@
 use image::AnimationDecoder;
-use serde_json::json;
-use spritex::{
+use pixloom::{
     export::{self, ExportOptions, ImageFormat},
     model::Sprite,
     schema,
 };
+use serde_json::json;
 use std::io::Cursor;
 
 fn sprite(colors: &[&str], rows: &[Vec<u32>], durations: &[f64]) -> Sprite {

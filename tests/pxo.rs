@@ -1,5 +1,5 @@
+use pixloom::{archive::Archive, pxo, raster, schema};
 use serde_json::{Value, json};
-use spritex::{archive::Archive, pxo, raster, schema};
 use std::{
     io::{Read, Write},
     path::Path,

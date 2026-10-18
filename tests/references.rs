@@ -1,11 +1,11 @@
-use spritex::{pxo, raster, schema};
+use pixloom::{pxo, raster, schema};
 use std::{io::Read, path::Path};
 
 #[test]
-#[ignore = "requires original animation PXO in SPRITEX_ANIMATION_FIXTURE"]
+#[ignore = "requires original animation PXO in PIXLOOM_ANIMATION_FIXTURE"]
 fn original_animation_preserves_all_frames_links_and_native_swatches() {
     let path =
-        std::env::var_os("SPRITEX_ANIMATION_FIXTURE").expect("set SPRITEX_ANIMATION_FIXTURE");
+        std::env::var_os("PIXLOOM_ANIMATION_FIXTURE").expect("set PIXLOOM_ANIMATION_FIXTURE");
     let s = pxo::read(Path::new(&path)).unwrap();
     assert_eq!(
         (s.width, s.height, s.layers.len(), s.frames.len()),
@@ -62,7 +62,7 @@ fn original_animation_preserves_all_frames_links_and_native_swatches() {
 
 #[test]
 fn target_pixelorama_exports_generated_animation_with_correct_pixels_timing_tags_and_links() {
-    let dir = std::env::var_os("SPRITEX_NATIVE_DIR").unwrap_or_else(|| {
+    let dir = std::env::var_os("PIXLOOM_NATIVE_DIR").unwrap_or_else(|| {
         concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/tests/fixtures/native-animation"
@@ -72,7 +72,7 @@ fn target_pixelorama_exports_generated_animation_with_correct_pixels_timing_tags
     let dir = Path::new(&dir);
     let doc = std::fs::read(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/skills/spritex/examples/animated.json"
+        "/skills/pixloom/examples/animated.json"
     ))
     .unwrap();
     let s = schema::parse(&doc).unwrap();
@@ -118,7 +118,7 @@ fn malformed_zip_lengths_are_rejected() {
     original[pos + 24..pos + 28].copy_from_slice(&u32::MAX.to_le_bytes());
     let f = tempfile::NamedTempFile::new().unwrap();
     std::fs::write(f.path(), &original).unwrap();
-    assert!(spritex::archive::Archive::open(f.path()).is_err());
+    assert!(pixloom::archive::Archive::open(f.path()).is_err());
 }
 
 #[test]
@@ -143,12 +143,12 @@ fn independent_native_fixture_confirms_layer_order_visibility_and_combined_opaci
 }
 
 #[test]
-#[ignore = "requires independent Pixelorama PNG in SPRITEX_NATIVE_REFERENCE_PNG"]
+#[ignore = "requires independent Pixelorama PNG in PIXLOOM_NATIVE_REFERENCE_PNG"]
 fn original_reference_frame_is_within_one_level_of_native_headless_export() {
     let input =
-        std::env::var_os("SPRITEX_ANIMATION_FIXTURE").expect("set SPRITEX_ANIMATION_FIXTURE");
+        std::env::var_os("PIXLOOM_ANIMATION_FIXTURE").expect("set PIXLOOM_ANIMATION_FIXTURE");
     let export =
-        std::env::var_os("SPRITEX_NATIVE_REFERENCE_PNG").expect("set SPRITEX_NATIVE_REFERENCE_PNG");
+        std::env::var_os("PIXLOOM_NATIVE_REFERENCE_PNG").expect("set PIXLOOM_NATIVE_REFERENCE_PNG");
     let s = pxo::read(Path::new(&input)).unwrap();
     let rendered = raster::render(&s, 23).unwrap();
     let mut decoder = png::Decoder::new(std::fs::File::open(export).unwrap());
@@ -166,7 +166,7 @@ fn original_reference_frame_is_within_one_level_of_native_headless_export() {
         .max()
         .unwrap();
     println!("native reference comparison: {different} differing channels, max delta {max_delta}");
-    // Pixelorama quantizes intermediate RGBA8 blends; spritex rounds once.
+    // Pixelorama quantizes intermediate RGBA8 blends; pixloom rounds once.
     assert!(max_delta <= 1);
     assert!(
         rendered

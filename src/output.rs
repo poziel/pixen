@@ -255,7 +255,7 @@ mod tests {
     #[test]
     fn authoring_export_buffers_small_writes_and_stays_compact() {
         let sprite =
-            crate::schema::parse(include_bytes!("../skills/spritex/examples/animated.json"))
+            crate::schema::parse(include_bytes!("../skills/pixloom/examples/animated.json"))
                 .unwrap();
         let doc = crate::schema::to_document(&sprite).unwrap();
         let mut writer = CountingWriter::default();

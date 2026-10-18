@@ -5,14 +5,14 @@ use std::{
 fn input() -> &'static str {
     concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/skills/spritex/examples/animated.json"
+        "/skills/pixloom/examples/animated.json"
     )
 }
 fn s(p: &Path) -> &str {
     p.to_str().unwrap()
 }
 fn run(args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_spritex"))
+    Command::new(env!("CARGO_BIN_EXE_pixloom"))
         .args(args)
         .output()
         .unwrap()
@@ -28,7 +28,7 @@ fn ok(args: &[&str]) {
 
 #[test]
 fn renamed_commands_build_both_projects_export_all_images_and_unpack_json_files() {
-    assert!(String::from_utf8_lossy(&run(&["--version"]).stdout).starts_with("spritex 0.2"));
+    assert!(String::from_utf8_lossy(&run(&["--version"]).stdout).starts_with("pixloom 0.2"));
     assert!(String::from_utf8_lossy(&run(&["--help"]).stdout).contains("export"));
     let dir = tempfile::tempdir().unwrap();
     let base = dir.path().join("art");
@@ -250,9 +250,9 @@ fn mixed_static_animation_and_video_cli_exports_one_complete_timeline() {
         "--background",
         "#203040FF",
     ]);
-    let sprite = spritex::schema::parse(&std::fs::read(input()).unwrap()).unwrap();
-    let expected = spritex::raster::opaque_rgb(
-        &spritex::raster::render(&sprite, 0).unwrap(),
+    let sprite = pixloom::schema::parse(&std::fs::read(input()).unwrap()).unwrap();
+    let expected = pixloom::raster::opaque_rgb(
+        &pixloom::raster::render(&sprite, 0).unwrap(),
         Some([32, 48, 64, 255]),
     )
     .unwrap();

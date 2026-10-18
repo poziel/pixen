@@ -3,7 +3,7 @@ use anyhow::Result;
 use std::path::Path;
 pub fn is_container(path: &Path) -> bool {
     path.extension()
-        .is_some_and(|e| e.eq_ignore_ascii_case("spritex"))
+        .is_some_and(|e| e.eq_ignore_ascii_case("pixloom") || e.eq_ignore_ascii_case("spritex"))
 }
 pub fn read(path: &Path) -> Result<Document> {
     if is_container(path) {

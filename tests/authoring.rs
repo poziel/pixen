@@ -1,5 +1,5 @@
+use pixloom::{raster, schema};
 use serde_json::{Value, json};
-use spritex::{raster, schema};
 
 fn document() -> Value {
     json!({"version":1,"canvas":{"width":2,"height":1},
@@ -8,7 +8,7 @@ fn document() -> Value {
       "frames":[{"duration_ms":125}],
       "layers":[{"id":"base","name":"Base","opacity":1,"timeline":[{"cel":"base","opacity":1}]}]})
 }
-fn parse(v: Value) -> anyhow::Result<spritex::model::Sprite> {
+fn parse(v: Value) -> anyhow::Result<pixloom::model::Sprite> {
     schema::parse(&serde_json::to_vec(&v)?)
 }
 

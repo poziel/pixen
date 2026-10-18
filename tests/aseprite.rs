@@ -1,5 +1,5 @@
+use pixloom::{aseprite, pxo, raster, schema};
 use serde_json::json;
-use spritex::{aseprite, pxo, raster, schema};
 use std::{
     io::Write,
     path::{Path, PathBuf},
@@ -10,7 +10,7 @@ fn fixture(name: &str) -> PathBuf {
         .join("tests/fixtures/aseprite")
         .join(name)
 }
-fn model() -> spritex::model::Sprite {
+fn model() -> pixloom::model::Sprite {
     schema::parse(&serde_json::to_vec(&json!({"version":1,"canvas":{"width":2,"height":1},"palette":["#FA123480","#12345600"],"fps":8,
         "cels":[{"id":"paint","pixels":[[0,1]]}],
         "annotations":{"metadata":{"source":{"tool":"test"}},"user_data":"project note"},
@@ -23,7 +23,7 @@ fn model() -> spritex::model::Sprite {
         "tags":[{"name":"cycle","from":1,"to":6,"color":"#11223344","user_data":"tag note"}]
     })).unwrap()).unwrap()
 }
-fn written(s: &spritex::model::Sprite) -> tempfile::NamedTempFile {
+fn written(s: &pixloom::model::Sprite) -> tempfile::NamedTempFile {
     let mut f = tempfile::NamedTempFile::new().unwrap();
     aseprite::write(&mut f, s).unwrap();
     f
@@ -591,4 +591,30 @@ fn writer_preflights_native_raster_residency_without_inventing_links() {
     assert_eq!(r.frames.len(), 65);
     assert_eq!(r.images.len(), 1);
     assert_eq!(r.layers[0].timeline[0].link, r.layers[0].timeline[64].link);
+}
+
+#[test]
+fn legacy_spritex_metadata_envelopes_remain_readable() {
+    let expected = model();
+    let file = written(&expected);
+    let expected = aseprite::read(file.path()).unwrap();
+    let bytes = std::fs::read(file.path()).unwrap();
+    let old = b"spritex-aseprite-v1:";
+    let new = b"pixloom-aseprite-v1:";
+    let mut legacy = bytes.clone();
+    let mut count = 0;
+    for i in 0..=bytes.len() - new.len() {
+        if &bytes[i..i + new.len()] == new {
+            legacy[i..i + old.len()].copy_from_slice(old);
+            count += 1;
+        }
+    }
+    assert!(count > 0);
+    let file = temp(&legacy);
+    let actual = aseprite::read(file.path()).unwrap();
+    assert_eq!(
+        serde_json::to_value(actual.annotations).unwrap(),
+        serde_json::to_value(expected.annotations).unwrap()
+    );
+    assert_eq!(actual.frames.len(), expected.frames.len());
 }

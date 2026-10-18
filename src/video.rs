@@ -164,7 +164,7 @@ pub fn write(
     let durations = durations(s)?;
     let frame_budget = frame_budget(s)?;
     let mut builder = tempfile::Builder::new();
-    builder.prefix("spritex-video-");
+    builder.prefix("pixloom-video-");
     let temp = match &options.temp_parent {
         Some(parent) => builder.tempdir_in(parent),
         None => builder.tempdir(),

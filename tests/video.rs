@@ -1,9 +1,9 @@
-use serde_json::{Value, json};
-use spritex::{
+use pixloom::{
     model::Sprite,
     raster, schema,
     video::{self, VideoFormat, VideoOptions},
 };
+use serde_json::{Value, json};
 use std::{
     fs,
     io::Write,
@@ -149,7 +149,7 @@ fn fake_ffmpeg(directory: &Path) -> PathBuf {
     let rustc = std::env::var_os("RUSTC").unwrap_or_else(|| "rustc".into());
     let output = Command::new(rustc)
         .arg("--crate-name")
-        .arg("spritex_video_test_helper")
+        .arg("pixloom_video_test_helper")
         .arg(&source)
         .arg("-o")
         .arg(&executable)

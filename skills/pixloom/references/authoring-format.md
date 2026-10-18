@@ -31,7 +31,7 @@ Aseprite builds reject unused definitions to avoid dropping orphan pixel data.
 
 ## Version-2 pixel storage
 
-Use `.spritex.json` for new authoring filenames. Legacy `.json` filenames remain
+Use `.pixloom.json` for new authoring filenames. Legacy `.json` filenames remain
 readable; the reader does not select a schema by extension. Explicit CLI output
 filenames are honored. Existing version-1 documents require no modification.
 Version 1 forbids `encoding`; version 2 requires it on **every cel definition**.
@@ -172,7 +172,7 @@ Native PXO/Aseprite workflows store RGBA rasters: unpack generates a version-2
 `grid` document from those bytes and cannot recover original duplicate palette
 indices or the original encoding/placement. Preserve the authoring JSON for
 exact index identity. Rendering/native equivalence is checked separately from
-exact-index round trips. No optimizer or compressed `.spritex` container is
+exact-index round trips. No optimizer or compressed `.pixloom` container is
 implemented in this phase.
 
 ## Layers and explicit timelines
@@ -250,7 +250,7 @@ Projects, layers, frames and timeline entries accept
 Both fields are optional and default to empty. Metadata is a JSON object;
 keys beginning `_spritec` are reserved for internal provenance. Annotations are
 stored as Pixelorama metadata/user-data and returned by supported conversions.
-The reserved spelling remains unchanged for compatibility after the spritex
+The reserved spelling remains unchanged for compatibility after the pixloom
 rename. Aseprite preserves supported annotations through standard user-data JSON
 envelopes; they may be visible as text in editors.
 
@@ -289,23 +289,23 @@ round-trip guarantee.
 
 ## Storage optimization
 
-Author convenient valid encodings, then run `spritex optimize INPUT --in-place`
-or `spritex optimize INPUT --output OUTPUT`. Generated separate output names end
-in `.spritex.json`. The optimizer measures complete serialized cels across a
+Author convenient valid encodings, then run `pixloom optimize INPUT --in-place`
+or `pixloom optimize INPUT --output OUTPUT`. Generated separate output names end
+in `.pixloom.json`. The optimizer measures complete serialized cels across a
 bounded search; do not manually predict the smallest encoding. Exact indices,
 palette order, metadata and editing links are preserved. Encoding savings and
 JSON formatting/normalization savings are reported separately.
 
 ## Container storage
 
-The external JSON schema stays self-contained. `.spritex` packages the same
+The external JSON schema stays self-contained. `.pixloom` packages the same
 Document fields into `document.json`, replacing each cel with an explicit
 `{ "id": "body", "payload": "cels/body.json" }` reference. Each payload uses
 that cel's existing encoding schema without `id`. Frames/timelines stay together;
 row/tile dictionaries remain local. All definitions, including unused ones, are
-retained. See [exact container schema](../../../docs/container-format.md).
+retained. See [exact container schema](../../../workspace/docs/container-format.md).
 
 Pack without optimization to retain encoding choices. `pack --optimize` invokes
 the lossless JSON optimizer before packaging; JSON size does not predict smallest
 ZIP. Validate/build/export accept either format. Use unpack to reconstruct embedded
-payloads in `.spritex.json` before standalone optimization.
+payloads in `.pixloom.json` before standalone optimization.

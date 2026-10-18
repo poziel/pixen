@@ -1,5 +1,5 @@
+use pixloom::schema;
 use serde_json::{Value, json};
-use spritex::schema;
 fn doc(cel: Value) -> Value {
     json!({"version":2,"canvas":{"width":3,"height":2},"palette":["#FF0000FF","#12345600","#FF0000FF"],"cels":[cel],"frames":[{"duration_ms":100}],"layers":[{"id":"l","name":"L","timeline":[{"cel":"c"}]}]})
 }
@@ -26,7 +26,7 @@ fn five_explicit_encodings_render_identically() {
 
 #[test]
 fn exact_index_writer_round_trips_randomized_full_and_cropped_images() {
-    use spritex::encoding::{self, Kind, Placement};
+    use pixloom::encoding::{self, Kind, Placement};
     let kinds = [
         Kind::Grid,
         Kind::HybridRle,
@@ -88,7 +88,7 @@ fn authoring_read_write_preserves_duplicate_palette_entries_and_indices() {
         vec![vec![0, 2, 0], vec![2, 1, 2]]
     );
     let mut bytes = Vec::new();
-    spritex::output::write_document(&mut bytes, &d).unwrap();
+    pixloom::output::write_document(&mut bytes, &d).unwrap();
     let d = schema::read_document(&bytes).unwrap();
     assert_eq!(d.palette, vec!["#FF0000FF", "#12345600", "#FF0000FF"]);
     assert_eq!(
@@ -109,7 +109,7 @@ fn null_placement_and_default_are_invalid_not_missing() {
     }
 }
 
-fn parse_cel(cel: Value) -> anyhow::Result<spritex::model::Sprite> {
+fn parse_cel(cel: Value) -> anyhow::Result<pixloom::model::Sprite> {
     schema::parse(&serde_json::to_vec(&doc(cel)).unwrap())
 }
 #[test]
@@ -185,7 +185,7 @@ fn malformed_payloads_fail_safely() {
 
 #[test]
 fn canonical_tokens_use_strict_json_savings_and_accept_noncanonical_runs() {
-    use spritex::encoding::hybrid::{Token, encode};
+    use pixloom::encoding::hybrid::{Token, encode};
     assert_eq!(encode(&[0, 0, 0]), vec![Token::Literal(0); 3]); // [0,3] ties 0,0,0
     assert_eq!(encode(&[0, 0, 0, 0]), vec![Token::Run([0, 4])]);
     assert_eq!(encode(&[123, 123]), vec![Token::Literal(123); 2]); // tie
@@ -206,7 +206,7 @@ fn defaults_small_positioned_grids_sparse_adjacency_and_all_default() {
             0
         ]
     );
-    let c: spritex::encoding::Encoding = serde_json::from_value(
+    let c: pixloom::encoding::Encoding = serde_json::from_value(
         json!({"id":"c","encoding":"sparse-rows","default_index":2,"rows":[]}),
     )
     .unwrap();
@@ -226,7 +226,7 @@ fn defaults_small_positioned_grids_sparse_adjacency_and_all_default() {
 
 #[test]
 fn dictionaries_deduplicate_by_indices_in_first_occurrence_order() {
-    use spritex::encoding::{self, Kind, Placement};
+    use pixloom::encoding::{self, Kind, Placement};
     let image = vec![vec![2, 0], vec![0, 2], vec![2, 0]];
     let canvas = schema::Canvas {
         width: 2,
@@ -274,7 +274,7 @@ fn versions_are_explicit_and_legacy_remains_readable() {
 
 #[test]
 fn mixed_encodings_preserve_timelines_and_native_rendering_without_implicit_links() {
-    use spritex::{
+    use pixloom::{
         aseprite,
         encoding::{self, Kind, Placement},
         pxo, raster,
@@ -375,7 +375,7 @@ fn unused_dictionary_pixels_and_definitions_are_budgeted_before_expansion() {
 
 #[test]
 fn all_default_images_and_maximum_width_decode_in_every_encoding() {
-    use spritex::encoding::{self, Kind, Placement};
+    use pixloom::encoding::{self, Kind, Placement};
     for kind in [
         Kind::Grid,
         Kind::HybridRle,
