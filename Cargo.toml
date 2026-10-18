@@ -18,3 +18,8 @@ zip = { version = "2.4", default-features = false, features = ["deflate"] }
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
 flate2 = "1.1"
 gif = "0.14"
+rmcp = { version = "3.5.1", features = ["transport-io"] }
+tokio = { version = "1", features = ["rt-multi-thread", "signal"] }
+schemars = "1"
+eframe = { version = "0.33.3", default-features = false, features = ["default_fonts", "glow", "x11", "wayland"] }
+base64 = "0.23"

@@ -115,6 +115,16 @@ Version 2 supports five pixel encodings: `grid`, `hybrid-rle`, `sparse-rows`, `r
 
 See the [complete authoring reference](skills/pixloom/references/authoring-format.md) for placement, palettes, tags, annotations, and explicit editing links. Reusing a cel definition does not link edits; shared editing requires a layer-local `link` group.
 
+## MCP live canvas
+
+`pixloom mcp --viewer` lets an MCP client create, draw, inspect actual PNG previews,
+and save pixel art while a separate read-only window displays its work. The
+`open_preview` tool also opens existing static or animated projects, with local
+playback and frame thumbnails. Revision-checked layer, frame and drawing tools
+share atomic batches and bounded undo/redo. Use `pixloom mcp` for headless editing
+and image review.
+See [setup, client configuration and tool examples](docs/mcp.md).
+
 ## Commands
 
 Import existing raster artwork into an editable document:

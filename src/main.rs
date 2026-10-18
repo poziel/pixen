@@ -23,6 +23,13 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Commands {
+    /// Run the stdio MCP server, optionally displaying its canvas.
+    Mcp {
+        #[arg(long)]
+        viewer: bool,
+    },
+    #[command(hide = true)]
+    CanvasViewer { snapshot: PathBuf },
     /// Import raster pixels as an editable Pixloom document.
     Import {
         input: PathBuf,
@@ -121,6 +128,8 @@ enum Commands {
 }
 fn execute(cli: Cli) -> Result<()> {
     match cli.command {
+        Commands::Mcp { viewer } => pixloom::mcp::run(viewer)?,
+        Commands::CanvasViewer { snapshot } => pixloom::viewer::run(&snapshot)?,
         Commands::Import {
             input,
             output,
