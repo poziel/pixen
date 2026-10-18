@@ -1,0 +1,17 @@
+{
+  "canvas": [
+    192,
+    160
+  ],
+  "frames": 24,
+  "duration_ms": 3600,
+  "apng_plays": 0,
+  "gif_infinite_loop": true,
+  "palette_colors": 25,
+  "alpha_values": [
+    0,
+    255
+  ],
+  "canvas_border_clear": true,
+  "visual_review": "Still and contact sheet reviewed; playback not visually reviewed"
+}

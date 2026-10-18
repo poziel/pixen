@@ -1,0 +1,241 @@
+{
+  "chunks": {
+    "0x2004": 6,
+    "0x2005": 144,
+    "0x2018": 1,
+    "0x2019": 1,
+    "0x2020": 152
+  },
+  "color_depth": 32,
+  "format": "aseprite",
+  "frame_count": 24,
+  "frames": [
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    },
+    {
+      "annotations": {
+        "metadata": {},
+        "user_data": ""
+      },
+      "duration_ms": 150.0
+    }
+  ],
+  "height": 160,
+  "inspection": "metadata only; compressed raster payloads and linked-cel graphs are not validated",
+  "layer_count": 6,
+  "layers": [
+    {
+      "locked": false,
+      "name": "Rock and earth",
+      "new_cels_linked": false,
+      "opacity": 1.0,
+      "visible": true
+    },
+    {
+      "locked": false,
+      "name": "Meadow and stream bed",
+      "new_cels_linked": false,
+      "opacity": 1.0,
+      "visible": true
+    },
+    {
+      "locked": false,
+      "name": "Windmill tower and cozy shack",
+      "new_cels_linked": false,
+      "opacity": 1.0,
+      "visible": true
+    },
+    {
+      "locked": false,
+      "name": "Leafy tree",
+      "new_cels_linked": false,
+      "opacity": 1.0,
+      "visible": true
+    },
+    {
+      "locked": false,
+      "name": "Flowing water",
+      "new_cels_linked": false,
+      "opacity": 1.0,
+      "visible": true
+    },
+    {
+      "locked": false,
+      "name": "Rotating linen sails",
+      "new_cels_linked": false,
+      "opacity": 1.0,
+      "visible": true
+    }
+  ],
+  "raster_validated": false,
+  "tags": [
+    {
+      "color": "#6699CCFF",
+      "from": 1,
+      "name": "gentle-loop",
+      "to": 24,
+      "user_data": ""
+    }
+  ],
+  "unsupported_features": [],
+  "width": 192
+}
