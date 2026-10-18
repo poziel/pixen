@@ -14,4 +14,5 @@ pub mod schema;
 pub mod video;
 
 pub mod container;
+pub mod import;
 pub mod input;

@@ -8,9 +8,9 @@ A Rust CLI that turns structured pixel-art JSON into editable Aseprite and Pixel
 
 [Get started](#get-started) · [Authoring reference](skills/pixloom/references/authoring-format.md) · [Examples](#examples) · [Commands](#commands)
 
-![Animated bronze duelist created with Pixloom](examples/sword-slash-96/preview.gif)
+<img src="examples/floating-garden/floating-garden.gif" alt="A floating garden with a gently turning windmill, swaying flowers, and a flowing waterfall" width="480" height="384">
 
-*96 × 96 pixels · 7 layers · 10 frames. [Explore the example](examples/sword-slash-96/README.md).*
+*A little garden in the sky. 160 × 128 pixels · 6 layers · a seamless 4-second loop. [Explore the example](examples/floating-garden/README.md).*
 
 </div>
 
@@ -117,10 +117,25 @@ See the [complete authoring reference](skills/pixloom/references/authoring-forma
 
 ## Commands
 
+Import existing raster artwork into an editable document:
+
+```powershell
+pixloom import sprite.png --output "D:\Art\my-sprite.pixloom.json"
+pixloom import sprite.png --output "D:\Art\my-sprite.pixloom"
+pixloom import sprite.jpg --output "D:\Art\trimmed.pixloom" --transparent-color "#FFFFFF" --color-tolerance 20 --transparent-mode border --trim
+```
+
+PNG, JPEG and WebP stills, plus GIF, APNG and animated WebP, import as one
+`Artwork` layer with exact decoded RGBA8 pixels and a shared palette. Optional
+colour removal precedes trimming; animated trimming uses one shared crop.
+See [raster import](docs/raster-import.md) for tolerance semantics, limits,
+animation timing and loop metadata limitations.
+
 Run `pixloom <command> --help` for all options.
 
 | Command | Input | Purpose |
 | --- | --- | --- |
+| `import` | PNG, JPEG, GIF, APNG, or WebP | Create editable `.pixloom.json` or `.pixloom` |
 | `validate` | Authoring JSON or `.pixloom` | Check the document, pixels, and editing links |
 | `build` | Authoring JSON or `.pixloom` | Create editable `.pxo` and `.aseprite` projects |
 | `export` | Authoring JSON or `.pixloom` | Export images, animations, or video |
@@ -196,6 +211,8 @@ Use `--ffmpeg PATH` to select a specific executable. Video uses variable frame t
 
 ## Examples
 
+- [Floating garden](examples/floating-garden/README.md): the transparent README animation, with editable layers, native projects, and a light/dark preview.
+
 - [Small static source](skills/pixloom/examples/static.pixloom.json): a simple grid to edit by hand.
 - [Small animated source](skills/pixloom/examples/animated.pixloom.json): explicit frame timing and cel reuse.
 - [All five encodings](skills/pixloom/examples/encodings.pixloom.json): equivalent artwork stored in different ways.
@@ -227,7 +244,3 @@ cargo test --locked --test video --test commands -- --ignored --nocapture
 The Rust library separates authoring/schema validation, rendering, native codecs, and export operations from CLI parsing. Tests cover independent editor fixtures, pixel comparisons, animation timing, editing links, malformed inputs, and output safety.
 
 Technical references: [authoring](skills/pixloom/references/authoring-format.md) · [Aseprite](docs/aseprite-format.md) · [Pixelorama](docs/pxo-v7.md) · [images](docs/image-encoders.md) · [video](docs/video-export.md) · [containers](docs/container-format.md) · [benchmarks](docs/container-benchmarks.md).
-
-## License
-
-[MIT](LICENSE).

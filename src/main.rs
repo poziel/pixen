@@ -23,6 +23,23 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Commands {
+    /// Import raster pixels as an editable Pixloom document.
+    Import {
+        input: PathBuf,
+        #[arg(long)]
+        output: PathBuf,
+        #[arg(long)]
+        transparent_color: Option<String>,
+        /// Maximum absolute RGB channel difference (0..255).
+        #[arg(long, requires = "transparent_color")]
+        color_tolerance: Option<u8>,
+        #[arg(long, value_enum, requires = "transparent_color")]
+        transparent_mode: Option<pixloom::import::TransparentMode>,
+        #[arg(long)]
+        trim: bool,
+        #[arg(long)]
+        force: bool,
+    },
     /// Package authoring JSON as a compressed split-cel .pixloom container.
     Pack {
         input: PathBuf,
@@ -104,6 +121,33 @@ enum Commands {
 }
 fn execute(cli: Cli) -> Result<()> {
     match cli.command {
+        Commands::Import {
+            input,
+            output,
+            transparent_color,
+            color_tolerance,
+            transparent_mode,
+            trim,
+            force,
+        } => {
+            let color = transparent_color
+                .map(|c| -> Result<[u8; 3]> {
+                    ensure!(c.len() == 7, "--transparent-color must be #RRGGBB");
+                    let rgba = schema::decode_color(&format!("{c}FF"))?;
+                    Ok([rgba[0], rgba[1], rgba[2]])
+                })
+                .transpose()?;
+            let options = pixloom::import::Options {
+                transparent_color: color,
+                color_tolerance: color_tolerance.unwrap_or(0),
+                transparent_mode: transparent_mode.unwrap_or_default(),
+                trim,
+            };
+            for warning in pixloom::import::run(&input, &output, &options, force)? {
+                eprintln!("warning: {warning}");
+            }
+            println!("imported {}", output.display());
+        }
         Commands::Pack {
             input,
             output,
