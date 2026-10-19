@@ -1,144 +1,51 @@
 ---
 name: pixloom
-description: Author exact pixel-art JSON and compile editable Pixelorama/Aseprite projects or rendered static images, animations, and optional FFmpeg video with the standalone pixloom-cli executable. Use for layered sprites and explicit frame timelines; combine with separate art-direction skills.
+description: Create, edit, inspect, and export layered pixel art and animations with Pixloom through its connected MCP tools or standalone CLI. Use for Pixloom projects, exact pixel-art JSON, and supported native project conversions; combine with separate pixel-art guidance for artistic decisions.
 ---
 
-# pixloom
+# Pixloom
 
-Use `pixloom-cli` to turn explicit pixel decisions into editable projects and rendered
-exports. Read [the authoring reference](references/authoring-format.md) before
-authoring JSON. Use [static](examples/static.pixloom.json) and
-[animated](examples/animated.pixloom.json) as structural starting points; derive artwork
-from the user's brief and chosen sprite-design skill.
+Use the interface available in the current agent environment. This skill provides
+instructions; it does not install executables or register an MCP connection.
 
-1. Run `pixloom-cli --version`. These instructions target 0.2.0 and authoring versions 1 (legacy grids) and 2 (explicit cel encodings).
-   If unavailable, use the repository's locally built `target/release/pixloom-cli`
-   (`pixloom-cli.exe` on Windows). `cargo build --release --locked` is sufficient;
-   do not install globally or publish without the user's request.
-2. Author version-2 `.pixloom.json` palette-index documents with exact `#RRGGBBAA` colours. Name cels/layers,
-   supply every timeline entry, and choose editing links deliberately. Reusing a
-   cel stays independent unless timeline entries share a layer-local `link`.
-3. Validate, then choose outputs:
-   ```sh
-   pixloom-cli validate sprite.pixloom.json
-   pixloom-cli build sprite.pixloom.json --output assets/sprite --formats pxo,aseprite
-   pixloom-cli export sprite.pixloom.json --output assets/sprite --formats png,svg,gif,webp,apng
-   ```
-   `--output` is an extensionless directory/filename stem; the parent must exist.
-   Use fresh paths or `--force` for authorized replacements. PNG is optional.
-4. View a rendered PNG to check silhouette, alpha, layer order and placement.
-   Revise JSON and rebuild/export until it matches the brief. PNG is an
-   inspection output; keep the numeric document as the authoring source.
-5. For animations, inspect the native project and a contact sheet:
-   ```sh
-   pixloom-cli inspect assets/sprite.aseprite
-   pixloom-cli render assets/sprite.pxo --contact-sheet --columns 8 --output sheet.png
-   ```
-   Use valid column counts (1..frame count). Static exports default to frame 1;
-   GIF/WebP/APNG export every frame once by default; add `--loop` to repeat indefinitely. `--frame N` selects a still image and
-   is one-based. Tags label ranges and never add/repeat frames.
+## Choose an interface
 
-Choose encoding per cel: `grid` for easy explicit authoring, cropped `hybrid-rle`
-for clustered sprites, `sparse-rows` for scattered content, `row-table` for repeated
-complete rows, or `tiles` for repeated blocks. No encoding is universally smallest.
-Cropping uses paired `offset`/`size`, never a separate identifier. Sparse gaps use
-`default_index`, never previous-frame content. Dictionary references address local
-rows/tiles; pixel tokens and `default_index` address the root colour palette.
-Storage reuse never creates editing links. See the reference for exact payloads,
-fill/padding rules, canonical writers and resource limits, and the
-[all-encoding animation](examples/encodings.pixloom.json) for equivalent cels.
+- **Connected MCP:** prefer it for interactive creation, targeted edits, layers,
+  palettes, animation, checkpoints, and visual review. Read
+  [the MCP workflow](references/mcp.md). CLI installation is unnecessary for
+  operations supported by the connected server.
+- **CLI:** use it for explicit JSON authoring, validation, batch conversion,
+  packing/optimization, rendering, and video export. Read
+  [the CLI workflow](references/cli.md). It requires terminal access to
+  `pixloom-cli`; an MCP connection is unnecessary.
+- If both are available, choose by task. Keep active MCP edits in that session;
+  use CLI on saved files or separate exports. Do not externally overwrite an
+  active project's destination.
+- If the required interface is unavailable, explain what is missing. A path in
+  this skill does not connect a server. Do not assume Cargo, modify global
+  installation, or change client configuration without the user's request.
 
-Optional video uses `--formats mp4,webm`; only video requires FFmpeg. It needs at
-least two source frames and rejects `--frame`. MP4 uses lossless H.264 RGB;
-WebM uses lossless VP9 YUV444 with possible RGB conversion rounding. Neither
-preserves alpha. Transparent content needs explicit opaque
-`--background "#RRGGBBFF"` for video, JPEG, and BMP; GIF needs it for partial
-alpha. A supplied background flattens alpha in every requested export, so use a
-separate request when retaining transparency in PNG/WebP/APNG is required.
-GIF quantizes palettes above 256 colours and timings to 10 ms; WebP/video use
-1 ms, APNG normally 0.1 ms, all using cumulative endpoint rounding.
+MCP clients launch `pixloom-mcp` (`pixloom-mcp.exe` on Windows); `pixloom-cli`
+provides terminal commands and `pixloom` is the desktop inspector. Use configured
+paths or discover available executables rather than hardcoding a developer path.
+The client owns MCP startup; do not launch a second server for its connection.
 
-Use `pixloom-cli unpack existing.pxo --output editable/sprite.pixloom.json` or the same
-command with `.aseprite`/`.ase` input. Output identifies the JSON filename,
-not a directory. Unsupported features cause errors; do not flatten or silently
-remove them to force conversion. Aseprite requires whole-millisecond durations
-1..65535, rounds opacity to a byte, and rejects unused cel definitions. PXO
-supports the documented version-7 RGBA raster subset. `inspect` emits JSON;
-PXO metadata inspection alone does not validate raster buffers, while Aseprite
-inspection currently runs the full reader.
+## Shared working principles
 
-Report JSON/native/export paths, visual checks actually performed, and relevant
-compatibility limits. The CLI owns validation, output preparation and resource
-bounds; this skill supplies the authoring/inspection workflow without an art style.
+Preserve the brief, intended display size, existing style, editable layers, and
+intentional animation timing. Use a separate pixel-art skill when available for
+artistic decisions; this skill supplies Pixloom operations and evidence.
 
-## Optimize storage after authoring
+Prefer `.pixloom` for saved editable projects. `.pixloom.json` is the explicit
+text-authoring format; `.pixloom` is a ZIP container, not renamed JSON. Open other
+supported formats when needed and export native formats explicitly when requested.
+Preserve sources and use fresh destinations unless replacement is authorized.
 
-Use any convenient valid encoding; do not predict the smallest representation.
-Run `pixloom-cli optimize sprite.pixloom.json --in-place`, or use
-`--output optimized` to generate `optimized.pixloom.json`. An explicit destination
-is required; separate existing files require `--force`. Optimization preserves
-exact palette indices, palette order, IDs and editing links and emits minified
-JSON. The report separates formatting/normalization savings from encoding savings.
-The bounded search is deterministic, byte-idempotent, and does not promise global
-optimality. Version-1 files retain legacy grids. See the repository
-[search and safety contract](../../workspace/docs/optimizer.md) for candidate choices and limits.
+Inspect actual image results after meaningful changes. Tool success and valid
+files do not establish readability or motion quality. Compare against the brief
+and baseline, and report checks actually performed. Save the editable project
+alongside requested exports; distinguish session-local review checkpoints from
+files that persist after the server exits.
 
-## Compressed container workflow
-
-Use `pixloom-cli pack sprite.pixloom.json --output sprite.pixloom` to preserve all
-encoding choices, or add `--optimize` to run lossless JSON optimization first.
-Containers accept the same validate/build/export workflows. Unpack with
-`pixloom-cli unpack sprite.pixloom --output sprite.pixloom.json`; native unpack still
-works. Never rename JSON to `.pixloom`: it is a ZIP format.
-
-`inspect sprite.pixloom` checks structure/references without loading cel payloads;
-`validate` checks all payloads, including unused definitions. Individual cel
-loading is available through the repository Reader API. Build/export fully load
-and validate the document. Shared storage never implies linked editing.
-Standalone optimize rejects containers with unpack/repack guidance. Preserve the
-source and use fresh destinations or explicitly authorized `--force` replacement.
-See [container format](../../workspace/docs/container-format.md) for exact schemas, versions,
-strict entry policy and resource limits, and
-[benchmarks](../../workspace/docs/container-benchmarks.md) for compression tradeoffs.
-
-
-## MCP animation workflow
-
-When asked for animation, create multiple visually distinct frames with
-intentional motion. A static sprite in a multi-frame project, or identical
-copies, does not fulfill the request. No automatic tweening is provided.
-
-Use: block out → review → create keyframes → add useful intermediates → inspect
-contact sheet and playback → correct → save/export → open user preview.
-
-Use `get_project_info` to discover explicit stable frame/layer IDs and durations.
-`edit_frame` and mixed `apply_edits` share atomic revision checking. Duplicates
-are independent, but begin with identical pixels; draw changed poses. Specify
-`index` when building the timeline: duplication otherwise inserts after its
-source. Set each intended `duration_ms`, including useful holds.
-
-Use `inspect_project(project_id, frame_id)` for actual frame PNG feedback and
-`get_contact_sheet(project_id)` for a labelled PNG of IDs/durations. Check that
-poses differ and flow in timeline order; `distinct_composites` helps detect an
-accidentally static result. `get_preview` shows only the first ordered frame.
-`open_preview` is a user-facing read-only window, not visual feedback to the AI.
-Playback and contact-sheet checks complement one another; report what was
-actually observed rather than inferring animation from tool availability.
-
-Prefer `.pixloom` for MCP project destinations. `open_project` accepts all supported
-inspector inputs; non-Pixloom inputs default to a sibling `.pixloom` destination.
-`save_project` checkpoints without ending the session; `finish_project` saves and
-releases it. Both refuse external disk changes. `export_project` explicitly writes
-native projects or images without changing the project destination; the CLI also
-supports export. `edit_palette`, `copy_region` and `transform_region` share atomic
-revision-checked batches/undo. Use `inspect_layer` for isolated layers,
-`get_onion_skin` for neighboring poses, and `compare_frames` for changed-pixel
-images/counts. These return real PNG feedback and synchronize the inspector while
-Follow AI is on; they never edit artwork. GIF/WebP/APNG export all
-frames by default and play once; use `--loop` for indefinite looping. Do not use
-`--frame` when delivering the full animation. GIF rounds timing cumulatively to
-10 ms and may quantize colours. Open the saved project or GIF with `open_preview`
-for user delivery. Preserve source artwork and use fresh output paths.
-
-See repository `docs/mcp.md` and `examples/mcp-animation/README.md` for commands,
-tool contracts and a reproducible six-pose example.
+Read [the authoring format](references/authoring-format.md) only when writing or
+interpreting JSON. MCP drawing does not require hand-authoring that document.
