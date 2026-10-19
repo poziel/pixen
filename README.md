@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/pixloom-48.png" alt="Pixloom logo" width="48" height="48">
+
 # Pixloom
 
 **Weave pixels into projects.**

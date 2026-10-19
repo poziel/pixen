@@ -1,0 +1,41 @@
+{
+  "lighting": "Upper-left highlight only; no lower-right inner shadow. Colored rim preserved.",
+  "icons": [
+    {
+      "size": 16,
+      "png": "pixloom-16.png",
+      "project": "pixloom-16.pixloom",
+      "sha256": "20f27cdd09d94751a59805d8ad43914d4caf4d722664970b84e7d3528e439b6f"
+    },
+    {
+      "size": 20,
+      "png": "pixloom-20.png",
+      "project": "pixloom-20.pixloom",
+      "sha256": "23c1640f61e2d0826ac385522b30b06ce6376e3679fb70d2f1b9a5f6ed96e0c2"
+    },
+    {
+      "size": 24,
+      "png": "pixloom-24.png",
+      "project": "pixloom-24.pixloom",
+      "sha256": "0c9af1bb10deb3500a7fb7bf834e5bbd3efc6e4abeb2c4dc7e8e20773f343468"
+    },
+    {
+      "size": 32,
+      "png": "pixloom-32.png",
+      "project": "pixloom-32.pixloom",
+      "sha256": "cbff8b16578000cd118e2faebeefa322fb77fe94f9f7fb92fe1446ad240c2e45"
+    },
+    {
+      "size": 48,
+      "png": "pixloom-48.png",
+      "project": "pixloom-48.pixloom",
+      "sha256": "74ac1eb20ade046e6a6e391a9add597f07f250fd8d94d9c79258bd2ec9cd9d1e"
+    },
+    {
+      "size": 64,
+      "png": "pixloom-64.png",
+      "project": "pixloom-64.pixloom",
+      "sha256": "248793a55aaf8d458772d74ef817356baafddfe3c01d9686c1ec58e474699eae"
+    }
+  ]
+}

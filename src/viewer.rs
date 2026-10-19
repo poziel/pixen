@@ -1611,10 +1611,22 @@ pub fn launch(path: Option<&Path>, managed: bool) -> Result<()> {
                 let _ = tx.send(Message::Close);
             });
         }
+        let icon = image::load_from_memory_with_format(
+            include_bytes!("../assets/pixloom-48.png"),
+            image::ImageFormat::Png,
+        )
+        .context("decode embedded Pixloom window icon")?
+        .into_rgba8();
+        let icon = egui::IconData {
+            width: icon.width(),
+            height: icon.height(),
+            rgba: icon.into_raw(),
+        };
         let options = eframe::NativeOptions {
             viewport: egui::ViewportBuilder::default()
                 .with_inner_size([640.0, 560.0])
                 .with_title("Pixloom")
+                .with_icon(icon)
                 .with_min_inner_size([280.0, 260.0])
                 .with_active(true),
             renderer: eframe::Renderer::Glow,
