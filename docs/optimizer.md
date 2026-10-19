@@ -1,8 +1,8 @@
 # Lossless JSON optimization
 
 ```
-pixloom optimize art.pixloom.json --output art-small
-pixloom optimize art.pixloom.json --in-place
+pixloom-cli optimize art.pixloom.json --output art-small
+pixloom-cli optimize art.pixloom.json --in-place
 ```
 
 A destination is mandatory. Separate outputs append `.pixloom.json` unless already

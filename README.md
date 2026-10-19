@@ -26,7 +26,7 @@ Use it to build game assets from scripts, keep artwork in version control, autom
 - **Portable sources:** keep readable `.pixloom.json` files or compressed `.pixloom` containers.
 - **Lossless source optimization:** compact pixel storage while preserving palette indices, metadata, and editing links.
 
-Pixloom is a command-line tool. Author JSON by hand, produce it with your own scripts, or use the included [AI agent skill](skills/pixloom/SKILL.md). An editor is optional; only video exports require FFmpeg.
+Pixloom includes a desktop viewer (`pixloom`) and a command-line tool (`pixloom-cli`). Author JSON by hand, produce it with your own scripts, or use the included [AI agent skill](skills/pixloom/SKILL.md). An editor is optional; only video exports require FFmpeg.
 
 ## Get started
 
@@ -36,11 +36,11 @@ You need **Rust 1.89 or later**, including Cargo, and a local checkout of this r
 
 ```sh
 cargo install --path . --locked
-pixloom --version
-pixloom --help
+pixloom-cli --version
+pixloom-cli --help
 ```
 
-Cargo installs the executable in its bin directory, which must be on your `PATH`. With the default Cargo setup, that is `~/.cargo/bin` on Linux/macOS or `%USERPROFILE%\.cargo\bin` on Windows.
+Cargo installs all three executables in its bin directory, which must be on your `PATH`. With the default Cargo setup, that is `~/.cargo/bin` on Linux/macOS or `%USERPROFILE%\.cargo\bin` on Windows.
 
 To build without installing:
 
@@ -48,16 +48,16 @@ To build without installing:
 cargo build --release --locked
 ```
 
-Then use `./target/release/pixloom` on Linux/macOS or `.\target\release\pixloom.exe` in PowerShell in place of `pixloom` below.
+Then use `./target/release/pixloom-cli` on Linux/macOS or `.\target\release\pixloom-cli.exe` in PowerShell in place of `pixloom-cli` below.
 
 ### Export your first artwork
 
 From the repository root, validate the included animated example and export it:
 
 ```sh
-pixloom validate skills/pixloom/examples/animated.pixloom.json
-pixloom export skills/pixloom/examples/animated.pixloom.json --output heart --formats png,svg,gif
-pixloom build skills/pixloom/examples/animated.pixloom.json --output heart --formats pxo,aseprite
+pixloom-cli validate skills/pixloom/examples/animated.pixloom.json
+pixloom-cli export skills/pixloom/examples/animated.pixloom.json --output heart --formats png,svg,gif
+pixloom-cli build skills/pixloom/examples/animated.pixloom.json --output heart --formats pxo,aseprite
 ```
 
 You now have:
@@ -106,9 +106,9 @@ Each number selects a zero-based entry in `palette`. Here, `0` is transparent an
 A **cel** holds pixel data. A layer's **timeline** selects a cel for each frame. To animate, add frames with durations in milliseconds, define the artwork for them, and add a matching timeline entry to every layer. Layers are ordered from bottom to top.
 
 ```sh
-pixloom validate spark.pixloom.json
-pixloom export spark.pixloom.json --output spark --formats png,svg
-pixloom build spark.pixloom.json --output spark --formats pxo,aseprite
+pixloom-cli validate spark.pixloom.json
+pixloom-cli export spark.pixloom.json --output spark --formats png,svg
+pixloom-cli build spark.pixloom.json --output spark --formats pxo,aseprite
 ```
 
 Version 2 supports five pixel encodings: `grid`, `hybrid-rle`, `sparse-rows`, `row-table`, and `tiles`. Start with a grid and let the optimizer find a more compact representation later. Version 1 documents remain readable.
@@ -117,12 +117,16 @@ See the [complete authoring reference](skills/pixloom/references/authoring-forma
 
 ## MCP live canvas
 
-`pixloom mcp --viewer` lets an MCP client create, draw, inspect actual PNG previews,
+`pixloom-mcp --viewer` lets an MCP client create, draw, inspect actual PNG previews,
 and save pixel art while a separate read-only window displays its work. The
 `open_preview` tool also opens existing static or animated projects, with local
-playback and frame thumbnails. Revision-checked layer, frame and drawing tools
-share atomic batches and bounded undo/redo. Use `pixloom mcp` for headless editing
-and image review.
+playback and frame thumbnails. Open supported projects for editing with
+`open_project`; `.pixloom` is the default save format, with explicit native/image
+exports available. Revision-checked palette, region, layer, frame and drawing
+tools share atomic batches and bounded undo/redo. Onion-skin, frame-comparison
+and isolated-layer images help the AI review its work; inspection modes also
+appear in the viewer menu and synchronize while Follow AI is enabled.
+Use `pixloom-mcp` for headless editing and image review.
 See [setup, client configuration and tool examples](docs/mcp.md).
 
 ## Commands
@@ -130,12 +134,12 @@ See [setup, client configuration and tool examples](docs/mcp.md).
 Import existing raster artwork into an editable document:
 
 ```powershell
-pixloom import sprite.png --output "D:\Art\my-sprite.pixloom.json"
-pixloom import sprite.png --output "D:\Art\my-sprite.pixloom"
-pixloom import sprite.jpg --output "D:\Art\trimmed.pixloom" --transparent-color "#FFFFFF" --color-tolerance 20 --transparent-mode border --trim
+pixloom-cli import sprite.png --output "D:\Art\my-sprite.pixloom.json"
+pixloom-cli import sprite.png --output "D:\Art\my-sprite.pixloom"
+pixloom-cli import sprite.jpg --output "D:\Art\trimmed.pixloom" --transparent-color "#FFFFFF" --color-tolerance 20 --transparent-mode border --trim
 ```
 
-PNG, JPEG and WebP stills, plus GIF, APNG and animated WebP, import as one
+PNG, JPEG, WebP, BMP and the first TIFF image, plus GIF, APNG and animated WebP, import as one
 `Artwork` layer with exact decoded RGBA8 pixels and a shared palette. Optional
 colour removal precedes trimming; animated trimming uses one shared crop.
 See [raster import](docs/raster-import.md) for tolerance semantics, limits,
@@ -145,7 +149,7 @@ Run `pixloom <command> --help` for all options.
 
 | Command | Input | Purpose |
 | --- | --- | --- |
-| `import` | PNG, JPEG, GIF, APNG, or WebP | Create editable `.pixloom.json` or `.pixloom` |
+| `import` | PNG, JPEG, GIF, APNG, WebP, BMP, or TIFF | Create editable `.pixloom.json` or `.pixloom` |
 | `validate` | Authoring JSON or `.pixloom` | Check the document, pixels, and editing links |
 | `build` | Authoring JSON or `.pixloom` | Create editable `.pxo` and `.aseprite` projects |
 | `export` | Authoring JSON or `.pixloom` | Export images, animations, or video |
@@ -158,10 +162,10 @@ Run `pixloom <command> --help` for all options.
 ### Inspect and convert native projects
 
 ```sh
-pixloom inspect heart.aseprite
-pixloom render heart.pxo --contact-sheet --columns 2 --output heart-sheet.png
-pixloom unpack heart.aseprite --output editable.pixloom.json
-pixloom build editable.pixloom.json --output converted --formats pxo
+pixloom-cli inspect heart.aseprite
+pixloom-cli render heart.pxo --contact-sheet --columns 2 --output heart-sheet.png
+pixloom-cli unpack heart.aseprite --output editable.pixloom.json
+pixloom-cli build editable.pixloom.json --output converted --formats pxo
 ```
 
 `render` and `unpack` take a complete output filename. Frame numbers start at **1**; use `render --frame N` to select a frame. `render` writes PNG only.
@@ -171,10 +175,10 @@ Native input supports a defined subset of each editor's format. Pixelorama targe
 ### Optimize and package a source
 
 ```sh
-pixloom optimize spark.pixloom.json --output spark-small
-pixloom pack spark-small.pixloom.json --output spark.pixloom
-pixloom validate spark.pixloom
-pixloom unpack spark.pixloom --output restored.pixloom.json
+pixloom-cli optimize spark.pixloom.json --output spark-small
+pixloom-cli pack spark-small.pixloom.json --output spark.pixloom
+pixloom-cli validate spark.pixloom
+pixloom-cli unpack spark.pixloom --output restored.pixloom.json
 ```
 
 Separate optimizer outputs get the `.pixloom.json` suffix. Use `--in-place` instead of `--output` to optimize the original file.
@@ -198,13 +202,13 @@ Read more about [optimization](docs/optimizer.md) and [containers](docs/containe
 | MP4 | Video | None | FFmpeg; H.264 RGB, CRF 0 |
 | WebM | Video | None | FFmpeg; lossless VP9 with RGB/YUV conversion rounding |
 
-Still outputs use frame 1 by default. GIF, WebP, and APNG use the full timeline once; single-frame sources produce still images. `export --frame N` selects a still frame for any image format. Video requires at least two frames and does not accept `--frame`.
+Still outputs use frame 1 by default. GIF, WebP, and APNG use the full timeline once by default (`--loop` repeats indefinitely); single-frame sources produce still images. `export --frame N` selects a still frame for any image format. Video requires at least two frames and does not accept `--frame`.
 
 JPEG, BMP, MP4, and WebM need an opaque `--background` when the artwork contains transparency. GIF also needs one for partial alpha. A supplied background is applied to **every image and video in that export request**. Leave it out to preserve transparency in formats that support it.
 
 ```sh
-pixloom export skills/pixloom/examples/animated.pixloom.json --output frame --formats png,svg --frame 3
-pixloom export skills/pixloom/examples/animated.pixloom.json --output opaque --formats jpeg,bmp --background "#203040"
+pixloom-cli export skills/pixloom/examples/animated.pixloom.json --output frame --formats png,svg --frame 3
+pixloom-cli export skills/pixloom/examples/animated.pixloom.json --output opaque --formats jpeg,bmp --background "#203040"
 ```
 
 Pixloom preserves the canvas dimensions without resizing, smoothing, or antialiasing. Image animations encode one pass; a looping preview may have separate playback settings. See [image encoder policies](docs/image-encoders.md) for timing precision and format limits.
@@ -214,7 +218,7 @@ Pixloom preserves the canvas dimensions without resizing, smoothing, or antialia
 Install FFmpeg with the `libx264rgb` encoder for MP4 or `libvpx-vp9` for WebM, then make it available on `PATH`:
 
 ```sh
-pixloom export skills/pixloom/examples/animated.pixloom.json --output heart-video --formats mp4,webm --background "#203040"
+pixloom-cli export skills/pixloom/examples/animated.pixloom.json --output heart-video --formats mp4,webm --background "#203040"
 ```
 
 Use `--ffmpeg PATH` to select a specific executable. Video uses variable frame timing and the original canvas dimensions. See [video codecs and limits](docs/video-export.md) for codec details and playback compatibility.
@@ -254,3 +258,47 @@ cargo test --locked --test video --test commands -- --ignored --nocapture
 The Rust library separates authoring/schema validation, rendering, native codecs, and export operations from CLI parsing. Tests cover independent editor fixtures, pixel comparisons, animation timing, editing links, malformed inputs, and output safety.
 
 Technical references: [authoring](skills/pixloom/references/authoring-format.md) · [Aseprite](docs/aseprite-format.md) · [Pixelorama](docs/pxo-v7.md) · [images](docs/image-encoders.md) · [video](docs/video-export.md) · [containers](docs/container-format.md) · [benchmarks](docs/container-benchmarks.md).
+
+
+For multi-frame MCP authoring, labelled AI contact sheets and looping delivery,
+see the [animation workflow](docs/mcp.md#authoring-and-delivering-animation) and
+[reproducible bouncing-orb example](examples/mcp-animation/README.md).
+
+## Desktop app and AI live view
+
+Run `pixloom` to open an empty desktop window, or `pixloom "path/to/project.pixloom"`
+to load a file immediately. The top-right menu offers **Open file…** using the native Windows file picker, and drag-and-drop
+loads files into the same window. Supported inputs include `.pixloom`, authoring
+JSON, Pixelorama `.pxo`, RGBA Aseprite `.ase`/`.aseprite`, PNG/APNG, JPEG, GIF,
+WebP, BMP, and the first TIFF image. Format limitations still apply; unsupported or malformed
+files show an error without replacing the loaded project.
+
+Manual inspection and the AI live view use this same app and the same Rust
+loaders. Changes to the opened source reload automatically. The playback controls
+adjust preview speed from 0.125× to 8× without changing saved timing. The bottom
+left shows effective milliseconds per frame; the bottom right shows frame position.
+
+Build all three executables with `cargo build --release --locked` and keep them together:
+
+- `pixloom.exe`: desktop app; launches without a console on Windows.
+- `pixloom-cli.exe`: file commands and conversions.
+- `pixloom-mcp.exe`: stdio MCP server (`pixloom-mcp --viewer`).
+
+The MCP server runs only through `pixloom-mcp`; the CLI has no MCP subcommand.
+
+On Windows, right-click a `.pixloom` file, choose **Open with → Choose another app**,
+browse to `target/release/pixloom.exe`, and choose **Always**. Update existing MCP
+client configurations to point to `pixloom-mcp.exe`, with `--viewer` as the optional argument. Pixloom does not modify file
+associations or MCP configurations automatically.
+
+The menu switches animations between playback and a sprite-sheet view. Static
+images enable animation view only when a regular square-cell strip or grid with
+uniform gutters can be recognized; ordinary or ambiguous images leave the option
+disabled. Detected image sheets play at 100 ms per frame by default because the
+image contains no timing metadata. Conversions are read-only, use row-major order,
+and retain the original image when switching back. Sprite-sheet rendering obeys
+the existing canvas and pixel limits.
+
+Below playback, the footer shows frame duration on the left, the filename in the
+center, and frame position on the right. Errors replace the filename for eight
+seconds and then disappear; long text truncates and is available on hover.

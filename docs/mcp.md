@@ -4,9 +4,9 @@ Build and run from this repository (Rust 1.89 or newer):
 
 ```powershell
 cargo build --locked --release
-.\target\release\pixloom.exe mcp --viewer
+.\target\release\pixloom-mcp.exe --viewer
 # Headless:
-.\target\release\pixloom.exe mcp
+.\target\release\pixloom-mcp.exe
 ```
 
 If a running MCP client has locked the existing Windows executable, build a
@@ -14,14 +14,28 @@ separate copy without stopping that client:
 
 ```powershell
 cargo build --release --locked --target-dir target/mcp-editing
-.\target\mcp-editing\release\pixloom.exe mcp --viewer
+.\target\mcp-editing\release\pixloom-mcp.exe --viewer
 ```
 
 Point the client configuration below at that executable to use the new copy.
+Restart the MCP client connection after changing the binary/configuration.
+Check `tools/list`: this implementation exposes 24 tools including
+`edit_frame`, `inspect_project`, `get_contact_sheet`, and `open_preview`.
+A stale four-tool server can only expose the original static-preview workflow;
+source changes alone do not upgrade a running process. On Windows the original
+executable may remain locked by existing clients, so leave those clients intact
+and select the separate build explicitly. For that build use:
 
-On Linux/macOS use `./target/release/pixloom`. Linux needs the normal egui/eframe
+```toml
+[mcp_servers.pixloom]
+command = 'D:\Dev\5-tools\pixloom\target\mcp-editing\release\pixloom-mcp.exe'
+args = ["--viewer"]
+```
+
+
+On Linux/macOS use `./target/release/pixloom-mcp`. Linux needs the normal egui/eframe
 X11/Wayland build and runtime libraries and a working OpenGL desktop. The optional viewer is a separate
-process of this same executable; document edits always run inside the server.
+process of the sibling `pixloom` desktop executable; document edits always run inside the server.
 The server uses the [official Rust MCP SDK](https://github.com/modelcontextprotocol/rust-sdk)'s stdio transport. Stdout is reserved
 for protocol messages; diagnostics go to stderr.
 
@@ -31,8 +45,8 @@ Example MCP client configuration (replace the executable path):
 {
   "mcpServers": {
     "pixloom": {
-      "command": "D:\\Dev\\5-tools\\pixloom\\target\\release\\pixloom.exe",
-      "args": ["mcp", "--viewer"]
+      "command": "D:\\Dev\\5-tools\\pixloom\\target\\release\\pixloom-mcp.exe",
+      "args": ["--viewer"]
     }
   }
 }
@@ -42,8 +56,8 @@ For Codex `config.toml`:
 
 ```toml
 [mcp_servers.pixloom]
-command = 'D:\Dev\5-tools\pixloom\target\release\pixloom.exe'
-args = ["mcp", "--viewer"]
+command = 'D:\Dev\5-tools\pixloom\target\release\pixloom-mcp.exe'
+args = ["--viewer"]
 ```
 
 Remove `--viewer` to avoid automatically opening a viewer on project creation;
@@ -57,7 +71,7 @@ to avoid depending on the client's working directory.
 1. `create_project`:
 
    ```json
-   {"width":16,"height":16,"palette":["#00000000","#2048A0FF","#70C8FFFF"],"output_path":"D:/Dev/5-tools/pixloom/out/sprite.pixloom.json"}
+   {"width":16,"height":16,"palette":["#00000000","#2048A0FF","#70C8FFFF"],"output_path":"D:/Dev/5-tools/pixloom/out/sprite.pixloom"}
    ```
 
    The parent directory must exist and the destination must be new. The response
@@ -84,8 +98,8 @@ to avoid depending on the client's working directory.
    `project_id`, `revision`, `frame_id`, original canvas `width`/`height`, `scale`,
    and the `source` rectangle with its canvas coordinates. Omit `crop` for the
    full composite. Frame defaults to `frame-1`, scale to 8; crops must lie wholly
-   inside the canvas and have positive dimensions. This call never changes the
-   document, AI editing selection, or local viewer frame.
+   inside the canvas and have positive dimensions. This call never changes the document or AI editing targets. While Follow AI
+   is enabled it selects this frame and composite mode in the managed viewer.
 
 4. `open_preview` for the user-facing window:
 
@@ -128,7 +142,7 @@ to avoid depending on the client's working directory.
 
 `get_preview` remains backward-compatible: `{"project_id":"project-1","scale":8}`
 returns the first-frame composite PNG and its original revision/dimensions.
-There are thirteen tools. `apply_edits` remains the atomic batch-edit path;
+There are 24 tools. `apply_edits` remains the atomic batch-edit path;
 the focused mutation tools below use the same typed executor.
 
 All coordinates are zero-based and must be inside the canvas. Rectangles use
@@ -146,7 +160,14 @@ Structural edits and undo/redo conservatively return the full canvas bounds.
 
 | Tool | Purpose |
 | --- | --- |
-| `create_project` | Start one transparent project with an initial frame/layer |
+| `create_project` | Start one transparent project; prefer a `.pixloom` destination |
+| `open_project` | Open any supported inspector input for editing; default destination is `.pixloom` |
+| `save_project` | Atomic checkpoint without ending the session |
+| `export_project` | Explicit native-project/image export without changing the project destination |
+| `edit_palette` | Append/update exact colors or explicitly remap indices |
+| `copy_region`, `transform_region` | Snapshot-based copying, translation, flips and clockwise quarter-turns |
+| `get_onion_skin`, `compare_frames`, `inspect_layer` | Actual PNG review and matching Follow AI inspector mode |
+| `report_activity` | Describe current work without changing artwork |
 | `get_project_info` | Dimensions, palette, ordered layer/frame IDs, durations, links and revision |
 | `get_pixels` | At most 4096 exact pixels from an explicit layer/frame region |
 | `edit_layer` | One typed layer operation |
@@ -154,9 +175,9 @@ Structural edits and undo/redo conservatively return the full canvas bounds.
 | `draw` | One typed drawing operation on an explicit layer/frame |
 | `apply_edits` | Mix typed drawing, layer and frame operations in one transaction |
 | `undo`, `redo` | Restore one whole transaction, with revision checks |
-| `inspect_project`, `get_preview` | Explicit actual PNG review; no automatic mutation images |
+| `inspect_project`, `get_preview`, `get_contact_sheet` | Explicit actual PNG review; no automatic mutation images |
 | `open_preview` | Open/focus a read-only user preview |
-| `finish_project` | Validate/save without overwriting existing files |
+| `finish_project` | Save, close the managed viewer and release the session; refuse external file changes |
 
 Inspection uses `{"project_id":"project-1"}`. `get_project_info` returns
 zero-based ordered `index` values, stable `id` fields, exact `#RRGGBBAA` palette
@@ -344,8 +365,8 @@ Creation and every accepted edit persist a validated `.pixloom-recovery-*.pixloo
 beside the destination before acknowledging success. The snapshot path is
 printed to stderr. Unexpected shutdown leaves this recoverable authoring file;
 it does not create the final output or mark the session finished. Copy the
-snapshot to a new `.pixloom.json` path and use normal Pixloom commands to resume
-working with it outside MCP. Automatic MCP session restore is not implemented.
+snapshot to a new `.pixloom.json` path, or call `open_project` on it with an
+explicit `.pixloom` output_path to resume through MCP. Automatic session restore is not implemented.
 Successful finish removes the recovery snapshot. A crash after final-file
 publication but before cleanup may leave both files; the saved final file is
 valid. Recovery contains the document, not protocol IDs or revision history.
@@ -354,8 +375,7 @@ Editing supports one active project with multiple frames and layers, within
 Pixloom's document limits. File viewing supports the existing formats' static
 and animated projects. Preview images are limited to 16 million pixels; batches
 to 10,000 operations. There is
-no human drawing editor, selections/transforms, collaboration, palette-editing
-tool, or export tool. Retaining a manual-inspection window after the MCP
+no human drawing editor, freeform selection masks, automatic tweening, or collaboration. Retaining a manual-inspection window after the MCP
 connection ends is not implemented.
 
 ## Verification
@@ -370,7 +390,7 @@ cargo test --locked --test mcp_protocol
 cargo test --locked --test mcp_protocol graphical -- --ignored --nocapture --test-threads=1
 ```
 
-The protocol tests launch the real executable, discover exactly thirteen tools,
+The protocol tests launch the real executable, discover exactly 24 tools,
 create and draw a multicolour sprite, decode the returned PNG and check its
 pixels and dimensions, edit and finish, then start another project and
 check that forced shutdown preserves a valid recovery document. They also check
@@ -399,5 +419,223 @@ and keyboard selection, and static control omission. Core/protocol tests cover
 layer/frame ordering, independent duplication, cel/link semantics, geometry,
 strict bounds, region inspection, atomic rollback, stale revisions, history
 limits, redo invalidation, save failures and viewer-selection independence.
-No new manual visual or MCP-host image-display verification is claimed for this
-increment. Linux/macOS/Wayland desktop behaviour remains unverified.
+See the animation example verification record for the current Windows visual checks.
+MCP-host image display and Linux/macOS/Wayland desktop behaviour remain unverified.
+
+
+## Authoring and delivering animation
+
+An animation request means multiple **visually distinct frames with intentional
+motion**, not just a static sprite saved in an animation-capable project. Frame
+creation/duplication does not invent motion or tween pixels. Duplicate frames
+are useful holds or starting points; draw the changed poses explicitly.
+
+Recommended sequence: **block out → review → create keyframes → add useful
+intermediates → inspect contact sheet and playback → correct → save/export →
+open user preview**. Keep one revision-checked `apply_edits` batch per logical
+transaction. `edit_frame` uses that same executor. `add_frame` appends by default;
+`duplicate_frame` inserts immediately after its source by default. Specify
+zero-based `index` explicitly when assembling an ordered timeline. Duplication
+copies all layers into independent cels; subsequent drawing cannot alter its
+source. Reordering preserves stable IDs. Durations are positive finite ms.
+
+Compact MCP sequence (substitute returned project/revision IDs):
+
+```text
+get_project_info(project_id)                         # discover frames/layers
+inspect_project(project_id, frame_id="frame-1")      # review blockout PNG
+edit_frame(project_id, expected_revision,
+  operation={type:"duplicate_frame", frame_id:"frame-1", new_frame_id:"rise", index:1})
+apply_edits(project_id, expected_revision, operations=[
+  {type:"clear_cel", frame_id:"rise", layer_id:"layer-1"},
+  {type:"ellipse", frame_id:"rise", layer_id:"layer-1",
+   x:9,y:10,width:6,height:9,palette_index:2,filled:true},
+  {type:"set_frame_duration", frame_id:"rise", duration_ms:100}])
+# Repeat with distinct apex/fall/landing poses, then:
+get_contact_sheet(project_id, scale=8, columns=3)
+inspect_project(project_id, frame_id="fall", scale=8) # targeted image review
+apply_edits(project_id, expected_revision, operations=[...targeted correction...])
+open_preview(project_id)                            # inspect local playback
+finish_project(project_id)                          # editable source, no overwrite
+# Export saved source with the existing CLI (below).
+open_preview(path=".../bounce.gif")                 # user-facing delivery
+```
+
+`get_contact_sheet` returns actual PNG image content, visibly labelled with frame
+IDs and durations. Omit `frame_ids` for the ordered timeline, or supply an ordered
+unique subset. Defaults: scale 8, four columns; select 1–64 frames, maximum
+16 million output pixels. Reduce scale/subset on a limit error. Metadata contains
+`revision`, original canvas `width`/`height`, sheet dimensions, each frame's ID,
+duration and `image_bounds`, and `distinct_composites`. Identical composited holds
+count once; a count of one warrants checking whether motion was actually drawn.
+Inspection is read-only and does not affect history or viewer selection.
+`get_preview` returns **only the first ordered frame**. Use `inspect_project` with
+an explicit stable ID for a particular frame. A contact sheet demonstrates poses;
+it does not prove playback. `open_preview` shows the user a window and supplies
+no image feedback to the AI. Do not claim visual playback verification unless
+it was actually observed.
+
+Save/reopen preserves the editable timeline, layers, IDs, pixels and durations.
+The existing exporter renders every ordered frame for GIF/WebP/APNG unless
+`--frame` is specified; PNG and other static formats show only frame one by
+default. Animated exports play once by default; opt into indefinite looping:
+
+```powershell
+pixloom-cli export bounce.pixloom.json --output bounce --formats gif --loop
+```
+
+`--loop` requires at least two frames and a GIF/WebP/APNG output; it conflicts
+with `--frame`. Static formats in a mixed export remain static. GIF uses 10 ms
+cumulative endpoint rounding and palette quantization; alpha must be binary or
+supply an opaque `--background`. WebP uses 1 ms timing; APNG normally uses 0.1 ms,
+adapting precision for long holds. Durations that become zero or exceed format
+limits fail before output publication. Very short GIF delays may be clamped by
+third-party players. The viewer always loops its local playback and does not
+edit source data or inherit a file's finite loop count.
+
+`open_preview(path=...)` supports saved projects and GIF through the existing
+importer. GIF has no editable layer structure/stable source IDs; its read-only
+preview contains decoded composites and durations. Source files are never
+modified. Missing/unsupported files and unavailable desktops return actionable
+errors. Closing a window leaves editing/server state intact.
+
+The reproducible [six-pose bouncing-orb example](../examples/mcp-animation/README.md)
+uses actual MCP calls for creation, frame duplication/durations, drawing, PNG
+review, correction and save. CLI export then reloads the saved source. It includes
+the editable project, labelled sheet, individual frames, GIF and tool transcript.
+
+## Desktop, CLI and MCP executable names
+
+`pixloom` is the desktop app, `pixloom-cli` runs file commands, and `pixloom-mcp`
+runs the stdio MCP server. Keep all three executables in the same directory and
+ship them at matching versions. `open_preview` launches the sibling `pixloom`
+app with its managed stdio lifecycle. MCP diagnostics go to stderr; stdout is
+reserved for protocol traffic.
+
+Point new MCP configurations at `pixloom-mcp.exe` with `args = ["--viewer"]`
+(or no arguments for headless editing). The CLI has no MCP subcommand;
+`pixloom-mcp` is the dedicated server entry point.
+Launching `pixloom` without arguments opens an empty viewer; a project argument,
+Open, or drag-and-drop loads a file through the shared library.
+
+
+### Live viewer activity and following
+
+Managed previews show an activity strip for MCP drawing, layer/frame edits,
+and undo/redo, with completion or failure status. It reports actual
+tool operations, not the model's private reasoning. Mixed edit batches show
+their operation count and follow the last explicit frame/layer targets.
+
+**Follow AI** uses an on/off switch to select the editing frame and layer in the viewer.
+While following, manual controls and canvas navigation are disabled; the switch
+remains available. Turn it off
+to inspect another selection while live document updates continue. Following
+does not change the MCP editing targets or saved layer visibility. Layer eye
+controls and “show only this layer” remain local preview overrides.
+
+Use `report_activity` for your own concise activity descriptions:
+
+```json
+{"project_id":"project-1","message":"Drawing the ranger's weapons","busy":true,"frame_id":"frame-1","layer_id":"layer-1"}
+```
+
+The description and spinner stay active through subsequent drawing/layer/frame
+edits. Call again with `busy:false` and a completion message to finish the
+activity and restore automatic descriptions. Messages are limited to 240
+characters on a single line. Reporting never edits the document or revision.
+
+
+## Project open, save and export
+
+Use `.pixloom` as the normal MCP/app project format; JSON remains supported for
+direct authoring and debugging. Recovery snapshots remain internal authoring JSON.
+`create_project.output_path` accepts `.pixloom` or explicit `.pixloom.json`.
+
+`open_project` takes `path` and optional `output_path`. It accepts all inspector
+inputs: Pixloom JSON/containers (including legacy inputs), `.ase`/`.aseprite`,
+`.pxo`, PNG/JPEG/GIF/APNG/WebP/BMP/TIFF. Existing supported-feature restrictions
+apply; unsupported native features are rejected rather than silently discarded.
+Authoring inputs retain exact palette indices and persisted frame IDs. Native
+and raster imports get an editable indexed document with stable frame IDs.
+
+Opening `.pixloom` defaults to saving that same file. Other inputs default to a
+sibling `.pixloom` destination, preserving their original files. Existing sibling
+destinations require a different `output_path`. `open_project` returns full project
+info including `output_path`; query `get_project_info` after creation for that path.
+
+`save_project({project_id})` checkpoints the chosen destination and keeps revision,
+history and the viewer. `finish_project` saves and ends the session. Saving an
+opened or previously saved file refuses external disk changes, including deletion;
+failure retains the active project/recovery. Save operations stage output before
+publication; `.pixloom` containers are reopened and fully validated before commit.
+
+`export_project` takes `project_id`, `output_path`, optional `overwrite` (false),
+`frame_id` and `loop_animation` (false). The extension selects `.pixloom`,
+`.pixloom.json`, `.ase`/`.aseprite`, `.pxo`, or an image format supported by the CLI.
+Native/project export preserves the whole timeline and rejects frame/loop options.
+Image `frame_id` is a stable ID; omit it for the full animated timeline or the
+first frame for static formats. Use the CLI for video and explicit image
+background options. Export cannot replace the active destination or recovery;
+use `save_project` for project updates. Exporting to another application's source
+file requires an explicit export request and `overwrite:true` if it exists.
+
+## Palette and region edits
+
+New operations also work in `apply_edits` batches and share revision checks,
+validation, recovery, locked-layer rules and undo/redo with drawing.
+
+`edit_palette` takes `project_id`, `expected_revision` and `operation`:
+
+- `{"type":"append_colors","colors":["#AABBCCFF"]}` appends without deduplication.
+- `{"type":"set_color","palette_index":1,"color":"#123456FF"}` changes an
+  entry globally. Other indices never shift. If needed, a transparent entry is
+  appended so empty cels remain editable.
+- `{"type":"remap_color","from_index":1,"to_index":2,"frame_id":"pose-2","layer_id":"ink"}`
+  replaces exact indices; omit either scope for all frames/layers. Equal RGBA at
+  another index is untouched. Intentional cel links still share edits, including
+  outside the selected frame; unlinked storage detaches. Locked affected layers
+  reject the transaction. Palette entry updates are explicitly global, including
+  colors used by locked layers.
+
+`copy_region` takes `project_id`, `expected_revision`, `source_frame_id`,
+`source_layer_id`, `region:{x,y,width,height}`, destination `frame_id`, `layer_id`,
+`x`, `y`, and optional `transform`. Source is read before writing so overlapping
+copies are deterministic. Transparent pixels replace destination pixels too.
+
+`transform_region` takes the same project/revision, `frame_id`, `layer_id`,
+`region`, destination `x`,`y`, and required `transform`. It reads the source,
+clears the original rectangle, then pastes the transformed pixels in one undoable
+transaction. Transforms are `none` (translation), `flip_horizontal`,
+`flip_vertical`, `rotate90`, `rotate180`, `rotate270`; rotations are clockwise.
+Quarter-turns swap output width/height. Both source and destination must fit wholly
+inside the canvas; no clipping or resampling occurs. In `apply_edits`, use
+`type:"copy_region"` or `type:"transform_region"` alongside those fields.
+
+## Onion skin, comparison and isolated layers
+
+`get_onion_skin`, `compare_frames` and `inspect_layer` take `project_id`, explicit
+`frame_id`, optional `reference_frame_id`, optional `layer_id` and `scale` (8).
+`inspect_layer` requires `layer_id` and forces that layer visible in the preview.
+Other tools may isolate a layer in the same way. Stored visibility is unchanged.
+
+Onion skin places current artwork over faint red previous and cyan next poses,
+without wrapping the timeline. An explicit reference replaces both neighbors
+with one red reference. Frame comparison defaults to the previous frame (self on
+the first frame), marks every changed RGBA pixel pink, and dims unchanged pixels.
+It returns `changed_pixels`, counting additions, removals and alpha changes once.
+This measures pixel differences, not artistic quality or whether a loop is good.
+All tools return PNG MCP image content and revision/dimension/frame metadata;
+none changes document revision or undo history.
+
+The inspector's existing menu includes **Onion skin** and **Frame comparison**
+toggles and a reference-frame selector. These are mutually exclusive inspection
+modes. Manual mode changes pause playback. An isolated layer is identified in the
+menu with **Show all layers** to restore the composite.
+
+While **Follow AI** is on, successful inspection calls select their frames,
+reference, isolated layer and mode in the managed viewer. The menu remains
+openable to show the active settings, with its controls disabled while following.
+`inspect_project` restores composite mode. AI-selected views reset local layer
+visibility overrides so the image agrees with the AI render. While following is
+off, AI requests do not change your view; re-enabling Follow AI adopts the latest
+request. Viewer settings never change saved artwork or explicit editing targets.

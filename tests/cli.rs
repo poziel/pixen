@@ -3,7 +3,7 @@ use std::{
     process::{Command, Output},
 };
 fn run(args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_pixloom"))
+    Command::new(env!("CARGO_BIN_EXE_pixloom-cli"))
         .args(args)
         .output()
         .unwrap()
@@ -189,4 +189,45 @@ fn ambiguous_windows_output_names_cannot_replace_the_other_output() {
         );
         assert!(!a.exists());
     }
+}
+
+#[test]
+fn gui_and_cli_have_distinct_entry_points() {
+    let help = run(&["--help"]);
+    assert!(help.status.success());
+    assert!(String::from_utf8_lossy(&help.stdout).contains("pixloom-cli"));
+    let help = Command::new(env!("CARGO_BIN_EXE_pixloom"))
+        .arg("--help")
+        .output()
+        .unwrap();
+    assert!(help.status.success());
+    let text = String::from_utf8_lossy(&help.stdout);
+    assert!(text.contains("[INPUT]"));
+    assert!(!text.contains("validate"));
+}
+
+#[test]
+fn dedicated_mcp_entry_point_is_separate_and_cli_rejects_mcp() {
+    let executable = Path::new(env!("CARGO_BIN_EXE_pixloom-mcp"));
+    let help = Command::new(executable)
+        .arg("--help")
+        .output()
+        .expect("dedicated MCP executable must be built");
+    assert!(help.status.success());
+    let text = String::from_utf8_lossy(&help.stdout);
+    assert!(text.contains("pixloom-mcp"));
+    assert!(text.contains("--viewer"));
+    assert!(!text.contains("validate"));
+    let version = Command::new(executable).arg("--version").output().unwrap();
+    assert!(version.status.success());
+    assert!(String::from_utf8_lossy(&version.stdout).starts_with("pixloom-mcp "));
+    let removed = run(&["mcp", "--help"]);
+    assert!(!removed.status.success());
+    assert!(String::from_utf8_lossy(&removed.stderr).contains("unrecognized subcommand"));
+    let cli_help = run(&["--help"]);
+    assert!(
+        !String::from_utf8_lossy(&cli_help.stdout)
+            .lines()
+            .any(|line| line.trim_start().starts_with("mcp "))
+    );
 }

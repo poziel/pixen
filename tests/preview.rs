@@ -118,3 +118,21 @@ fn native_and_container_projects_use_the_same_composite_without_writes() {
     );
     assert_eq!(std::fs::read(&packed).unwrap(), original);
 }
+
+#[test]
+fn raster_previews_share_the_bounded_importer_and_preserve_source_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let image = image::RgbaImage::from_pixel(3, 2, image::Rgba([20, 40, 60, 255]));
+    for extension in ["png", "bmp", "tiff", "webp"] {
+        let path = dir.path().join(format!("image.{extension}"));
+        image.save(&path).unwrap();
+        let before = std::fs::read(&path).unwrap();
+        let sprite = load(&path).unwrap();
+        assert_eq!((sprite.width, sprite.height), (3, 2));
+        assert_eq!(
+            pixloom::raster::render(&sprite, 0).unwrap(),
+            image.as_raw().clone()
+        );
+        assert_eq!(std::fs::read(path).unwrap(), before);
+    }
+}

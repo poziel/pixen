@@ -16,7 +16,7 @@ pub struct CreateProject {
     pub height: u32,
     /// Colours in #RRGGBBAA order; indices are zero-based and stable.
     pub palette: Vec<String>,
-    /// Destination must end in .pixloom.json and its parent must exist.
+    /// Prefer .pixloom; explicit .pixloom.json is also supported. Parent must exist.
     pub output_path: PathBuf,
 }
 
@@ -28,6 +28,7 @@ struct Project {
     doc: schema::Document,
     output: PathBuf,
     recovery: PathBuf,
+    saved_bytes: Option<Vec<u8>>,
     used_ids: BTreeSet<String>,
     next_cel: u64,
     undo: VecDeque<Vec<u8>>,
@@ -49,10 +50,8 @@ impl Session {
         schema::pixel_bytes(args.width, args.height)?;
         ensure!(!args.palette.is_empty(), "palette must not be empty");
         ensure!(
-            args.output_path
-                .to_string_lossy()
-                .ends_with(".pixloom.json"),
-            "output_path must end in .pixloom.json"
+            project_destination(&args.output_path),
+            "output_path must end in .pixloom or .pixloom.json"
         );
         let output = output::resolved(&args.output_path)?;
         ensure!(!output.exists(), "output already exists");
@@ -97,6 +96,7 @@ impl Session {
             doc,
             output,
             recovery,
+            saved_bytes: None,
             used_ids: BTreeSet::from(["frame:frame-1".into(), "layer:layer-1".into()]),
             next_cel: 1,
             undo: VecDeque::new(),
@@ -138,6 +138,33 @@ impl Session {
             png,
             json!({"project_id":p.id,"revision":p.revision,"frame_id":frame_id,"width":sprite.width,"height":sprite.height,"source":source,"scale":scale}),
         ))
+    }
+
+    pub fn contact_sheet(
+        &self,
+        id: &str,
+        frame_ids: Option<Vec<String>>,
+        scale: u32,
+        columns: u32,
+    ) -> Result<(Vec<u8>, Value)> {
+        let p = self.project(id)?;
+        let indices = match frame_ids {
+            None => (0..p.doc.frames.len()).collect(),
+            Some(ids) => {
+                ensure!(
+                    ids.iter().collect::<std::collections::HashSet<_>>().len() == ids.len(),
+                    "frame_ids must be unique"
+                );
+                ids.iter()
+                    .map(|id| crate::edit::frame_index(&p.doc, id))
+                    .collect::<Result<Vec<_>>>()?
+            }
+        };
+        let sprite = schema::compile(p.doc.clone())?;
+        let (png, mut metadata) = crate::preview::contact_sheet(&sprite, &indices, scale, columns)?;
+        metadata["project_id"] = p.id.clone().into();
+        metadata["revision"] = p.revision.into();
+        Ok((png, metadata))
     }
 
     pub fn apply(&mut self, id: &str, expected: u64, operations: Vec<Operation>) -> Result<Value> {
@@ -182,7 +209,7 @@ impl Session {
         let p = self.project(id)?;
         Ok(
             json!({"project_id":p.id,"revision":p.revision,"width":p.doc.canvas.width,"height":p.doc.canvas.height,
-            "palette":p.doc.palette,"palette_semantics":"zero-based indices; exact #RRGGBBAA values, including duplicate colours; uncomposited cel pixels",
+            "output_path":p.output,"palette":p.doc.palette,"palette_semantics":"zero-based indices; exact #RRGGBBAA values, including duplicate colours; uncomposited cel pixels",
             "layers":p.doc.layers.iter().enumerate().map(|(index,l)|json!({"id":l.id,"index":index,"name":l.name,"visible":l.visible,"opacity":l.opacity,"locked":l.locked,"timeline":l.timeline})).collect::<Vec<_>>(),
             "frames":p.doc.frames.iter().enumerate().map(|(index,f)|json!({"id":crate::edit::frame_id(f),"index":index,"duration_ms":f.duration_ms})).collect::<Vec<_>>(),
             "undo_steps":p.undo.len(),"redo_steps":p.redo.len(),"history_max_steps":HISTORY_STEPS,"history_max_bytes":HISTORY_BYTES}),
@@ -282,11 +309,249 @@ impl Session {
         ))
     }
 
-    pub fn finish(&mut self, id: &str) -> Result<Value> {
+    /// Open any input supported by the inspector, preserving authoring indices where available.
+    pub fn open(&mut self, path: &Path, output_path: Option<&Path>) -> Result<Value> {
+        ensure!(
+            self.active.is_none(),
+            "finish the active project before opening another"
+        );
+        let source = path.canonicalize().context("open project")?;
+        let mut doc = match source
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .as_str()
+        {
+            "json" | "pixloom" | "spritex" => crate::input::read(&source)?,
+            _ => schema::to_document(&crate::preview::load(&source)?)?,
+        };
+        crate::edit::transparent(&mut doc);
+        let mut ids = BTreeSet::new();
+        for frame in &doc.frames {
+            if let Some(id) = crate::edit::frame_id(frame) {
+                schema::identifier(id)?;
+                ensure!(ids.insert(id.to_owned()), "duplicate persisted frame ID");
+            }
+        }
+        for i in 0..doc.frames.len() {
+            if crate::edit::frame_id(&doc.frames[i]).is_none() {
+                let mut n = i + 1;
+                while ids.contains(&format!("frame-{n}")) {
+                    n += 1;
+                }
+                let id = format!("frame-{n}");
+                ids.insert(id.clone());
+                doc.frames[i]
+                    .annotations
+                    .metadata
+                    .insert(crate::edit::FRAME_ID_KEY.into(), json!(id));
+            }
+        }
+        schema::validate_document(&doc)?;
+        snapshot(&doc)?;
+        let default_output = if source
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("pixloom"))
+        {
+            source.clone()
+        } else {
+            let stem = source
+                .file_stem()
+                .context("missing filename")?
+                .to_string_lossy();
+            source.with_file_name(format!(
+                "{}.pixloom",
+                stem.strip_suffix(".pixloom")
+                    .or_else(|| stem.strip_suffix(".spritex"))
+                    .unwrap_or(&stem)
+            ))
+        };
+        let output = output::resolved(output_path.unwrap_or(&default_output))?;
+        ensure!(
+            project_destination(&output),
+            "project output must end in .pixloom or .pixloom.json; use export_project for other formats"
+        );
+        let same_source = output == source;
+        ensure!(
+            same_source || !output.exists(),
+            "output already exists; choose another output_path"
+        );
+        let saved_bytes = if same_source {
+            Some(output::read_bounded(&output, output::MAX_OUTPUT_BYTES)?)
+        } else {
+            None
+        };
+        let mut recovery = tempfile::Builder::new()
+            .prefix(".pixloom-recovery-")
+            .suffix(".pixloom.json")
+            .tempfile_in(output.parent().context("output needs parent")?)?;
+        output::write_document(recovery.as_file_mut(), &doc)?;
+        recovery.as_file().sync_all()?;
+        let (_, recovery) = recovery.keep()?;
+        self.next_id += 1;
+        let id = format!("project-{}", self.next_id);
+        let used_ids = doc
+            .layers
+            .iter()
+            .map(|l| format!("layer:{}", l.id))
+            .chain(ids.into_iter().map(|id| format!("frame:{id}")))
+            .collect();
+        self.active = Some(Project {
+            id: id.clone(),
+            revision: 0,
+            doc,
+            output,
+            recovery,
+            saved_bytes,
+            used_ids,
+            next_cel: 0,
+            undo: VecDeque::new(),
+            redo: VecDeque::new(),
+        });
+        self.info(&id)
+    }
+
+    pub fn save(&mut self, id: &str) -> Result<Value> {
         let p = self.project(id)?;
         schema::validate_document(&p.doc)?;
-        output::Prepared::new(&p.output, |f| output::write_document(f, &p.doc))?.commit(false)?;
+        if let Some(previous) = &p.saved_bytes {
+            ensure!(
+                &output::read_bounded(&p.output, output::MAX_OUTPUT_BYTES)? == previous,
+                "project changed on disk; refusing to overwrite external edits"
+            );
+        } else {
+            ensure!(!p.output.exists(), "output already exists");
+        }
+        let prepared = output::Prepared::new(&p.output, |f| {
+            if crate::input::is_container(&p.output) {
+                crate::container::write(
+                    output::LimitedFile::new(f, output::MAX_OUTPUT_BYTES),
+                    &p.doc,
+                )
+            } else {
+                output::write_document(f, &p.doc)
+            }
+        })?;
+        if crate::input::is_container(&p.output) {
+            crate::container::Reader::open(prepared.staged_path())?.load()?;
+        }
+        let bytes = output::read_bounded(prepared.staged_path(), output::MAX_OUTPUT_BYTES)?;
+        prepared.commit(p.saved_bytes.is_some())?;
         let result = json!({"saved_path":p.output,"revision":p.revision});
+        self.active.as_mut().unwrap().saved_bytes = Some(bytes);
+        Ok(result)
+    }
+
+    pub fn export(
+        &self,
+        id: &str,
+        path: &Path,
+        overwrite: bool,
+        frame_id: Option<&str>,
+        loop_animation: bool,
+    ) -> Result<Value> {
+        let p = self.project(id)?;
+        let destination = output::resolved(path)?;
+        ensure!(
+            destination != p.output && destination != p.recovery,
+            "export must not replace the active project or recovery"
+        );
+        let sprite = schema::compile(p.doc.clone())?;
+        let extension = destination
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        let prepared = output::Prepared::new(&destination, |f| {
+            if project_destination(&destination) {
+                ensure!(
+                    frame_id.is_none() && !loop_animation,
+                    "project export preserves the full timeline"
+                );
+                if crate::input::is_container(&destination) {
+                    crate::container::write(
+                        output::LimitedFile::new(f, output::MAX_OUTPUT_BYTES),
+                        &p.doc,
+                    )
+                } else {
+                    output::write_document(f, &p.doc)
+                }
+            } else if matches!(extension.as_str(), "ase" | "aseprite" | "pxo") {
+                ensure!(
+                    frame_id.is_none() && !loop_animation,
+                    "native export preserves the full timeline"
+                );
+                let format = if extension == "pxo" {
+                    crate::formats::ProjectFormat::Pxo
+                } else {
+                    crate::formats::ProjectFormat::Aseprite
+                };
+                crate::native::write(
+                    output::LimitedFile::new(f, output::MAX_OUTPUT_BYTES),
+                    &sprite,
+                    format,
+                )
+            } else {
+                let formats = crate::formats::parse_export(&extension)?;
+                let crate::formats::OutputFormat::Image(format) = formats[0] else {
+                    anyhow::bail!("use the CLI for video export");
+                };
+                let frame = frame_id
+                    .map(|id| crate::edit::frame_index(&p.doc, id).map(|i| i + 1))
+                    .transpose()?;
+                let options = crate::export::ExportOptions {
+                    frame,
+                    loop_animation,
+                    background: None,
+                };
+                crate::export::validate(&sprite, format, &options)?;
+                crate::export::write(
+                    output::LimitedFile::new(f, output::MAX_OUTPUT_BYTES),
+                    &sprite,
+                    format,
+                    &options,
+                )
+            }
+        })?;
+        if crate::input::is_container(&destination) {
+            crate::container::Reader::open(prepared.staged_path())?.load()?;
+        }
+        prepared.commit(overwrite)?;
+        Ok(json!({"exported_path":destination,"revision":p.revision}))
+    }
+
+    pub fn analysis(
+        &self,
+        id: &str,
+        frame_id: &str,
+        reference_id: Option<&str>,
+        mode: crate::inspection::Mode,
+        scale: u32,
+        layer_id: Option<&str>,
+    ) -> Result<(Vec<u8>, Value)> {
+        let p = self.project(id)?;
+        let frame = crate::edit::frame_index(&p.doc, frame_id)?;
+        let reference = reference_id
+            .map(|id| crate::edit::frame_index(&p.doc, id))
+            .transpose()?;
+        let mut sprite = schema::compile(p.doc.clone())?;
+        if let Some(id) = layer_id {
+            ensure!(sprite.layers.iter().any(|l| l.id == id), "unknown layer_id");
+            sprite.layers.retain(|l| l.id == id);
+            sprite.layers[0].visible = true;
+        }
+        let (rgba, changed) = crate::inspection::render(&sprite, frame, reference, mode)?;
+        let png = crate::inspection::png(sprite.width, sprite.height, &rgba, scale)?;
+        Ok((
+            png,
+            json!({"project_id":id,"revision":p.revision,"frame_id":frame_id,"reference_frame_id":reference_id,"mode":mode,"layer_id":layer_id,"width":sprite.width,"height":sprite.height,"scale":scale,"changed_pixels":changed}),
+        ))
+    }
+
+    pub fn finish(&mut self, id: &str) -> Result<Value> {
+        let result = self.save(id)?;
+        let p = self.project(id)?;
         if let Err(e) = std::fs::remove_file(&p.recovery) {
             eprintln!("pixloom: could not remove recovery snapshot: {e}");
         }
@@ -359,4 +624,9 @@ fn changed(
             .unwrap_or(Value::Null),
         json!(changes),
     ))
+}
+
+fn project_destination(path: &Path) -> bool {
+    let name = path.to_string_lossy().to_ascii_lowercase();
+    name.ends_with(".pixloom") || name.ends_with(".pixloom.json")
 }

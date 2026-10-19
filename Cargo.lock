@@ -2009,6 +2009,7 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 name = "pixloom"
 version = "0.2.0"
 dependencies = [
+ "ab_glyph",
  "anyhow",
  "base64",
  "clap",
@@ -2023,6 +2024,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "windows-sys 0.61.2",
  "zip",
 ]
 

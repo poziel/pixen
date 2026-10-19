@@ -8,7 +8,7 @@ fn optimizer_requires_destination_and_is_idempotent() {
         include_bytes!("../skills/pixloom/examples/encodings.pixloom.json"),
     )
     .unwrap();
-    let cli = env!("CARGO_BIN_EXE_pixloom");
+    let cli = env!("CARGO_BIN_EXE_pixloom-cli");
     assert!(
         !Command::new(cli)
             .args(["optimize"])

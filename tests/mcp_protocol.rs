@@ -15,8 +15,7 @@ struct Client {
 }
 impl Client {
     fn new(viewer: bool) -> Self {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_pixloom"));
-        command.arg("mcp");
+        let mut command = Command::new(env!("CARGO_BIN_EXE_pixloom-mcp"));
         if viewer {
             command.arg("--viewer");
         }
@@ -465,17 +464,28 @@ fn stdio_create_draw_preview_edit_finish_and_reuse() {
         names,
         [
             "apply_edits",
+            "compare_frames",
+            "copy_region",
             "create_project",
             "draw",
             "edit_frame",
             "edit_layer",
+            "edit_palette",
+            "export_project",
             "finish_project",
+            "get_contact_sheet",
+            "get_onion_skin",
             "get_pixels",
             "get_preview",
             "get_project_info",
+            "inspect_layer",
             "inspect_project",
             "open_preview",
+            "open_project",
             "redo",
+            "report_activity",
+            "save_project",
+            "transform_region",
             "undo"
         ]
     );
@@ -592,4 +602,245 @@ fn focused_tools_and_mixed_apply_share_one_revision_and_history_path() {
         c.call("finish_project", json!({"project_id":id}))["isError"],
         true
     );
+}
+
+#[test]
+fn animation_review_save_reopen_and_looping_export_preserve_the_timeline() {
+    use pixloom::{
+        export::{self, ExportOptions, ImageFormat},
+        preview, raster,
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("motion.pixloom.json");
+    let mut c = Client::new(false);
+    let created = text(&c.call("create_project", json!({"width":4,"height":3,"palette":["#00000000","#FF0000FF","#00FF00FF"],"output_path":path})));
+    let id = created["project_id"].clone();
+    let mut ops = vec![json!({"type":"set_frame_duration","frame_id":"frame-1","duration_ms":180})];
+    for i in 2..=4 {
+        ops.push(json!({"type":"add_frame","frame_id":format!("pose-{i}"),"duration_ms":80*i}));
+    }
+    for (i, frame) in ["frame-1", "pose-2", "pose-3", "pose-4"].iter().enumerate() {
+        ops.push(json!({"type":"set_pixels","frame_id":frame,"layer_id":"layer-1","pixels":[{"x":i,"y":1,"palette_index":1+i%2}]}));
+    }
+    assert_eq!(
+        text(&c.call(
+            "apply_edits",
+            json!({"project_id":id,"expected_revision":0,"operations":ops})
+        ))["revision"],
+        1
+    );
+    let before = text(&c.call("get_project_info", json!({"project_id":id})));
+    let sheet = c.call(
+        "get_contact_sheet",
+        json!({"project_id":id,"scale":4,"columns":2}),
+    );
+    assert_ne!(sheet["isError"], true, "{sheet}");
+    let metadata = text(&sheet);
+    assert_eq!(metadata["distinct_composites"], 4);
+    assert_eq!(metadata["revision"], 1);
+    assert_eq!(metadata["frames"][1]["frame_id"], "pose-2");
+    assert_eq!(metadata["frames"][1]["duration_ms"], 160.0);
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(sheet["content"][0]["data"].as_str().unwrap())
+        .unwrap();
+    let image = image::load_from_memory(&bytes).unwrap().into_rgba8();
+    let bounds = &metadata["frames"][1]["image_bounds"];
+    let x = bounds["x"].as_u64().unwrap() as u32;
+    let y = bounds["y"].as_u64().unwrap() as u32;
+    assert_eq!(image.get_pixel(x + 4, y + 4).0, [0, 255, 0, 255]);
+    // Labels must be rasterized below every composite, not just returned as metadata.
+    for entry in metadata["frames"].as_array().unwrap() {
+        let b = &entry["image_bounds"];
+        let x = b["x"].as_u64().unwrap() as u32;
+        let y = b["y"].as_u64().unwrap() as u32 + b["height"].as_u64().unwrap() as u32;
+        assert!(
+            (y..y + 38)
+                .any(|py| (x..(x + 70).min(image.width()))
+                    .any(|px| image.get_pixel(px, py)[0] > 150))
+        );
+    }
+    for args in [
+        json!({"project_id":id,"columns":0}),
+        json!({"project_id":id,"scale":0}),
+        json!({"project_id":id,"scale":u32::MAX}),
+        json!({"project_id":id,"frame_ids":[]}),
+        json!({"project_id":id,"frame_ids":["pose-2","pose-2"]}),
+        json!({"project_id":id,"frame_ids":["missing"]}),
+    ] {
+        assert_eq!(c.call("get_contact_sheet", args)["isError"], true);
+    }
+    let subset = text(&c.call(
+        "get_contact_sheet",
+        json!({"project_id":id,"frame_ids":["pose-4","frame-1"],"scale":1}),
+    ));
+    assert_eq!(subset["frames"][0]["frame_id"], "pose-4");
+    assert_eq!(subset["frames"].as_array().unwrap().len(), 2);
+    let mut renders = Vec::new();
+    for frame in ["frame-1", "pose-2", "pose-3", "pose-4"] {
+        let png = c.call(
+            "inspect_project",
+            json!({"project_id":id,"frame_id":frame,"scale":1}),
+        );
+        assert_eq!(text(&png)["frame_id"], frame);
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(png["content"][0]["data"].as_str().unwrap())
+            .unwrap();
+        renders.push(
+            image::load_from_memory(&bytes)
+                .unwrap()
+                .into_rgba8()
+                .into_raw(),
+        );
+    }
+    assert_eq!(
+        text(&c.call("get_project_info", json!({"project_id":id}))),
+        before
+    );
+    assert_ne!(
+        c.call("finish_project", json!({"project_id":id}))["isError"],
+        true
+    );
+    let reopened = preview::load(&path).unwrap();
+    assert_eq!(
+        reopened
+            .frames
+            .iter()
+            .map(|f| f.duration_ms)
+            .collect::<Vec<_>>(),
+        [180.0, 160.0, 240.0, 320.0]
+    );
+    for (i, pixels) in renders.iter().enumerate() {
+        assert_eq!(&raster::render(&reopened, i).unwrap(), pixels);
+    }
+    let mut encoded = std::io::Cursor::new(Vec::new());
+    export::write(
+        &mut encoded,
+        &reopened,
+        ImageFormat::Gif,
+        &ExportOptions {
+            loop_animation: true,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let gif = dir.path().join("motion.gif");
+    std::fs::write(&gif, encoded.into_inner()).unwrap();
+    let before_bytes = std::fs::read(&gif).unwrap();
+    let imported = preview::load(&gif).unwrap();
+    assert_eq!(imported.frames.len(), 4);
+    for (i, pixels) in renders.iter().enumerate() {
+        assert_eq!(&raster::render(&imported, i).unwrap(), pixels);
+        assert_eq!(
+            imported.frames[i].duration_ms,
+            reopened.frames[i].duration_ms
+        );
+    }
+    assert_eq!(std::fs::read(&gif).unwrap(), before_bytes);
+}
+
+#[test]
+fn activity_reporting_is_validated_and_does_not_edit_the_project() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut c = Client::new(false);
+    let created = text(&c.call(
+        "create_project",
+        json!({
+            "width":4,"height":4,"palette":["#00000000"],
+            "output_path":dir.path().join("activity.pixloom.json")
+        }),
+    ));
+    let id = &created["project_id"];
+    let before = text(&c.call("get_project_info", json!({"project_id":id})));
+    let report = c.call(
+        "report_activity",
+        json!({
+            "project_id":id,"message":"Drawing the ranger's weapons","busy":true,
+            "frame_id":"frame-1","layer_id":"layer-1"
+        }),
+    );
+    assert_ne!(report["isError"], true, "{report}");
+    assert_eq!(text(&report)["revision"], 0);
+    for extra in [json!({"message":""}), json!({"frame_id":"missing"})] {
+        let mut args = json!({"project_id":id,"message":"Drawing","busy":true});
+        args.as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        assert_eq!(c.call("report_activity", args)["isError"], true);
+    }
+    assert_ne!(
+        c.call(
+            "report_activity",
+            json!({"project_id":id,"message":"Weapons ready","busy":false})
+        )["isError"],
+        true
+    );
+    assert_eq!(
+        text(&c.call("get_project_info", json!({"project_id":id}))),
+        before
+    );
+}
+
+#[test]
+fn project_container_palette_regions_and_animation_analysis_work_through_mcp() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("art.pixloom");
+    let mut c = Client::new(false);
+    let created = c.call(
+        "create_project",
+        json!({"width":4,"height":4,"palette":["#00000000","#FF0000FF"],"output_path":path}),
+    );
+    assert_ne!(created["isError"], true, "{created}");
+    let id = text(&created)["project_id"].as_str().unwrap().to_owned();
+    let r = c.call("edit_palette", json!({"project_id":id,"expected_revision":0,"operation":{"type":"append_colors","colors":["#00FF00FF"]}}));
+    assert_ne!(r["isError"], true, "{r}");
+    let r = c.call("draw", json!({"project_id":id,"expected_revision":1,"frame_id":"frame-1","layer_id":"layer-1","operation":{"type":"set_pixels","pixels":[{"x":0,"y":0,"palette_index":1},{"x":1,"y":0,"palette_index":2}]}}));
+    assert_ne!(r["isError"], true, "{r}");
+    let r = c.call("copy_region", json!({"project_id":id,"expected_revision":2,"source_frame_id":"frame-1","source_layer_id":"layer-1","region":{"x":0,"y":0,"width":2,"height":1},"frame_id":"frame-1","layer_id":"layer-1","x":1,"y":1}));
+    assert_ne!(r["isError"], true, "{r}");
+    let r = c.call("transform_region", json!({"project_id":id,"expected_revision":3,"frame_id":"frame-1","layer_id":"layer-1","region":{"x":1,"y":1,"width":2,"height":1},"x":1,"y":1,"transform":"flip_horizontal"}));
+    assert_ne!(r["isError"], true, "{r}");
+    let pixels = text(&c.call("get_pixels", json!({"project_id":id,"frame_id":"frame-1","layer_id":"layer-1","region":{"x":1,"y":1,"width":2,"height":1}})));
+    assert_eq!(pixels["pixels"][0]["palette_index"], 2);
+    assert_eq!(pixels["pixels"][1]["palette_index"], 1);
+    let r = c.call("edit_frame", json!({"project_id":id,"expected_revision":4,"operation":{"type":"add_frame","frame_id":"next","duration_ms":100}}));
+    assert_ne!(r["isError"], true, "{r}");
+    let compared = c.call(
+        "compare_frames",
+        json!({"project_id":id,"frame_id":"next","reference_frame_id":"frame-1","scale":1}),
+    );
+    assert_ne!(compared["isError"], true, "{compared}");
+    assert!(
+        compared["content"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v["type"] == "image")
+    );
+    assert_eq!(text(&compared)["changed_pixels"], 4);
+    let onion = c.call(
+        "get_onion_skin",
+        json!({"project_id":id,"frame_id":"next","scale":1}),
+    );
+    assert_ne!(onion["isError"], true, "{onion}");
+    assert_eq!(
+        text(&c.call("get_project_info", json!({"project_id":id})))["revision"],
+        5
+    );
+    let saved = c.call("save_project", json!({"project_id":id}));
+    assert_ne!(saved["isError"], true, "{saved}");
+    assert!(pixloom::container::Reader::open(&path).is_ok());
+    let r = c.call("finish_project", json!({"project_id":id}));
+    assert_ne!(r["isError"], true, "{r}");
+    let reopened = c.call("open_project", json!({"path":path}));
+    assert_ne!(reopened["isError"], true, "{reopened}");
+    let reopened_id = text(&reopened)["project_id"].as_str().unwrap().to_owned();
+    let info = text(&c.call("get_project_info", json!({"project_id":reopened_id})));
+    assert_eq!(info["palette"][2], "#00FF00FF");
+    assert_eq!(info["frames"][1]["id"], "next");
+    let export = c.call(
+        "export_project",
+        json!({"project_id":reopened_id,"output_path":dir.path().join("art.aseprite")}),
+    );
+    assert_ne!(export["isError"], true, "{export}");
+    assert!(pixloom::native::read(&dir.path().join("art.aseprite")).is_ok());
 }

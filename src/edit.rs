@@ -124,6 +124,8 @@ pub enum Operation {
     Draw(DrawOperation),
     Layer(LayerOperation),
     Frame(FrameOperation),
+    Palette(crate::edit_extra::PaletteOperation),
+    Region(crate::edit_extra::RegionOperation),
 }
 
 pub const FRAME_ID_KEY: &str = "pixloom_frame_id";
@@ -179,15 +181,27 @@ pub fn grid(doc: &Document, layer: usize, frame: usize) -> Result<Vec<Vec<u32>>>
         CelDefinition::Encoded(c) => c.decode_validated(&doc.canvas, doc.palette.len()),
     }
 }
+fn edited_cel(version: u32, id: String, pixels: Vec<Vec<u32>>) -> CelDefinition {
+    if version == 1 {
+        CelDefinition::Legacy(LegacyCel { id, pixels })
+    } else {
+        CelDefinition::Encoded(crate::encoding::Encoding::Grid(
+            crate::encoding::grid::Grid {
+                id,
+                pixels,
+                offset: None,
+                size: None,
+                default_index: None,
+            },
+        ))
+    }
+}
 fn new_cel(doc: &mut Document, pixels: Vec<Vec<u32>>, next: &mut u64) -> String {
     loop {
         *next += 1;
         let id = format!("cel-{next}");
         if !doc.cels.iter().any(|c| c.id() == id) {
-            doc.cels.push(CelDefinition::Legacy(LegacyCel {
-                id: id.clone(),
-                pixels,
-            }));
+            doc.cels.push(edited_cel(doc.version, id.clone(), pixels));
             return id;
         }
     }
@@ -265,6 +279,8 @@ pub fn execute(
     next_cel: &mut u64,
 ) -> Result<()> {
     match operation {
+        Operation::Palette(op) => crate::edit_extra::palette(doc, op, used, next_cel)?,
+        Operation::Region(op) => crate::edit_extra::region(doc, op, used, next_cel)?,
         Operation::Draw(op) => {
             let layer = layer_index(doc, &op.layer_id)?;
             let frame = frame_index(doc, &op.frame_id)?;
@@ -318,10 +334,7 @@ pub fn execute(
                     .iter_mut()
                     .find(|c| c.id() == id)
                     .context("unknown cel")?;
-                *c = CelDefinition::Legacy(LegacyCel {
-                    id: id.clone(),
-                    pixels,
-                });
+                *c = edited_cel(doc.version, id.clone(), pixels);
                 id
             } else {
                 new_cel(doc, pixels, next_cel)

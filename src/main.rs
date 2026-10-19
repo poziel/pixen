@@ -14,6 +14,7 @@ use std::{
 
 #[derive(Parser)]
 #[command(
+    name = "pixloom-cli",
     version,
     about = "Export explicit pixel art and build editable native sprite projects"
 )]
@@ -23,13 +24,10 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Commands {
-    /// Run the stdio MCP server, optionally displaying its canvas.
-    Mcp {
-        #[arg(long)]
-        viewer: bool,
-    },
     #[command(hide = true)]
     CanvasViewer { snapshot: PathBuf },
+    /// Open a project in the standalone inspector.
+    Preview { input: PathBuf },
     /// Import raster pixels as an editable Pixloom document.
     Import {
         input: PathBuf,
@@ -92,6 +90,9 @@ enum Commands {
         formats: String,
         #[arg(long)]
         frame: Option<usize>,
+        /// Loop GIF/WebP/APNG indefinitely. Static formats remain static.
+        #[arg(long = "loop", conflicts_with = "frame")]
+        loop_animation: bool,
         /// Opaque matte applied to exports: #RRGGBB or #RRGGBBFF.
         #[arg(long)]
         background: Option<String>,
@@ -128,7 +129,7 @@ enum Commands {
 }
 fn execute(cli: Cli) -> Result<()> {
     match cli.command {
-        Commands::Mcp { viewer } => pixloom::mcp::run(viewer)?,
+        Commands::Preview { input } => pixloom::viewer::inspect(&input)?,
         Commands::CanvasViewer { snapshot } => pixloom::viewer::run(&snapshot)?,
         Commands::Import {
             input,
@@ -210,13 +211,18 @@ fn execute(cli: Cli) -> Result<()> {
             output: destination,
             formats,
             frame,
+            loop_animation,
             background,
             ffmpeg,
             force,
         } => {
             let formats = formats::parse_export(&formats)?;
             let background = background.as_deref().map(parse_background).transpose()?;
-            let images = ExportOptions { frame, background };
+            let images = ExportOptions {
+                frame,
+                background,
+                loop_animation,
+            };
             let videos = VideoOptions {
                 background,
                 ffmpeg,
@@ -299,7 +305,7 @@ fn parse_background(value: &str) -> Result<[u8; 4]> {
 }
 fn main() {
     if let Err(error) = execute(Cli::parse()) {
-        eprintln!("pixloom: {error:#}");
+        eprintln!("pixloom-cli: {error:#}");
         std::process::exit(1);
     }
 }

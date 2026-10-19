@@ -219,6 +219,8 @@ pub fn decode(path: &Path) -> Result<Decoded> {
                 still(d)
             }
         }
+        ImageFormat::Bmp => still(image::codecs::bmp::BmpDecoder::new(reader)?),
+        ImageFormat::Tiff => still(image::codecs::tiff::TiffDecoder::new(reader)?),
         ImageFormat::Jpeg => still(image::codecs::jpeg::JpegDecoder::new(reader)?),
         ImageFormat::Gif => {
             let mut d = image::codecs::gif::GifDecoder::new(reader)?;
@@ -246,7 +248,9 @@ pub fn decode(path: &Path) -> Result<Decoded> {
                 still(d)
             }
         }
-        _ => anyhow::bail!("unsupported raster format: use PNG, JPEG, GIF, APNG, or WebP"),
+        _ => {
+            anyhow::bail!("unsupported raster format: use PNG, JPEG, GIF, APNG, WebP, BMP, or TIFF")
+        }
     }
 }
 fn remove_color(image: &mut RgbaImage, target: [u8; 3], tolerance: u8, mode: TransparentMode) {

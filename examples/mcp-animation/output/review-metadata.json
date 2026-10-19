@@ -1,0 +1,181 @@
+{
+  "frames": [
+    {
+      "duration_ms": 200.0,
+      "id": "frame-1",
+      "index": 0
+    },
+    {
+      "duration_ms": 100.0,
+      "id": "rise",
+      "index": 1
+    },
+    {
+      "duration_ms": 140.0,
+      "id": "apex-in",
+      "index": 2
+    },
+    {
+      "duration_ms": 220.0,
+      "id": "apex-out",
+      "index": 3
+    },
+    {
+      "duration_ms": 90.0,
+      "id": "fall",
+      "index": 4
+    },
+    {
+      "duration_ms": 120.0,
+      "id": "land",
+      "index": 5
+    }
+  ],
+  "height": 24,
+  "history_max_bytes": 67108864,
+  "history_max_steps": 32,
+  "layers": [
+    {
+      "id": "ground",
+      "index": 0,
+      "locked": false,
+      "name": "Ground",
+      "opacity": 1.0,
+      "timeline": [
+        {
+          "annotations": {
+            "metadata": {},
+            "user_data": ""
+          },
+          "cel": "cel-2",
+          "link": null,
+          "opacity": 1.0
+        },
+        {
+          "annotations": {
+            "metadata": {},
+            "user_data": ""
+          },
+          "cel": "cel-3",
+          "link": null,
+          "opacity": 1.0
+        },
+        {
+          "annotations": {
+            "metadata": {},
+            "user_data": ""
+          },
+          "cel": "cel-5",
+          "link": null,
+          "opacity": 1.0
+        },
+        {
+          "annotations": {
+            "metadata": {},
+            "user_data": ""
+          },
+          "cel": "cel-7",
+          "link": null,
+          "opacity": 1.0
+        },
+        {
+          "annotations": {
+            "metadata": {},
+            "user_data": ""
+          },
+          "cel": "cel-9",
+          "link": null,
+          "opacity": 1.0
+        },
+        {
+          "annotations": {
+            "metadata": {},
+            "user_data": ""
+          },
+          "cel": "cel-11",
+          "link": null,
+          "opacity": 1.0
+        }
+      ],
+      "visible": true
+    },
+    {
+      "id": "layer-1",
+      "index": 1,
+      "locked": false,
+      "name": "Orb",
+      "opacity": 1.0,
+      "timeline": [
+        {
+          "annotations": {
+            "metadata": {},
+            "user_data": ""
+          },
+          "cel": "cel-1",
+          "link": null,
+          "opacity": 1.0
+        },
+        {
+          "annotations": {
+            "metadata": {},
+            "user_data": ""
+          },
+          "cel": "cel-4",
+          "link": null,
+          "opacity": 1.0
+        },
+        {
+          "annotations": {
+            "metadata": {},
+            "user_data": ""
+          },
+          "cel": "cel-6",
+          "link": null,
+          "opacity": 1.0
+        },
+        {
+          "annotations": {
+            "metadata": {},
+            "user_data": ""
+          },
+          "cel": "cel-8",
+          "link": null,
+          "opacity": 1.0
+        },
+        {
+          "annotations": {
+            "metadata": {},
+            "user_data": ""
+          },
+          "cel": "cel-10",
+          "link": null,
+          "opacity": 1.0
+        },
+        {
+          "annotations": {
+            "metadata": {},
+            "user_data": ""
+          },
+          "cel": "cel-12",
+          "link": null,
+          "opacity": 1.0
+        }
+      ],
+      "visible": true
+    }
+  ],
+  "palette": [
+    "#00000000",
+    "#15243AFF",
+    "#36A9D6FF",
+    "#8CE7E5FF",
+    "#F6E6A6FF",
+    "#42536CFF"
+  ],
+  "palette_semantics": "zero-based indices; exact #RRGGBBAA values, including duplicate colours; uncomposited cel pixels",
+  "project_id": "project-1",
+  "redo_steps": 0,
+  "revision": 13,
+  "undo_steps": 13,
+  "width": 24
+}

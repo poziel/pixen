@@ -1,28 +1,28 @@
 ---
 name: pixloom
-description: Author exact pixel-art JSON and compile editable Pixelorama/Aseprite projects or rendered static images, animations, and optional FFmpeg video with the standalone pixloom CLI. Use for layered sprites and explicit frame timelines; combine with separate art-direction skills.
+description: Author exact pixel-art JSON and compile editable Pixelorama/Aseprite projects or rendered static images, animations, and optional FFmpeg video with the standalone pixloom-cli executable. Use for layered sprites and explicit frame timelines; combine with separate art-direction skills.
 ---
 
 # pixloom
 
-Use `pixloom` to turn explicit pixel decisions into editable projects and rendered
+Use `pixloom-cli` to turn explicit pixel decisions into editable projects and rendered
 exports. Read [the authoring reference](references/authoring-format.md) before
 authoring JSON. Use [static](examples/static.pixloom.json) and
 [animated](examples/animated.pixloom.json) as structural starting points; derive artwork
 from the user's brief and chosen sprite-design skill.
 
-1. Run `pixloom --version`. These instructions target 0.2.0 and authoring versions 1 (legacy grids) and 2 (explicit cel encodings).
-   If unavailable, use the repository's locally built `target/release/pixloom`
-   (`pixloom.exe` on Windows). `cargo build --release --locked` is sufficient;
+1. Run `pixloom-cli --version`. These instructions target 0.2.0 and authoring versions 1 (legacy grids) and 2 (explicit cel encodings).
+   If unavailable, use the repository's locally built `target/release/pixloom-cli`
+   (`pixloom-cli.exe` on Windows). `cargo build --release --locked` is sufficient;
    do not install globally or publish without the user's request.
 2. Author version-2 `.pixloom.json` palette-index documents with exact `#RRGGBBAA` colours. Name cels/layers,
    supply every timeline entry, and choose editing links deliberately. Reusing a
    cel stays independent unless timeline entries share a layer-local `link`.
 3. Validate, then choose outputs:
    ```sh
-   pixloom validate sprite.pixloom.json
-   pixloom build sprite.pixloom.json --output assets/sprite --formats pxo,aseprite
-   pixloom export sprite.pixloom.json --output assets/sprite --formats png,svg,gif,webp,apng
+   pixloom-cli validate sprite.pixloom.json
+   pixloom-cli build sprite.pixloom.json --output assets/sprite --formats pxo,aseprite
+   pixloom-cli export sprite.pixloom.json --output assets/sprite --formats png,svg,gif,webp,apng
    ```
    `--output` is an extensionless directory/filename stem; the parent must exist.
    Use fresh paths or `--force` for authorized replacements. PNG is optional.
@@ -31,11 +31,11 @@ from the user's brief and chosen sprite-design skill.
    inspection output; keep the numeric document as the authoring source.
 5. For animations, inspect the native project and a contact sheet:
    ```sh
-   pixloom inspect assets/sprite.aseprite
-   pixloom render assets/sprite.pxo --contact-sheet --columns 8 --output sheet.png
+   pixloom-cli inspect assets/sprite.aseprite
+   pixloom-cli render assets/sprite.pxo --contact-sheet --columns 8 --output sheet.png
    ```
    Use valid column counts (1..frame count). Static exports default to frame 1;
-   GIF/WebP/APNG export every frame once. `--frame N` selects a still image and
+   GIF/WebP/APNG export every frame once by default; add `--loop` to repeat indefinitely. `--frame N` selects a still image and
    is one-based. Tags label ranges and never add/repeat frames.
 
 Choose encoding per cel: `grid` for easy explicit authoring, cropped `hybrid-rle`
@@ -58,7 +58,7 @@ separate request when retaining transparency in PNG/WebP/APNG is required.
 GIF quantizes palettes above 256 colours and timings to 10 ms; WebP/video use
 1 ms, APNG normally 0.1 ms, all using cumulative endpoint rounding.
 
-Use `pixloom unpack existing.pxo --output editable/sprite.pixloom.json` or the same
+Use `pixloom-cli unpack existing.pxo --output editable/sprite.pixloom.json` or the same
 command with `.aseprite`/`.ase` input. Output identifies the JSON filename,
 not a directory. Unsupported features cause errors; do not flatten or silently
 remove them to force conversion. Aseprite requires whole-millisecond durations
@@ -74,7 +74,7 @@ bounds; this skill supplies the authoring/inspection workflow without an art sty
 ## Optimize storage after authoring
 
 Use any convenient valid encoding; do not predict the smallest representation.
-Run `pixloom optimize sprite.pixloom.json --in-place`, or use
+Run `pixloom-cli optimize sprite.pixloom.json --in-place`, or use
 `--output optimized` to generate `optimized.pixloom.json`. An explicit destination
 is required; separate existing files require `--force`. Optimization preserves
 exact palette indices, palette order, IDs and editing links and emits minified
@@ -85,10 +85,10 @@ optimality. Version-1 files retain legacy grids. See the repository
 
 ## Compressed container workflow
 
-Use `pixloom pack sprite.pixloom.json --output sprite.pixloom` to preserve all
+Use `pixloom-cli pack sprite.pixloom.json --output sprite.pixloom` to preserve all
 encoding choices, or add `--optimize` to run lossless JSON optimization first.
 Containers accept the same validate/build/export workflows. Unpack with
-`pixloom unpack sprite.pixloom --output sprite.pixloom.json`; native unpack still
+`pixloom-cli unpack sprite.pixloom --output sprite.pixloom.json`; native unpack still
 works. Never rename JSON to `.pixloom`: it is a ZIP format.
 
 `inspect sprite.pixloom` checks structure/references without loading cel payloads;
@@ -100,3 +100,45 @@ source and use fresh destinations or explicitly authorized `--force` replacement
 See [container format](../../workspace/docs/container-format.md) for exact schemas, versions,
 strict entry policy and resource limits, and
 [benchmarks](../../workspace/docs/container-benchmarks.md) for compression tradeoffs.
+
+
+## MCP animation workflow
+
+When asked for animation, create multiple visually distinct frames with
+intentional motion. A static sprite in a multi-frame project, or identical
+copies, does not fulfill the request. No automatic tweening is provided.
+
+Use: block out → review → create keyframes → add useful intermediates → inspect
+contact sheet and playback → correct → save/export → open user preview.
+
+Use `get_project_info` to discover explicit stable frame/layer IDs and durations.
+`edit_frame` and mixed `apply_edits` share atomic revision checking. Duplicates
+are independent, but begin with identical pixels; draw changed poses. Specify
+`index` when building the timeline: duplication otherwise inserts after its
+source. Set each intended `duration_ms`, including useful holds.
+
+Use `inspect_project(project_id, frame_id)` for actual frame PNG feedback and
+`get_contact_sheet(project_id)` for a labelled PNG of IDs/durations. Check that
+poses differ and flow in timeline order; `distinct_composites` helps detect an
+accidentally static result. `get_preview` shows only the first ordered frame.
+`open_preview` is a user-facing read-only window, not visual feedback to the AI.
+Playback and contact-sheet checks complement one another; report what was
+actually observed rather than inferring animation from tool availability.
+
+Prefer `.pixloom` for MCP project destinations. `open_project` accepts all supported
+inspector inputs; non-Pixloom inputs default to a sibling `.pixloom` destination.
+`save_project` checkpoints without ending the session; `finish_project` saves and
+releases it. Both refuse external disk changes. `export_project` explicitly writes
+native projects or images without changing the project destination; the CLI also
+supports export. `edit_palette`, `copy_region` and `transform_region` share atomic
+revision-checked batches/undo. Use `inspect_layer` for isolated layers,
+`get_onion_skin` for neighboring poses, and `compare_frames` for changed-pixel
+images/counts. These return real PNG feedback and synchronize the inspector while
+Follow AI is on; they never edit artwork. GIF/WebP/APNG export all
+frames by default and play once; use `--loop` for indefinite looping. Do not use
+`--frame` when delivering the full animation. GIF rounds timing cumulatively to
+10 ms and may quantize colours. Open the saved project or GIF with `open_preview`
+for user delivery. Preserve source artwork and use fresh output paths.
+
+See repository `docs/mcp.md` and `examples/mcp-animation/README.md` for commands,
+tool contracts and a reproducible six-pose example.

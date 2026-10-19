@@ -184,7 +184,7 @@ fn cli_json_and_container_export_and_native_build_are_equivalent() {
     )
     .unwrap();
     let run = |args: Vec<String>| {
-        let o = Command::new(env!("CARGO_BIN_EXE_pixloom"))
+        let o = Command::new(env!("CARGO_BIN_EXE_pixloom-cli"))
             .args(args)
             .output()
             .unwrap();
@@ -330,7 +330,7 @@ fn corrupt_unused_payload_preserves_unpack_destination_and_source() {
     archive(&p, &all);
     let before = std::fs::read(&p).unwrap();
     std::fs::write(&destination, b"manual content").unwrap();
-    let out = Command::new(env!("CARGO_BIN_EXE_pixloom"))
+    let out = Command::new(env!("CARGO_BIN_EXE_pixloom-cli"))
         .arg("unpack")
         .arg(&p)
         .arg("--output")
@@ -341,7 +341,7 @@ fn corrupt_unused_payload_preserves_unpack_destination_and_source() {
     assert!(!out.status.success());
     assert_eq!(std::fs::read(&destination).unwrap(), b"manual content");
     assert_eq!(std::fs::read(&p).unwrap(), before);
-    let out = Command::new(env!("CARGO_BIN_EXE_pixloom"))
+    let out = Command::new(env!("CARGO_BIN_EXE_pixloom-cli"))
         .arg("optimize")
         .arg(&p)
         .arg("--in-place")

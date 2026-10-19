@@ -27,6 +27,18 @@ pub fn export(
         images.frame.is_none() || !formats.iter().any(|f| matches!(f, OutputFormat::Video(_))),
         "--frame cannot be used when video output is requested; video exports the full animation"
     );
+    ensure!(
+        !images.loop_animation
+            || formats.iter().any(|f| matches!(
+                f,
+                OutputFormat::Image(
+                    crate::export::ImageFormat::Gif
+                        | crate::export::ImageFormat::Webp
+                        | crate::export::ImageFormat::Apng
+                )
+            )),
+        "--loop requires GIF, WebP or APNG output; static images and videos do not carry looping metadata"
+    );
     let sprite = crate::input::compile(input)?;
     for format in formats {
         match format {
