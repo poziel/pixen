@@ -130,6 +130,9 @@ and isolated-layer images help the AI review its work; inspection modes also
 appear in the viewer menu and synchronize while Follow AI is enabled.
 Use `pixloom-mcp` for headless editing and image review.
 See [setup, client configuration and tool examples](docs/mcp.md).
+[Art-review APIs](docs/art-review.md) add review sheets, immutable checkpoints,
+component/color measurements, explicit validation rules and animation audits.
+The inspector displays their evidence without modifying artwork.
 
 ## Commands
 

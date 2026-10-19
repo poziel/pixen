@@ -171,16 +171,54 @@ struct Analysis {
     #[serde(default = "default_scale")]
     scale: u32,
 }
+#[derive(Deserialize, JsonSchema)]
+struct ReviewSheetArgs {
+    project_id: String,
+    #[serde(flatten)]
+    request: crate::review::render::ReviewSheetRequest,
+}
+#[derive(Deserialize, JsonSchema)]
+struct CompareCheckpointArgs {
+    project_id: String,
+    #[serde(flatten)]
+    request: crate::review::compare::CompareCheckpointRequest,
+}
+#[derive(Deserialize, JsonSchema)]
+struct AnalyzeSpriteArgs {
+    project_id: String,
+    #[serde(flatten)]
+    request: crate::review::measure::AnalyzeSpriteRequest,
+}
+#[derive(Deserialize, JsonSchema)]
+struct ValidateArtworkArgs {
+    project_id: String,
+    #[serde(flatten)]
+    request: crate::review::rules::ValidateArtworkRequest,
+}
+#[derive(Deserialize, JsonSchema)]
+struct AuditAnimationArgs {
+    project_id: String,
+    #[serde(flatten)]
+    request: crate::review::animation::AuditAnimationRequest,
+}
+#[derive(Deserialize, JsonSchema)]
+struct ManageCheckpointArgs {
+    project_id: String,
+    #[serde(flatten)]
+    request: crate::review::checkpoints::CheckpointAction,
+}
 struct State {
     session: Session,
     viewers: BTreeMap<PathBuf, crate::viewer::ViewerProcess>,
     show_viewer: bool,
     custom_activity: Option<(String, String)>,
     last_inspection: Option<crate::inspection::View>,
+    last_review: Option<crate::viewer::review_ui::ViewerReview>,
 }
 impl State {
     fn inspection(&mut self, view: &crate::inspection::View) {
         self.last_inspection = Some(view.clone());
+        self.last_review = None;
         let Some(path) = self.session.recovery_path() else {
             return;
         };
@@ -189,6 +227,39 @@ impl State {
         {
             eprintln!("pixloom: inspection delivery failed: {e:#}");
         }
+    }
+    fn review_response(
+        &mut self,
+        review: anyhow::Result<crate::review::ReviewResult>,
+    ) -> CallToolResult {
+        let r = match review {
+            Ok(r) => r,
+            Err(e) => return result(Err(e)),
+        };
+        let wire = match crate::viewer::review_ui::ViewerReview::new(&r) {
+            Ok(w) => w,
+            Err(e) => return result(Err(e)),
+        };
+        self.last_inspection = None;
+        self.last_review = Some(wire.clone());
+        if let Some(path) = self.session.recovery_path()
+            && let Some(viewer) = self.viewers.get_mut(&preview_key(path))
+            && let Err(e) = viewer.review(&wire)
+        {
+            eprintln!("pixloom: review delivery failed: {e:#}");
+        }
+        let mut content = r
+            .images
+            .into_iter()
+            .map(|i| {
+                Content::image(
+                    base64::engine::general_purpose::STANDARD.encode(i.png),
+                    "image/png",
+                )
+            })
+            .collect::<Vec<_>>();
+        content.push(Content::text(r.report.to_string()));
+        CallToolResult::success(content)
     }
     fn report_activity(&mut self, args: ReportActivity) -> anyhow::Result<serde_json::Value> {
         let message = args.message.trim();
@@ -345,6 +416,15 @@ impl State {
         {
             self.inspection(&view);
         }
+        if self
+            .session
+            .recovery_path()
+            .is_some_and(|p| preview_key(p) == key)
+            && let Some(r) = self.last_review.clone()
+            && let Some(viewer) = self.viewers.get_mut(&key)
+        {
+            let _ = viewer.review(&r);
+        }
         reply["reused"] = false.into();
         Ok(reply)
     }
@@ -468,6 +548,75 @@ fn result(value: anyhow::Result<serde_json::Value>) -> CallToolResult {
 #[tool_router]
 impl Server {
     #[tool(
+        description = "Read-only multi-scale color/silhouette/grayscale PNG review with neutral labels, opaque backgrounds and source-space panel metadata. Defaults display_scale=1, enlarged_scale=8. May synchronize the inspector while Follow AI is on."
+    )]
+    fn get_review_sheet(&self, Parameters(args): Parameters<ReviewSheetArgs>) -> CallToolResult {
+        let mut state = self.state.lock().unwrap();
+        let r = state.session.review_sheet(&args.project_id, &args.request);
+        state.review_response(r)
+    }
+    #[tool(
+        description = "Compare the current document with an immutable session checkpoint: structural changes, exact indices/resolved colors, disjoint added/removed/repainted/alpha-only pixels, and optional before/current/difference images. No aesthetic rating; default include_images=true and scale=8."
+    )]
+    fn compare_checkpoint(
+        &self,
+        Parameters(args): Parameters<CompareCheckpointArgs>,
+    ) -> CallToolResult {
+        let mut state = self.state.lock().unwrap();
+        let r = state
+            .session
+            .compare_checkpoint(&args.project_id, &args.request);
+        state.review_response(r)
+    }
+    #[tool(
+        description = "Measure bounds, padding, occupancy, centroid, exact palette-index use, rendered colors and 4/8-connected components. One-pixel components are observations, not confirmed defects. Returns bounded annotated PNG evidence by default; never edits artwork."
+    )]
+    fn analyze_sprite(&self, Parameters(args): Parameters<AnalyzeSpriteArgs>) -> CallToolResult {
+        let mut state = self.state.lock().unwrap();
+        let r = state
+            .session
+            .analyze_sprite(&args.project_id, &args.request);
+        state.review_response(r)
+    }
+    #[tool(
+        description = "Check 1..64 caller-supplied canvas/count/timing/palette/color/alpha/protected-region rules. Valid violations return passed:false as successful reports; invalid arguments are tool errors. Protected regions use immutable checkpoints. No implicit art style or automatic repair."
+    )]
+    fn validate_artwork(
+        &self,
+        Parameters(args): Parameters<ValidateArtworkArgs>,
+    ) -> CallToolResult {
+        let mut state = self.state.lock().unwrap();
+        let r = state
+            .session
+            .validate_artwork(&args.project_id, &args.request);
+        state.review_response(r)
+    }
+    #[tool(
+        description = "Read-only animation evidence: durations, holds, distinct rendered poses, bounds/centroids, consecutive frame changes, optional loop transition and caller-threshold warnings. PNG contact sheet. Does not judge artistic quality or require identical loop endpoints."
+    )]
+    fn audit_animation(&self, Parameters(args): Parameters<AuditAnimationArgs>) -> CallToolResult {
+        let mut state = self.state.lock().unwrap();
+        let r = state
+            .session
+            .audit_animation(&args.project_id, &args.request);
+        state.review_response(r)
+    }
+    #[tool(
+        description = "Create/list/delete immutable session-local checkpoints independently of undo/redo. create/delete require expected_revision; create label is 1..80 characters. At most 16 snapshots/64 MiB, no silent eviction. Captures survive undo and save, and end with the editing session. Does not change artwork revision/history."
+    )]
+    fn manage_checkpoint(
+        &self,
+        Parameters(args): Parameters<ManageCheckpointArgs>,
+    ) -> CallToolResult {
+        result(
+            self.state
+                .lock()
+                .unwrap()
+                .session
+                .manage_checkpoint(&args.project_id, args.request),
+        )
+    }
+    #[tool(
         description = "Open any supported inspector input as an editable project: .pixloom, JSON, .pxo, .ase/.aseprite and supported raster images/animations. Preserve authoring palette indices. Default save destination is .pixloom (same file for .pixloom input, sibling otherwise); optional output_path selects .pixloom or .pixloom.json. One active project; existing unrelated destinations are rejected."
     )]
     fn open_project(&self, Parameters(args): Parameters<OpenProject>) -> CallToolResult {
@@ -475,6 +624,7 @@ impl Server {
         let opened = state.session.open(&args.path, args.output_path.as_deref());
         if opened.is_ok() {
             state.last_inspection = None;
+            state.last_review = None;
             state.custom_activity = None;
         }
         if opened.is_ok() && state.show_viewer {
@@ -573,6 +723,7 @@ impl Server {
         let created = state.session.create(args);
         if created.is_ok() {
             state.last_inspection = None;
+            state.last_review = None;
             state.custom_activity = None;
         }
         if created.is_ok() && state.show_viewer {
@@ -806,7 +957,7 @@ impl ServerHandler for Server {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("pixloom", env!("CARGO_PKG_VERSION")))
-            .with_instructions("Pixloom pixel-art authoring. Use report_activity with a brief user-facing description when starting a meaningful task (busy=true) and when finishing it (busy=false). An animation request means multiple visually distinct frames with intentional motion, not a static sprite in a multi-frame document. Workflow: block out, review, create keyframes, add useful intermediates, inspect get_contact_sheet and playback, correct, finish/save, export the full timeline (CLI --loop for looping GIF/WebP/APNG), open user preview. get_preview shows only the first frame; inspect_project targets a specific stable frame ID. Use get_project_info/get_pixels for exact inspection; edit_layer/edit_frame/draw or mixed apply_edits batches for atomic revision-checked changes; undo/redo for transaction history. inspect_project returns actual PNG content; open_preview only shows the user a read-only window. Viewer selection never changes explicit editing targets. Prefer .pixloom project destinations. open_project accepts all supported inspector inputs, save_project checkpoints without ending a session, and finish_project saves/releases it. Both refuse external file changes. export_project explicitly writes native or image formats. edit_palette/copy_region/transform_region share apply_edits transactions. get_onion_skin/compare_frames/inspect_layer return actual PNG review and sync an open Follow AI viewer without editing artwork.")
+            .with_instructions("Pixloom pixel-art authoring. Use report_activity with a brief user-facing description when starting a meaningful task (busy=true) and when finishing it (busy=false). An animation request means multiple visually distinct frames with intentional motion, not a static sprite in a multi-frame document. Workflow: block out, review, create keyframes, add useful intermediates, inspect get_contact_sheet and playback, correct, finish/save, export the full timeline (CLI --loop for looping GIF/WebP/APNG), open user preview. get_preview shows only the first frame; inspect_project targets a specific stable frame ID. Use get_project_info/get_pixels for exact inspection; edit_layer/edit_frame/draw or mixed apply_edits batches for atomic revision-checked changes; undo/redo for transaction history. inspect_project returns actual PNG content; open_preview only shows the user a read-only window. Viewer selection never changes explicit editing targets. Prefer .pixloom project destinations. open_project accepts all supported inspector inputs, save_project checkpoints without ending a session, and finish_project saves/releases it. Both refuse external file changes. export_project explicitly writes native or image formats. edit_palette/copy_region/transform_region share apply_edits transactions. get_onion_skin/compare_frames/inspect_layer return actual PNG review and sync an open Follow AI viewer without editing artwork. Use get_review_sheet for multi-scale silhouette/grayscale evidence, manage_checkpoint/compare_checkpoint for independent baselines, analyze_sprite for measurements, validate_artwork for caller rules and audit_animation for motion evidence. Read-only reviews never change artwork/history and do not score artistic quality or run critic agents. Checkpoints are session-local; follow report revisions and truncation flags.")
     }
 }
 
@@ -820,6 +971,7 @@ pub fn run(viewer: bool) -> anyhow::Result<()> {
                 show_viewer: viewer,
                 custom_activity: None,
                 last_inspection: None,
+                last_review: None,
             })),
         };
         let service = server.serve(rmcp::transport::stdio()).await?;

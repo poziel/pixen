@@ -2,6 +2,8 @@
 mod dialog;
 #[path = "viewer_layers.rs"]
 mod layers;
+#[path = "viewer_review.rs"]
+pub(crate) mod review_ui;
 #[path = "viewer_sheet.rs"]
 mod sheet;
 use crate::{
@@ -136,6 +138,13 @@ impl ViewerProcess {
     pub(crate) fn inspection(&mut self, view: &crate::inspection::View) -> Result<()> {
         let input = self.child.stdin.as_mut().context("viewer input closed")?;
         serde_json::to_writer(&mut *input, &json!({"inspection":view}))?;
+        writeln!(input)?;
+        input.flush()?;
+        Ok(())
+    }
+    pub(crate) fn review(&mut self, review: &review_ui::ViewerReview) -> Result<()> {
+        let input = self.child.stdin.as_mut().context("viewer input closed")?;
+        serde_json::to_writer(&mut *input, &json!({"review":review}))?;
         writeln!(input)?;
         input.flush()?;
         Ok(())
@@ -293,6 +302,7 @@ fn icon_button_shape(
 enum Message {
     Activity(Activity),
     Inspection(crate::inspection::View),
+    Review(review_ui::ViewerReview),
     Activate,
     Close,
 }
@@ -314,6 +324,7 @@ struct App {
     show_layers: bool,
     show_animation: bool,
     follow_ai: bool,
+    review: review_ui::ReviewState,
     activity: Option<Activity>,
     follow_pending: bool,
     inspection: Option<crate::inspection::View>,
@@ -452,6 +463,73 @@ impl App {
         self.inspection_pending = false;
         self.rendered = None;
     }
+    fn review_source_identity(&self) -> Option<u64> {
+        let path = self.source.as_ref()?;
+        let doc = crate::input::read(path)
+            .or_else(|_| crate::review::document_for(self.project()))
+            .ok()?;
+        crate::review::identity(&doc).ok()
+    }
+    fn follow_review(&mut self) {
+        if self.review.check_identity_due()
+            && self.review_source_identity() != self.review.source_identity
+        {
+            self.modified = None;
+        }
+        if let Some(view) = self.review.apply(self.follow_ai) {
+            self.inspection = Some(view);
+            self.inspection_pending = true;
+            self.follow_inspection();
+            self.rendered = None;
+        }
+        if std::mem::take(&mut self.review.changed) {
+            self.rendered = None;
+        }
+        if let Some(action) = self.review.local.take() {
+            let result = (|| -> Result<crate::review::ReviewResult> {
+                let doc = self
+                    .source
+                    .as_ref()
+                    .and_then(|p| crate::input::read(p).ok())
+                    .map(Ok)
+                    .unwrap_or_else(|| crate::review::document_for(self.project()))?;
+                let ids = crate::review::frame_ids(&doc);
+                let id = ids
+                    .get(self.playback.frame)
+                    .context("current frame unavailable")?;
+                let mut result = match action {
+                    review_ui::LocalReview::Analyze => crate::review::measure::sprite(
+                        &doc,
+                        &serde_json::from_value(
+                            json!({"frame_id":id,"layer_id":self.inspection_layer}),
+                        )?,
+                    )?,
+                    review_ui::LocalReview::Sheet => crate::review::render::sheet(
+                        &doc,
+                        &serde_json::from_value(
+                            json!({"frame_id":id,"layer_id":self.inspection_layer}),
+                        )?,
+                    )?,
+                    review_ui::LocalReview::Animation => crate::review::animation::audit(
+                        &doc,
+                        &serde_json::from_value(json!({"layer_id":self.inspection_layer}))?,
+                    )?,
+                };
+                crate::review::stamp(&mut result, "local", 0, crate::review::identity(&doc)?);
+                result.report["inspected_revision"] = Value::Null;
+                Ok(result)
+            })();
+            match result.and_then(|r| review_ui::ViewerReview::new(&r)) {
+                Ok(r) => {
+                    self.review.local_result(r);
+                    self.inspection_mode = crate::inspection::Mode::Composite;
+                    self.inspection_reference = None;
+                    self.rendered = None;
+                }
+                Err(e) => self.report_error(format!("Review failed: {e:#}")),
+            }
+        }
+    }
     fn inspection_render(&self) -> Result<Vec<u8>> {
         let sprite = self.project();
         let reference = self.inspection_reference.as_ref().and_then(|id| {
@@ -480,7 +558,16 @@ impl App {
                 }
             },
         )
-        .map(|(rgba, _)| rgba)
+        .map(|(rgba, _)| {
+            let rgba = crate::review::render::transform(&rgba, self.review.representation);
+            self.review.annotate(
+                rgba,
+                sprite.width,
+                sprite.height,
+                Some(crate::review::frame_keys(&sprite.frames)[self.playback.frame].as_str()),
+                self.inspection_layer.as_deref(),
+            )
+        })
     }
     fn activity_bar(&mut self, ctx: &egui::Context) {
         if self.activity.is_none() {
@@ -544,6 +631,9 @@ impl App {
                     self.follow_ai = !self.follow_ai;
                     self.follow_pending = self.follow_ai;
                     self.inspection_pending = self.follow_ai && self.inspection.is_some();
+                    if self.follow_ai {
+                        self.review.resume();
+                    }
                 }
                 let fill = if self.follow_ai {
                     egui::Color32::from_rgb(50, 140, 105)
@@ -581,6 +671,7 @@ impl App {
             show_layers: true,
             show_animation: true,
             follow_ai: true,
+            review: Default::default(),
             activity: None,
             follow_pending: false,
             inspection: None,
@@ -617,6 +708,8 @@ impl App {
                 self.source = Some(path);
                 self.activity = None;
                 self.follow_pending = false;
+                self.review = Default::default();
+                self.review.source_identity = self.review_source_identity();
                 self.inspection = None;
                 self.inspection_pending = false;
                 self.inspection_mode = crate::inspection::Mode::Composite;
@@ -723,6 +816,7 @@ impl App {
                     self.thumbnails.clear();
                     self.thumbnail_selection = None;
                     self.modified = Some(stamp);
+                    self.review.source_identity = self.review_source_identity();
                     self.rendered = None;
                     self.error = None;
                 }
@@ -768,6 +862,7 @@ impl App {
                     ui.separator();
                     ui.checkbox(&mut self.show_layers, "Show Layers");
                     ui.checkbox(&mut self.show_animation, "Show Animation");
+                    if self.review.menu(ui) { self.rendered=None; }
                     ui.separator();
                     let mut onion=self.inspection_mode==crate::inspection::Mode::OnionSkin;
                     if ui.checkbox(&mut onion,"Onion skin").on_hover_text("Red: previous frame. Cyan: next frame. Artwork stays unchanged.").changed() {
@@ -1261,9 +1356,11 @@ impl eframe::App for App {
                 Message::Activate => self.activate(ctx),
                 Message::Activity(event) => self.receive_activity(event),
                 Message::Inspection(view) => {
+                    self.review.normal(self.follow_ai);
                     self.inspection = Some(view);
                     self.inspection_pending = true;
                 }
+                Message::Review(review) => self.review.receive(review),
                 Message::Close => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
             }
         }
@@ -1285,7 +1382,23 @@ impl eframe::App for App {
         self.poll();
         self.follow_activity();
         self.follow_inspection();
+        self.follow_review();
         self.activity_bar(ctx);
+        let following = self.following();
+        self.review.panel(ctx, following);
+        if let Some((reference, frame)) = self.review.selected_pair.take() {
+            self.inspection = Some(crate::inspection::View {
+                frame_id: frame,
+                reference_frame_id: Some(reference),
+                mode: crate::inspection::Mode::FrameComparison,
+                layer_id: self.inspection_layer.clone(),
+            });
+            self.inspection_pending = true;
+            let was_follow = self.follow_ai;
+            self.follow_ai = true;
+            self.follow_inspection();
+            self.follow_ai = was_follow;
+        }
         self.footer(ctx);
         let now = Instant::now();
         if self.sprite.is_some() {
@@ -1424,6 +1537,16 @@ impl eframe::App for App {
                         rect,
                         egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
                         egui::Color32::WHITE,
+                    );
+                    self.review.paint_labels(
+                        ui.painter(),
+                        rect,
+                        [self.project().width, self.project().height],
+                        Some(
+                            crate::review::frame_keys(&self.project().frames)[self.playback.frame]
+                                .as_str(),
+                        ),
+                        self.inspection_layer.as_deref(),
                     );
                     egui::Area::new(egui::Id::new("canvas-zoom-controls"))
                         .fixed_pos(controls.min)
@@ -1591,7 +1714,11 @@ pub fn launch(path: Option<&Path>, managed: bool) -> Result<()> {
                         }
                         Ok(line) => {
                             if let Ok(value) = serde_json::from_str::<Value>(line) {
-                                let message = if let Some(view) = value.get("inspection") {
+                                let message = if let Some(review) = value.get("review") {
+                                    serde_json::from_value(review.clone())
+                                        .ok()
+                                        .map(Message::Review)
+                                } else if let Some(view) = value.get("inspection") {
                                     serde_json::from_value(view.clone())
                                         .ok()
                                         .map(Message::Inspection)
@@ -1666,6 +1793,7 @@ mod tests {
             show_layers: true,
             show_animation: true,
             follow_ai: true,
+            review: Default::default(),
             activity: None,
             follow_pending: false,
             inspection: None,
@@ -2336,6 +2464,98 @@ mod tests {
             app.inspection_mode,
             crate::inspection::Mode::OnionSkin,
             "following settings remain read-only"
+        );
+    }
+    #[test]
+    fn review_representations_match_shared_pixels_and_following_preserves_manual_state() {
+        let mut app = app();
+        for (i, f) in app.sprite.as_mut().unwrap().frames.iter_mut().enumerate() {
+            f.annotations.metadata.insert(
+                crate::edit::FRAME_ID_KEY.into(),
+                serde_json::json!(format!("f{i}")),
+            );
+        }
+        let result = crate::review::ReviewResult::report(
+            serde_json::json!({"kind":"review_sheet","representation":"grayscale","frame_id":"f1","source_identity":1,"inspected_revision":0}),
+        );
+        app.follow_ai = false;
+        app.review
+            .receive(super::review_ui::ViewerReview::new(&result).unwrap());
+        app.follow_review();
+        assert_eq!(app.playback.frame, 0);
+        assert_eq!(
+            app.review.representation,
+            crate::review::Representation::Color
+        );
+        app.follow_ai = true;
+        app.follow_review();
+        assert_eq!(app.playback.frame, 1);
+        assert_eq!(
+            app.review.representation,
+            crate::review::Representation::Grayscale
+        );
+        let expected = crate::review::render::transform(
+            &crate::raster::render(app.project(), 1).unwrap(),
+            crate::review::Representation::Grayscale,
+        );
+        assert_eq!(app.inspection_render().unwrap(), expected);
+        app.review.representation = crate::review::Representation::Silhouette;
+        assert_eq!(
+            app.inspection_render().unwrap(),
+            crate::review::render::transform(
+                &crate::raster::render(app.project(), 1).unwrap(),
+                crate::review::Representation::Silhouette
+            )
+        );
+    }
+    #[test]
+    fn source_reload_marks_review_stale_and_disables_component_overlay() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("review.pixloom.json");
+        let doc = crate::review::document_for(app().project()).unwrap();
+        std::fs::write(&path, serde_json::to_vec(&doc).unwrap()).unwrap();
+        let mut app = app();
+        app.open(path.clone());
+        let frame = crate::review::frame_ids(&doc)[0].clone();
+        let mut result = crate::review::measure::sprite(
+            &doc,
+            &serde_json::from_value(serde_json::json!({"frame_id":frame})).unwrap(),
+        )
+        .unwrap();
+        crate::review::stamp(
+            &mut result,
+            "test",
+            0,
+            crate::review::identity(&doc).unwrap(),
+        );
+        app.review
+            .receive(super::review_ui::ViewerReview::new(&result).unwrap());
+        app.follow_review();
+        assert!(!app.review.stale());
+        let mut edited = doc;
+        edited.annotations.user_data = "new source".into();
+        std::fs::write(&path, serde_json::to_vec(&edited).unwrap()).unwrap();
+        app.checked = std::time::Instant::now() - std::time::Duration::from_secs(1);
+        app.modified = None;
+        app.poll();
+        assert!(app.review.stale());
+        let raw = crate::raster::render(app.project(), app.playback.frame).unwrap();
+        assert_eq!(app.inspection_render().unwrap(), raw);
+    }
+    #[test]
+    fn a_report_without_frame_invalidates_previous_overlay_cache() {
+        let mut app = app();
+        app.review.representation = crate::review::Representation::Silhouette;
+        app.rendered = Some((0, 1));
+        let result = crate::review::ReviewResult::report(
+            serde_json::json!({"kind":"artwork_validation","passed":true,"source_identity":1,"inspected_revision":0}),
+        );
+        app.review
+            .receive(super::review_ui::ViewerReview::new(&result).unwrap());
+        app.follow_review();
+        assert!(
+            app.rendered.is_none(),
+            "report changes must invalidate previously cached inspection overlays"
         );
     }
 }

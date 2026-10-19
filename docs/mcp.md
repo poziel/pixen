@@ -19,7 +19,7 @@ cargo build --release --locked --target-dir target/mcp-editing
 
 Point the client configuration below at that executable to use the new copy.
 Restart the MCP client connection after changing the binary/configuration.
-Check `tools/list`: this implementation exposes 24 tools including
+Check `tools/list`: this implementation exposes 30 tools including
 `edit_frame`, `inspect_project`, `get_contact_sheet`, and `open_preview`.
 A stale four-tool server can only expose the original static-preview workflow;
 source changes alone do not upgrade a running process. On Windows the original
@@ -142,7 +142,7 @@ to avoid depending on the client's working directory.
 
 `get_preview` remains backward-compatible: `{"project_id":"project-1","scale":8}`
 returns the first-frame composite PNG and its original revision/dimensions.
-There are 24 tools. `apply_edits` remains the atomic batch-edit path;
+There are 30 tools. `apply_edits` remains the atomic batch-edit path;
 the focused mutation tools below use the same typed executor.
 
 All coordinates are zero-based and must be inside the canvas. Rectangles use
@@ -168,6 +168,11 @@ Structural edits and undo/redo conservatively return the full canvas bounds.
 | `copy_region`, `transform_region` | Snapshot-based copying, translation, flips and clockwise quarter-turns |
 | `get_onion_skin`, `compare_frames`, `inspect_layer` | Actual PNG review and matching Follow AI inspector mode |
 | `report_activity` | Describe current work without changing artwork |
+| `get_review_sheet` | Multi-scale color/silhouette/grayscale images |
+| `manage_checkpoint`, `compare_checkpoint` | Independent immutable baselines and before/after evidence |
+| `analyze_sprite` | Geometry, colors and annotated component measurements |
+| `validate_artwork` | Explicit caller rules, including protected regions |
+| `audit_animation` | Timing, holds, pose/transition and optional loop evidence |
 | `get_project_info` | Dimensions, palette, ordered layer/frame IDs, durations, links and revision |
 | `get_pixels` | At most 4096 exact pixels from an explicit layer/frame region |
 | `edit_layer` | One typed layer operation |
@@ -390,7 +395,7 @@ cargo test --locked --test mcp_protocol
 cargo test --locked --test mcp_protocol graphical -- --ignored --nocapture --test-threads=1
 ```
 
-The protocol tests launch the real executable, discover exactly 24 tools,
+The protocol tests launch the real executable, discover exactly 30 tools,
 create and draw a multicolour sprite, decode the returned PNG and check its
 pixels and dimensions, edit and finish, then start another project and
 check that forced shutdown preserves a valid recovery document. They also check
@@ -639,3 +644,8 @@ openable to show the active settings, with its controls disabled while following
 visibility overrides so the image agrees with the AI render. While following is
 off, AI requests do not change your view; re-enabling Follow AI adopts the latest
 request. Viewer settings never change saved artwork or explicit editing targets.
+
+
+See [art-review APIs](art-review.md) for all six review schemas, resource limits,
+inspector controls and examples. [Future critic workflow](critic-workflow.md) is
+a design document only; no critic agent or skill is installed or run.

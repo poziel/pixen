@@ -463,7 +463,10 @@ fn stdio_create_draw_preview_edit_finish_and_reuse() {
     assert_eq!(
         names,
         [
+            "analyze_sprite",
             "apply_edits",
+            "audit_animation",
+            "compare_checkpoint",
             "compare_frames",
             "copy_region",
             "create_project",
@@ -478,15 +481,18 @@ fn stdio_create_draw_preview_edit_finish_and_reuse() {
             "get_pixels",
             "get_preview",
             "get_project_info",
+            "get_review_sheet",
             "inspect_layer",
             "inspect_project",
+            "manage_checkpoint",
             "open_preview",
             "open_project",
             "redo",
             "report_activity",
             "save_project",
             "transform_region",
-            "undo"
+            "undo",
+            "validate_artwork"
         ]
     );
     let path = dir.path().join("sprite.pixloom.json");
@@ -843,4 +849,54 @@ fn project_container_palette_regions_and_animation_analysis_work_through_mcp() {
     );
     assert_ne!(export["isError"], true, "{export}");
     assert!(pixloom::native::read(&dir.path().join("art.aseprite")).is_ok());
+}
+
+#[test]
+fn review_apis_return_images_reports_and_never_edit_artwork() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut c = Client::new(false);
+    let created=c.call("create_project",json!({"width":4,"height":4,"palette":["#00000000","#FF0000FF"],"output_path":dir.path().join("review.pixloom")}));
+    let id = text(&created)["project_id"].clone();
+    let cp = c.call(
+        "manage_checkpoint",
+        json!({"project_id":id,"action":"create","expected_revision":0,"label":"original"}),
+    );
+    assert_ne!(cp["isError"], true, "{cp}");
+    let checkpoint = text(&cp)["checkpoint_id"].clone();
+    for (name, args) in [
+        (
+            "get_review_sheet",
+            json!({"project_id":id,"frame_id":"frame-1"}),
+        ),
+        (
+            "analyze_sprite",
+            json!({"project_id":id,"frame_id":"frame-1"}),
+        ),
+        (
+            "compare_checkpoint",
+            json!({"project_id":id,"checkpoint_id":checkpoint}),
+        ),
+        ("audit_animation", json!({"project_id":id})),
+    ] {
+        let r = c.call(name, args);
+        assert_ne!(r["isError"], true, "{name}: {r}");
+        assert!(
+            r["content"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|v| v["type"] == "image")
+        );
+        assert_eq!(text(&r)["inspected_revision"], 0);
+    }
+    let r = c.call(
+        "validate_artwork",
+        json!({"project_id":id,"rules":[{"type":"canvas_size","width":8,"height":8}]}),
+    );
+    assert_ne!(r["isError"], true);
+    assert_eq!(text(&r)["passed"], false);
+    assert_eq!(
+        text(&c.call("get_project_info", json!({"project_id":id})))["revision"],
+        0
+    );
 }

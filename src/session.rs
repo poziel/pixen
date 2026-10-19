@@ -29,6 +29,7 @@ struct Project {
     output: PathBuf,
     recovery: PathBuf,
     saved_bytes: Option<Vec<u8>>,
+    checkpoints: crate::review::checkpoints::CheckpointStore,
     used_ids: BTreeSet<String>,
     next_cel: u64,
     undo: VecDeque<Vec<u8>>,
@@ -97,6 +98,7 @@ impl Session {
             output,
             recovery,
             saved_bytes: None,
+            checkpoints: Default::default(),
             used_ids: BTreeSet::from(["frame:frame-1".into(), "layer:layer-1".into()]),
             next_cel: 1,
             undo: VecDeque::new(),
@@ -404,6 +406,7 @@ impl Session {
             output,
             recovery,
             saved_bytes,
+            checkpoints: Default::default(),
             used_ids,
             next_cel: 0,
             undo: VecDeque::new(),
@@ -549,6 +552,121 @@ impl Session {
         ))
     }
 
+    pub fn manage_checkpoint(
+        &mut self,
+        id: &str,
+        action: crate::review::checkpoints::CheckpointAction,
+    ) -> Result<Value> {
+        use crate::review::checkpoints::CheckpointAction;
+        let p = self.project(id)?;
+        let expected = match &action {
+            CheckpointAction::Create {
+                expected_revision, ..
+            }
+            | CheckpointAction::Delete {
+                expected_revision, ..
+            } => Some(*expected_revision),
+            CheckpointAction::List => None,
+        };
+        if let Some(expected) = expected {
+            ensure!(
+                p.revision == expected,
+                "stale revision: current revision is {}",
+                p.revision
+            );
+        }
+        let p = self.active.as_mut().unwrap();
+        let mut result = match action {
+            CheckpointAction::Create { label, .. } => {
+                p.checkpoints.create(&p.doc, p.revision, &label)?
+            }
+            CheckpointAction::Delete { checkpoint_id, .. } => {
+                p.checkpoints.delete(&checkpoint_id)?
+            }
+            CheckpointAction::List => p.checkpoints.list(),
+        };
+        result["project_id"] = json!(id);
+        result["inspected_revision"] = json!(p.revision);
+        result["report_version"] = json!(1);
+        Ok(result)
+    }
+    pub fn compare_checkpoint(
+        &self,
+        id: &str,
+        request: &crate::review::compare::CompareCheckpointRequest,
+    ) -> Result<crate::review::ReviewResult> {
+        let p = self.project(id)?;
+        let (before, revision) = p.checkpoints.document(&request.checkpoint_id)?;
+        let mut result = crate::review::compare::documents(&before, &p.doc, request)?;
+        result.report["baseline_revision"] = json!(revision);
+        crate::review::stamp(
+            &mut result,
+            id,
+            p.revision,
+            crate::review::identity(&p.doc)?,
+        );
+        Ok(result)
+    }
+    pub fn validate_artwork(
+        &self,
+        id: &str,
+        request: &crate::review::rules::ValidateArtworkRequest,
+    ) -> Result<crate::review::ReviewResult> {
+        let p = self.project(id)?;
+        let mut result = crate::review::rules::validate(&p.doc, &p.checkpoints, request)?;
+        crate::review::stamp(
+            &mut result,
+            id,
+            p.revision,
+            crate::review::identity(&p.doc)?,
+        );
+        Ok(result)
+    }
+    pub fn review_sheet(
+        &self,
+        id: &str,
+        request: &crate::review::render::ReviewSheetRequest,
+    ) -> Result<crate::review::ReviewResult> {
+        let p = self.project(id)?;
+        let mut result = crate::review::render::sheet(&p.doc, request)?;
+        crate::review::stamp(
+            &mut result,
+            id,
+            p.revision,
+            crate::review::identity(&p.doc)?,
+        );
+        Ok(result)
+    }
+    pub fn analyze_sprite(
+        &self,
+        id: &str,
+        request: &crate::review::measure::AnalyzeSpriteRequest,
+    ) -> Result<crate::review::ReviewResult> {
+        let p = self.project(id)?;
+        let mut result = crate::review::measure::sprite(&p.doc, request)?;
+        crate::review::stamp(
+            &mut result,
+            id,
+            p.revision,
+            crate::review::identity(&p.doc)?,
+        );
+        Ok(result)
+    }
+    pub fn audit_animation(
+        &self,
+        id: &str,
+        request: &crate::review::animation::AuditAnimationRequest,
+    ) -> Result<crate::review::ReviewResult> {
+        let p = self.project(id)?;
+        let mut result = crate::review::animation::audit(&p.doc, request)?;
+        crate::review::stamp(
+            &mut result,
+            id,
+            p.revision,
+            crate::review::identity(&p.doc)?,
+        );
+        Ok(result)
+    }
     pub fn finish(&mut self, id: &str) -> Result<Value> {
         let result = self.save(id)?;
         let p = self.project(id)?;

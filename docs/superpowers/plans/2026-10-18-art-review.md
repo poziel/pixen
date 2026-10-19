@@ -1,6 +1,6 @@
 # Pixloom Art Review Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Implement the five approved evidence-based art-review capabilities through six MCP tools and matching inspector features.
 
@@ -64,11 +64,11 @@ fields/defaults in the spec. Do not introduce a second document or index model.
 - `ReviewSheetRequest`: frame_id, layer_id, crop, display_scale=1, enlarged_scale=8, views default `[color,silhouette,grayscale]`, backgrounds default white/#202020FF. Reject empty/duplicate views and more than four or nonopaque backgrounds.
 - `review::render::frame(doc: &Document, frame_id: &str, layer_id: Option<&str>, crop: Option<Crop>) -> Result<ScopedRgba>`; ScopedRgba holds validated source Crop, width/height and pixels. Reuse this in Tasks 3–5; visibility is forced on only for isolated layer rendering.
 
-- [ ] Write golden tests: silhouette RGB is black with unchanged alpha; pure red grayscale becomes 54; crop metadata remains canvas-relative; duplicate scales share panels; native/display/enlarged labels stay neutral; hidden-layer isolation leaves saved visibility unchanged.
-- [ ] Add boundary tests: zero/u32::MAX scales, alpha backgrounds, empty view list, four versus five backgrounds, panel-label pixel overhead exceeding 16-million budget. Assert errors before output allocation.
-- [ ] Run `cargo test --locked --test review_render`; confirm expected missing-interface failure.
-- [ ] Implement shared types, preflight sheet layout and representation transforms. Reuse existing font/rendering primitives; keep labels outside measured source pixels.
-- [ ] Run the same tests; require exact pixels/metadata and zero failures.
+- [x] Write golden tests: silhouette RGB is black with unchanged alpha; pure red grayscale becomes 54; crop metadata remains canvas-relative; duplicate scales share panels; native/display/enlarged labels stay neutral; hidden-layer isolation leaves saved visibility unchanged.
+- [x] Add boundary tests: zero/u32::MAX scales, alpha backgrounds, empty view list, four versus five backgrounds, panel-label pixel overhead exceeding 16-million budget. Assert errors before output allocation.
+- [x] Run `cargo test --locked --test review_render`; confirm expected missing-interface failure.
+- [x] Implement shared types, preflight sheet layout and representation transforms. Reuse existing font/rendering primitives; keep labels outside measured source pixels.
+- [x] Run the same tests; require exact pixels/metadata and zero failures.
 
 ### Task 2: Immutable checkpoint lifecycle and comparison
 
@@ -83,12 +83,12 @@ fields/defaults in the spec. Do not introduce a second document or index model.
 - `compare::pixels(before: &[u8], after: &[u8], width: u32) -> PixelDiff` implements shared disjoint categories, changed totals/bounds and bounded examples for Tasks 4–5. PixelDiff is Serialize with added/removed/repainted/alpha_only counts and changed_pixels; transparent-to-transparent RGBA differences are visually equal.
 - `Session::compare_checkpoint(&self, id: &str, request: &CompareCheckpointRequest) -> Result<ReviewResult>` loads baseline and stamps both revisions.
 
-- [ ] Write lifecycle tests: checkpoints survive edits, undo/redo and save; stale create/delete fails; the 17th entry and 64-MiB overflow fail without eviction or reserving IDs; finish releases baselines. Compare recovery bytes/revision/history before/after management.
-- [ ] Write comparison tests: palette-only color change, duplicate-index-only change, opacity/reorder, added/removed frame/layer, reordered stable IDs, union-canvas comparison, invalid selected ID and empty-to-empty images. Assert each changed visual pixel belongs to exactly one category.
-- [ ] Run `cargo test --locked --test review_checkpoints` and confirm failures.
-- [ ] Implement bounded storage and structural/raw/composited comparison. For both-nontransparent pixels classify unchanged RGB + changed alpha as alpha_only; RGB changes as repainting. Alpha threshold for these categories is nonzero alpha, independent of measurement thresholds.
-- [ ] Generate before/current/difference panels via Task 1 layout helpers; preflight all selected output frames and union crops. Reject unknown IDs on both sides; report IDs missing on one side as structural differences.
-- [ ] Run lifecycle/comparison tests and existing `cargo test --locked --test editing --test mcp_extensions`.
+- [x] Write lifecycle tests: checkpoints survive edits, undo/redo and save; stale create/delete fails; the 17th entry and 64-MiB overflow fail without eviction or reserving IDs; finish releases baselines. Compare recovery bytes/revision/history before/after management.
+- [x] Write comparison tests: palette-only color change, duplicate-index-only change, opacity/reorder, added/removed frame/layer, reordered stable IDs, union-canvas comparison, invalid selected ID and empty-to-empty images. Assert each changed visual pixel belongs to exactly one category.
+- [x] Run `cargo test --locked --test review_checkpoints` and confirm failures.
+- [x] Implement bounded storage and structural/raw/composited comparison. For both-nontransparent pixels classify unchanged RGB + changed alpha as alpha_only; RGB changes as repainting. Alpha threshold for these categories is nonzero alpha, independent of measurement thresholds.
+- [x] Generate before/current/difference panels via Task 1 layout helpers; preflight all selected output frames and union crops. Reject unknown IDs on both sides; report IDs missing on one side as structural differences.
+- [x] Run lifecycle/comparison tests and existing `cargo test --locked --test editing --test mcp_extensions`.
 
 ### Task 3: Sprite measurements and annotated component evidence
 
@@ -100,11 +100,11 @@ fields/defaults in the spec. Do not introduce a second document or index model.
 - `measure::sprite(doc: &Document, request: &AnalyzeSpriteRequest) -> Result<ReviewResult>` adds raw palette-index counts from each selected frame/layer cel, separately from composited RGBA inventory. With layer_id omitted, raw inventory covers all document layers for the selected frame, explicitly including hidden layers; rendered inventory uses normal visible composition.
 - `measure::annotate(scope: &ScopedRgba, report: &Value) -> Result<ReviewImage>` draws neutral component IDs and bounds for the returned deterministic subset only.
 
-- [ ] Write tests for empty geometry/null centroid/padding, partial-alpha thresholds, crop-relative padding and canvas-space centroid, diagonally touching pixels under 4/8 connectivity, and identical RGBA stored at distinct indices.
-- [ ] Add >256 components/colors tests: totals remain complete, records/labels are capped, truncation is explicit and order is stable (components scan top-to-bottom/left-to-right; inventories sort by palette index or RGBA).
-- [ ] Run `cargo test --locked --test review_measure` and observe failures.
-- [ ] Implement iterative bounded flood fill (no recursive stack growth), coordinate conversion, histograms and annotations. One-pixel components are neutral inspection candidates, never confirmed mistakes.
-- [ ] Run the measurement tests and Task 1 render suite.
+- [x] Write tests for empty geometry/null centroid/padding, partial-alpha thresholds, crop-relative padding and canvas-space centroid, diagonally touching pixels under 4/8 connectivity, and identical RGBA stored at distinct indices.
+- [x] Add >256 components/colors tests: totals remain complete, records/labels are capped, truncation is explicit and order is stable (components scan top-to-bottom/left-to-right; inventories sort by palette index or RGBA).
+- [x] Run `cargo test --locked --test review_measure` and observe failures.
+- [x] Implement iterative bounded flood fill (no recursive stack growth), coordinate conversion, histograms and annotations. One-pixel components are neutral inspection candidates, never confirmed mistakes.
+- [x] Run the measurement tests and Task 1 render suite.
 
 ### Task 4: Caller-supplied artwork rules
 
@@ -116,12 +116,12 @@ fields/defaults in the spec. Do not introduce a second document or index model.
 - `rules::validate(doc: &Document, checkpoints: &CheckpointStore, request: &ValidateArtworkRequest) -> Result<ReviewResult>`; report includes passed and ordered per-rule expected/observed/results/finding evidence.
 - `Session::validate_artwork(&self, id: &str, request: &ValidateArtworkRequest) -> Result<ReviewResult>` stamps current revision.
 
-- [ ] Write positive and negative fixtures for all seven rules. Assert a violated valid rule returns Ok with passed:false; malformed ranges/IDs/indices, unsupported fields, empty or >64 rules and nonexistent checkpoints return Err.
-- [ ] Test protected regions after palette-only/opacity edits, missing current frame/layer and smaller current canvas. Bounds must fit the baseline; absence on the current side is failed protection. Assert an unchanged region passes despite unrelated edits.
-- [ ] Test 256 example-coordinate cap, complete counts, zero colors in transparent art, and hidden/isolated layer semantics using Task 3 inventories.
-- [ ] Run `cargo test --locked --test review_rules` and observe failures.
-- [ ] Implement prevalidation before scanning, then complete checks using shared scoped renders/comparison. Protected frame/layer IDs are allowed to be missing on one side and count as violations rather than argument errors; IDs missing on both sides are invalid input.
-- [ ] Run rule, checkpoint and measurement suites.
+- [x] Write positive and negative fixtures for all seven rules. Assert a violated valid rule returns Ok with passed:false; malformed ranges/IDs/indices, unsupported fields, empty or >64 rules and nonexistent checkpoints return Err.
+- [x] Test protected regions after palette-only/opacity edits, missing current frame/layer and smaller current canvas. Bounds must fit the baseline; absence on the current side is failed protection. Assert an unchanged region passes despite unrelated edits.
+- [x] Test 256 example-coordinate cap, complete counts, zero colors in transparent art, and hidden/isolated layer semantics using Task 3 inventories.
+- [x] Run `cargo test --locked --test review_rules` and observe failures.
+- [x] Implement prevalidation before scanning, then complete checks using shared scoped renders/comparison. Protected frame/layer IDs are allowed to be missing on one side and count as violations rather than argument errors; IDs missing on both sides are invalid input.
+- [x] Run rule, checkpoint and measurement suites.
 
 ### Task 5: Animation audit with meaningful transition evidence
 
@@ -132,11 +132,11 @@ fields/defaults in the spec. Do not introduce a second document or index model.
 - `animation::audit(doc: &Document, request: &AuditAnimationRequest) -> Result<ReviewResult>` streams scoped frame renders and produces frame measurements, transition diffs, hold runs, duration sums, distinct-pose count, optional threshold warnings and a labeled contact sheet.
 - Distinctness compares exact rendered scoped pixels (verify equal hashes with actual image equality if hashing is used). Consecutive hold durations include all frames in each run. Area ratio is max(a,b)/min(a,b); two empty frames yield 1, exactly one empty yields null plus an explicit empty-transition observation, avoiding nonfinite JSON.
 
-- [ ] Write tests for unequal-duration holds, one static frame, empty frames, translation centroid/edge contacts, requested subset order and last-to-first inclusion. Assert mismatched loop endpoints do not automatically fail.
-- [ ] Add alpha-threshold tests, invalid/duplicate frame IDs, >64 frames, pixel-work budget and image-size overflow. Threshold-free reports contain observations without aesthetic warnings.
-- [ ] Run `cargo test --locked --test review_animation` and observe failures.
-- [ ] Implement streaming measurements/differences and bounded sheet output with neutral frame labels; reuse Task 2 comparison and Task 3 geometry. Preserve actual durations and include declared subset/loop parameters.
-- [ ] Run animation, render and measurement suites.
+- [x] Write tests for unequal-duration holds, one static frame, empty frames, translation centroid/edge contacts, requested subset order and last-to-first inclusion. Assert mismatched loop endpoints do not automatically fail.
+- [x] Add alpha-threshold tests, invalid/duplicate frame IDs, >64 frames, pixel-work budget and image-size overflow. Threshold-free reports contain observations without aesthetic warnings.
+- [x] Run `cargo test --locked --test review_animation` and observe failures.
+- [x] Implement streaming measurements/differences and bounded sheet output with neutral frame labels; reuse Task 2 comparison and Task 3 geometry. Preserve actual durations and include declared subset/loop parameters.
+- [x] Run animation, render and measurement suites.
 
 ### Task 6: Inspector integration and typed MCP transport
 
@@ -149,26 +149,26 @@ fields/defaults in the spec. Do not introduce a second document or index model.
 - `viewer_review::ReviewState` owns latest pending AI request, local view selection, representation/annotation toggles, displayed report and stale status. `receive`, `follow`, `menu`, `panel` and `render` methods let viewer.rs delegate without embedding review algorithms.
 - Viewer freshness uses the recovery source's content identity (metadata alone is insufficient) captured when producing the report and rechecked after reload. Keep source identity out of critic images; report source revision when stale. A failed reload preserves the last valid source/report but indicates the source error.
 
-- [ ] Add protocol tests enumerating all six tools; assert actual PNG content, complete stamped JSON, malformed arguments as errors, valid failed rules as successful responses, and unchanged revision/history/recovery after analysis. Extend expected tools/list from 24 to 30.
-- [ ] Add headless egui tests for silhouette/grayscale/normal choices, annotation toggle, checkpoint identity and return-to-live menu, report-based pair selection, paused inspection and exact shared render pixels.
-- [ ] Test Follow AI off receiving several requests: manual view stays fixed; turning it on adopts the newest request. Test ordinary inspection after a checkpoint restores live view, then changes to artwork label previous measurements stale. Reopened viewers get the latest bounded review state.
-- [ ] Run focused protocol/viewer tests to observe failures before adding integration.
-- [ ] Wire wrappers through shared Session methods, reuse MCP image encoding, and add bounded review IPC. Honor source reload lag without silently selecting the wrong stable ID. A multi-frame report selects its first current frame for desktop display and keeps the whole report available.
-- [ ] Add inspector panel UI for measurement summaries, rule pass/fail and animation transitions; clicking a transition selects existing comparison/onion views. Keep controls available manually and displayed read-only while following.
-- [ ] Run `cargo test --locked --lib --test mcp_protocol --test mcp_extensions` plus the new protocol test file if created.
+- [x] Add protocol tests enumerating all six tools; assert actual PNG content, complete stamped JSON, malformed arguments as errors, valid failed rules as successful responses, and unchanged revision/history/recovery after analysis. Extend expected tools/list from 24 to 30.
+- [x] Add headless egui tests for silhouette/grayscale/normal choices, annotation toggle, checkpoint identity and return-to-live menu, report-based pair selection, paused inspection and exact shared render pixels.
+- [x] Test Follow AI off receiving several requests: manual view stays fixed; turning it on adopts the newest request. Test ordinary inspection after a checkpoint restores live view, then changes to artwork label previous measurements stale. Reopened viewers get the latest bounded review state.
+- [x] Run focused protocol/viewer tests to observe failures before adding integration.
+- [x] Wire wrappers through shared Session methods, reuse MCP image encoding, and add bounded review IPC. Honor source reload lag without silently selecting the wrong stable ID. A multi-frame report selects its first current frame for desktop display and keeps the whole report available.
+- [x] Add inspector panel UI for measurement summaries, rule pass/fail and animation transitions; clicking a transition selects existing comparison/onion views. Keep controls available manually and displayed read-only while following.
+- [x] Run `cargo test --locked --lib --test mcp_protocol --test mcp_extensions` plus the new protocol test file if created.
 
-### Task 7: Skill workflow, documentation and complete verification
+### Task 7: Critic design document, API documentation and complete verification
 
-**Files:** Modify skills/pixloom/SKILL.md, docs/mcp.md and README.md; add skills/pixloom/references/art-review.md for exact examples and critic prompts. Do not edit the external pixel-art skill.
+**Files:** Modify docs/mcp.md and README.md; add docs/art-review.md and docs/critic-workflow.md. Per the user scope correction, do not edit any skill or create a critic sub-agent.
 
 **Interfaces:** Documentation uses the six final schemas from Task 6 and preserves normal CLI authoring plus .pixloom-first MCP persistence. No runtime critic agent is introduced.
 
-- [ ] Document a complete blockout/checkpoint/review/targeted-edit/compare/validate/audit workflow, with valid JSON calls and report coordinate/revision interpretation.
-- [ ] Add blind recognition and subsequent informed critique prompt templates. First-pass inputs omit intent, semantic filenames/activity text and suggestive labels; before/after preference can randomize order while the orchestrator retains identities. Specify maximum three correction rounds unless the caller chooses another explicit budget.
-- [ ] Explain ephemeral checkpoints, independent undo budgets, truncated evidence, exact-index versus rendered colors, loop limits, valid failed rules versus errors, stale reports and subjective critic disagreement. State that all thresholds are task-specific.
-- [ ] Run the documented calls through a real headless MCP end-to-end fixture with added/removed pixels, an intentional hold, a protected region and one negative validation result. Validate saved .pixloom/native exports still match artwork.
-- [ ] Run `cargo test --locked`, `cargo clippy --locked --all-targets -- -D warnings`, `cargo fmt --all -- --check`, `git diff --check`, and `cargo build --locked --release`.
-- [ ] Review only task-owned changes against the initial dirty worktree, update this plan's completed checkboxes and the spec's implementation status. Report actual test totals, ignored native/desktop tests and release artifact paths; make no unperformed visual-test claim.
+- [x] Document a complete blockout/checkpoint/review/targeted-edit/compare/validate/audit workflow, with valid JSON calls and report coordinate/revision interpretation.
+- [x] Add blind recognition and subsequent informed critique prompt templates. First-pass inputs omit intent, semantic filenames/activity text and suggestive labels; before/after preference can randomize order while the orchestrator retains identities. Specify maximum three correction rounds unless the caller chooses another explicit budget.
+- [x] Explain ephemeral checkpoints, independent undo budgets, truncated evidence, exact-index versus rendered colors, loop limits, valid failed rules versus errors, stale reports and subjective critic disagreement. State that all thresholds are task-specific.
+- [x] Run the documented calls through a real headless MCP end-to-end fixture with added/removed pixels, an intentional hold, a protected region and one negative validation result. Validate saved .pixloom/native exports still match artwork.
+- [x] Run `cargo test --locked`, `cargo clippy --locked --all-targets -- -D warnings`, `cargo fmt --all -- --check`, `git diff --check`, and `cargo build --locked --release`.
+- [x] Review only task-owned changes against the initial dirty worktree, update this plan's completed checkboxes and the spec's implementation status. Report actual test totals, ignored native/desktop tests and release artifact paths; make no unperformed visual-test claim.
 
 ## Plan self-review
 
@@ -176,4 +176,23 @@ fields/defaults in the spec. Do not introduce a second document or index model.
 - The five Review Focus conditions each have explicit negative/boundary tests in their owner tasks.
 - Shared request names, ReviewResult and Session methods are defined before transport integration. Task 1 frame/representation primitives are reused rather than forked.
 - Checkpoint budgets are independent of undo; no new project/container schema or user-managed configuration is required.
-- User approval of this written plan and execution approach remains pending. No product implementation has started.
+- The user approved direct implementation with inspector integration and a critic design document only. Checkpoint 5278f2d was committed before product changes.
+
+## Completion evidence
+
+Baseline checkpoint: `5278f2d`, committed before implementation. All seven tasks
+completed in the existing feature workspace. Skill and critic-agent implementation
+were excluded per the user; docs/critic-workflow.md is design guidance only.
+
+Full suite: 195 passed, 0 failed, 7 ignored. Two additional boundary cases were
+then added and passed in the 14-test review_contract suite. Clippy, rustfmt, diff
+checks and release build passed. A real release stdio smoke test exposed all 30
+tools, generated review images, detected a one-pixel edit, returned an expected
+protected-region failure, saved .pixloom and exported Aseprite with identical
+rendered pixels. Native interactive window tests were not run.
+
+Final review: self-review per the user scope excluding sub-agent work; no critic
+was created or run. One cached-overlay invalidation finding was fixed with a
+failing-then-passing regression test. GPU preview fitting preserves aspect ratio,
+and small-sprite annotation readability has an exact integer-scale regression test.
+The implementation remains uncommitted for review; no push or publish occurred.

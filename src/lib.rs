@@ -21,5 +21,6 @@ pub mod input;
 pub mod inspection;
 pub mod mcp;
 pub mod preview;
+pub mod review;
 pub mod session;
 pub mod viewer;

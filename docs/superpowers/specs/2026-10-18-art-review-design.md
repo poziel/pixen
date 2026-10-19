@@ -1,7 +1,10 @@
 # Pixloom evidence-based art review
 
 Date: 2026-10-18
-Status: Approved by the user; implementation plan prepared for review. Product implementation has not started.
+Status: Implemented and verified locally; see the implementation plan for evidence.
+
+User scope correction: do not create or modify skills or critic sub-agents. Write
+docs/critic-workflow.md as future design guidance only; implement MCP APIs and inspector integration.
 
 ## Purpose and accepted direction
 
