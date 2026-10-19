@@ -1,19 +1,19 @@
 # Raster import
 
 Import raster pixels into one editable layer named `Artwork`. Static PNG,
-JPEG/JPG and WebP produce one frame. GIF, APNG (including animated `.png`) and
+JPEG/JPG, WebP and BMP produce one frame. TIFF loads its first image. GIF, APNG (including animated `.png`) and
 animated WebP produce every displayed frame, composited with frame offsets,
 blending and disposal. Detection uses file contents. No layer reconstruction,
 AI interpretation, resizing, stretching or video import is performed.
 
 ```powershell
-pixloom import sprite.png --output "D:\Art\my-sprite.pixloom.json"
-pixloom import sprite.png --output "D:\Art\my-sprite.pixloom"
-pixloom import sprite.jpg --output "D:\Art\trimmed.pixloom" --transparent-color "#FFFFFF" --color-tolerance 20 --transparent-mode border --trim
-pixloom validate "D:\Art\my-sprite.pixloom"
-pixloom build "D:\Art\my-sprite.pixloom" --output "D:\Art\editable" --formats pxo
-pixloom export "D:\Art\my-sprite.pixloom.json" --output "D:\Art\preview" --formats png
-pixloom pack "D:\Art\my-sprite.pixloom.json" --output "D:\Art\packed.pixloom"
+pixloom-cli import sprite.png --output "D:\Art\my-sprite.pixloom.json"
+pixloom-cli import sprite.png --output "D:\Art\my-sprite.pixloom"
+pixloom-cli import sprite.jpg --output "D:\Art\trimmed.pixloom" --transparent-color "#FFFFFF" --color-tolerance 20 --transparent-mode border --trim
+pixloom-cli validate "D:\Art\my-sprite.pixloom"
+pixloom-cli build "D:\Art\my-sprite.pixloom" --output "D:\Art\editable" --formats pxo
+pixloom-cli export "D:\Art\my-sprite.pixloom.json" --output "D:\Art\preview" --formats png
+pixloom-cli pack "D:\Art\my-sprite.pixloom.json" --output "D:\Art\packed.pixloom"
 ```
 
 `--output` is the complete destination filename, including an arbitrary filename

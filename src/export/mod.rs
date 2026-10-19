@@ -26,6 +26,8 @@ pub enum ImageFormat {
 pub struct ExportOptions {
     /// One-based source frame. None selects frame 1 or the whole animated timeline.
     pub frame: Option<usize>,
+    /// Repeat an animated timeline indefinitely; default preserves one-play exports.
+    pub loop_animation: bool,
     /// Explicit opaque background, composited before encoding when supplied.
     pub background: Option<[u8; 4]>,
 }
@@ -55,8 +57,21 @@ fn frames(s: &Sprite, format: ImageFormat, options: &ExportOptions) -> Result<Ra
 pub fn validate(s: &Sprite, format: ImageFormat, options: &ExportOptions) -> Result<()> {
     schema::validate_model(s)?;
     ensure!(
+        !(options.loop_animation && options.frame.is_some()),
+        "looping requires the full timeline, not --frame"
+    );
+    ensure!(
         options.background.is_none_or(|bg| bg[3] == 255),
         "background must be opaque (#RRGGBB or #RRGGBBFF)"
+    );
+    ensure!(
+        !options.loop_animation
+            || !matches!(
+                format,
+                ImageFormat::Gif | ImageFormat::Webp | ImageFormat::Apng
+            )
+            || s.frames.len() > 1,
+        "looping requires at least two source frames with intentional motion"
     );
     let frames = frames(s, format, options)?;
     if frames.len() > 1 {

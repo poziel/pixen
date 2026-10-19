@@ -289,8 +289,8 @@ round-trip guarantee.
 
 ## Storage optimization
 
-Author convenient valid encodings, then run `pixloom optimize INPUT --in-place`
-or `pixloom optimize INPUT --output OUTPUT`. Generated separate output names end
+Author convenient valid encodings, then run `pixloom-cli optimize INPUT --in-place`
+or `pixloom-cli optimize INPUT --output OUTPUT`. Generated separate output names end
 in `.pixloom.json`. The optimizer measures complete serialized cels across a
 bounded search; do not manually predict the smallest encoding. Exact indices,
 palette order, metadata and editing links are preserved. Encoding savings and

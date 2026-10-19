@@ -112,7 +112,9 @@ pub(super) fn write<W: Write + Seek>(
     match format {
         ImageFormat::Gif => {
             let mut encoder = gif::Encoder::new(writer, s.width as u16, s.height as u16, &[])?;
-            // Omitting the looping application extension plays the timeline once.
+            if options.loop_animation {
+                encoder.set_repeat(gif::Repeat::Infinite)?;
+            }
             for (i, delay) in timing.ticks.iter().enumerate() {
                 let mut frame = gif_frame(s.width, s.height, rgba(s, i, options)?);
                 frame.delay = *delay as u16;
@@ -124,7 +126,10 @@ pub(super) fn write<W: Write + Seek>(
             let mut encoder = png::Encoder::new(writer, s.width, s.height);
             encoder.set_color(png::ColorType::Rgba);
             encoder.set_depth(png::BitDepth::Eight);
-            encoder.set_animated(s.frames.len() as u32, 1)?;
+            encoder.set_animated(
+                s.frames.len() as u32,
+                if options.loop_animation { 0 } else { 1 },
+            )?;
             encoder.set_blend_op(png::BlendOp::Source)?;
             encoder.set_dispose_op(png::DisposeOp::None)?;
             let mut encoder = encoder.write_header()?;
@@ -167,7 +172,11 @@ fn webp<W: Write + Seek>(
     u24(&mut header, s.width - 1)?;
     u24(&mut header, s.height - 1)?;
     chunk(writer, b"VP8X", &header)?;
-    chunk(writer, b"ANIM", &[0, 0, 0, 0, 1, 0])?; // Transparent background, one play.
+    chunk(
+        writer,
+        b"ANIM",
+        &[0, 0, 0, 0, u8::from(!options.loop_animation), 0],
+    )?;
     for (i, delay) in timing.ticks.iter().enumerate() {
         let pixels = rgba(s, i, options)?;
         let mut encoded = Cursor::new(Vec::new());

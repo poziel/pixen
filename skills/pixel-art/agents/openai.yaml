@@ -1,0 +1,4 @@
+interface:
+  display_name: "Pixel Art Craft"
+  short_description: "Draw and refine readable pixel art for games"
+  default_prompt: "Use $pixel-art-craft to create or refine game pixel art with deliberate clusters and clear visual communication."

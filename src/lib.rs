@@ -14,5 +14,13 @@ pub mod schema;
 pub mod video;
 
 pub mod container;
+pub mod edit;
+pub mod edit_extra;
 pub mod import;
 pub mod input;
+pub mod inspection;
+pub mod mcp;
+pub mod preview;
+pub mod review;
+pub mod session;
+pub mod viewer;

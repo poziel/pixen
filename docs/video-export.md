@@ -5,8 +5,8 @@ at least two source frames. `--frame` is rejected when any requested output is a
 video. Tags do not repeat or append frames. Neither output includes audio.
 
 ```powershell
-pixloom export sprite.json --output assets/heart --formats png,mp4,webm --background '#203040FF'
-pixloom export sprite.json --output assets/heart --formats mp4 --ffmpeg 'C:\Tools\ffmpeg.exe'
+pixloom-cli export sprite.json --output assets/heart --formats png,mp4,webm --background '#203040FF'
+pixloom-cli export sprite.json --output assets/heart --formats mp4 --ffmpeg 'C:\Tools\ffmpeg.exe'
 ```
 
 `--output` is an extensionless base path: these commands create `assets/heart.mp4`

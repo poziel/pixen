@@ -1,0 +1,1282 @@
+[
+  {
+    "tool": "create_project",
+    "arguments": {
+      "width": 24,
+      "height": 24,
+      "palette": [
+        "#00000000",
+        "#15243AFF",
+        "#36A9D6FF",
+        "#8CE7E5FF",
+        "#F6E6A6FF",
+        "#42536CFF"
+      ],
+      "output_path": "D:\\Dev\\5-tools\\pixloom\\examples\\mcp-animation\\output\\bounce.pixloom.json"
+    },
+    "result": {
+      "frame_id": "frame-1",
+      "layer_id": "layer-1",
+      "project_id": "project-1",
+      "revision": 0
+    }
+  },
+  {
+    "tool": "apply_edits",
+    "arguments": {
+      "project_id": "project-1",
+      "expected_revision": 0,
+      "operations": [
+        {
+          "type": "rename_layer",
+          "layer_id": "layer-1",
+          "name": "Orb"
+        },
+        {
+          "type": "add_layer",
+          "layer_id": "ground",
+          "name": "Ground",
+          "index": 0
+        },
+        {
+          "type": "set_frame_duration",
+          "frame_id": "frame-1",
+          "duration_ms": 200
+        },
+        {
+          "type": "rectangle",
+          "frame_id": "frame-1",
+          "layer_id": "ground",
+          "x": 3,
+          "y": 21,
+          "width": 18,
+          "height": 1,
+          "palette_index": 5,
+          "filled": true
+        },
+        {
+          "type": "ellipse",
+          "frame_id": "frame-1",
+          "layer_id": "layer-1",
+          "x": 7,
+          "y": 15,
+          "width": 10,
+          "height": 6,
+          "palette_index": 1,
+          "filled": true
+        },
+        {
+          "type": "ellipse",
+          "frame_id": "frame-1",
+          "layer_id": "layer-1",
+          "x": 8,
+          "y": 16,
+          "width": 8,
+          "height": 4,
+          "palette_index": 2,
+          "filled": true
+        }
+      ]
+    },
+    "result": {
+      "changed_bounds": {
+        "height": 24,
+        "width": 24,
+        "x": 0,
+        "y": 0
+      },
+      "changes": [],
+      "redo_steps": 0,
+      "revision": 1,
+      "undo_steps": 1
+    }
+  },
+  {
+    "tool": "inspect_project",
+    "arguments": {
+      "project_id": "project-1",
+      "frame_id": "frame-1",
+      "scale": 10
+    },
+    "result": {
+      "frame_id": "frame-1",
+      "height": 24,
+      "project_id": "project-1",
+      "revision": 1,
+      "scale": 10,
+      "source": {
+        "height": 24,
+        "width": 24,
+        "x": 0,
+        "y": 0
+      },
+      "width": 24
+    }
+  },
+  {
+    "tool": "edit_frame",
+    "arguments": {
+      "project_id": "project-1",
+      "expected_revision": 1,
+      "operation": {
+        "type": "duplicate_frame",
+        "frame_id": "frame-1",
+        "new_frame_id": "rise",
+        "index": 1
+      }
+    },
+    "result": {
+      "changed_bounds": {
+        "height": 24,
+        "width": 24,
+        "x": 0,
+        "y": 0
+      },
+      "changes": [],
+      "redo_steps": 0,
+      "revision": 2,
+      "undo_steps": 2
+    }
+  },
+  {
+    "tool": "edit_frame",
+    "arguments": {
+      "project_id": "project-1",
+      "expected_revision": 2,
+      "operation": {
+        "type": "set_frame_duration",
+        "frame_id": "rise",
+        "duration_ms": 100
+      }
+    },
+    "result": {
+      "changed_bounds": {
+        "height": 24,
+        "width": 24,
+        "x": 0,
+        "y": 0
+      },
+      "changes": [],
+      "redo_steps": 0,
+      "revision": 3,
+      "undo_steps": 3
+    }
+  },
+  {
+    "tool": "edit_frame",
+    "arguments": {
+      "project_id": "project-1",
+      "expected_revision": 3,
+      "operation": {
+        "type": "duplicate_frame",
+        "frame_id": "frame-1",
+        "new_frame_id": "apex-in",
+        "index": 2
+      }
+    },
+    "result": {
+      "changed_bounds": {
+        "height": 24,
+        "width": 24,
+        "x": 0,
+        "y": 0
+      },
+      "changes": [],
+      "redo_steps": 0,
+      "revision": 4,
+      "undo_steps": 4
+    }
+  },
+  {
+    "tool": "edit_frame",
+    "arguments": {
+      "project_id": "project-1",
+      "expected_revision": 4,
+      "operation": {
+        "type": "set_frame_duration",
+        "frame_id": "apex-in",
+        "duration_ms": 140
+      }
+    },
+    "result": {
+      "changed_bounds": {
+        "height": 24,
+        "width": 24,
+        "x": 0,
+        "y": 0
+      },
+      "changes": [],
+      "redo_steps": 0,
+      "revision": 5,
+      "undo_steps": 5
+    }
+  },
+  {
+    "tool": "edit_frame",
+    "arguments": {
+      "project_id": "project-1",
+      "expected_revision": 5,
+      "operation": {
+        "type": "duplicate_frame",
+        "frame_id": "frame-1",
+        "new_frame_id": "apex-out",
+        "index": 3
+      }
+    },
+    "result": {
+      "changed_bounds": {
+        "height": 24,
+        "width": 24,
+        "x": 0,
+        "y": 0
+      },
+      "changes": [],
+      "redo_steps": 0,
+      "revision": 6,
+      "undo_steps": 6
+    }
+  },
+  {
+    "tool": "edit_frame",
+    "arguments": {
+      "project_id": "project-1",
+      "expected_revision": 6,
+      "operation": {
+        "type": "set_frame_duration",
+        "frame_id": "apex-out",
+        "duration_ms": 220
+      }
+    },
+    "result": {
+      "changed_bounds": {
+        "height": 24,
+        "width": 24,
+        "x": 0,
+        "y": 0
+      },
+      "changes": [],
+      "redo_steps": 0,
+      "revision": 7,
+      "undo_steps": 7
+    }
+  },
+  {
+    "tool": "edit_frame",
+    "arguments": {
+      "project_id": "project-1",
+      "expected_revision": 7,
+      "operation": {
+        "type": "duplicate_frame",
+        "frame_id": "frame-1",
+        "new_frame_id": "fall",
+        "index": 4
+      }
+    },
+    "result": {
+      "changed_bounds": {
+        "height": 24,
+        "width": 24,
+        "x": 0,
+        "y": 0
+      },
+      "changes": [],
+      "redo_steps": 0,
+      "revision": 8,
+      "undo_steps": 8
+    }
+  },
+  {
+    "tool": "edit_frame",
+    "arguments": {
+      "project_id": "project-1",
+      "expected_revision": 8,
+      "operation": {
+        "type": "set_frame_duration",
+        "frame_id": "fall",
+        "duration_ms": 90
+      }
+    },
+    "result": {
+      "changed_bounds": {
+        "height": 24,
+        "width": 24,
+        "x": 0,
+        "y": 0
+      },
+      "changes": [],
+      "redo_steps": 0,
+      "revision": 9,
+      "undo_steps": 9
+    }
+  },
+  {
+    "tool": "edit_frame",
+    "arguments": {
+      "project_id": "project-1",
+      "expected_revision": 9,
+      "operation": {
+        "type": "duplicate_frame",
+        "frame_id": "frame-1",
+        "new_frame_id": "land",
+        "index": 5
+      }
+    },
+    "result": {
+      "changed_bounds": {
+        "height": 24,
+        "width": 24,
+        "x": 0,
+        "y": 0
+      },
+      "changes": [],
+      "redo_steps": 0,
+      "revision": 10,
+      "undo_steps": 10
+    }
+  },
+  {
+    "tool": "edit_frame",
+    "arguments": {
+      "project_id": "project-1",
+      "expected_revision": 10,
+      "operation": {
+        "type": "set_frame_duration",
+        "frame_id": "land",
+        "duration_ms": 120
+      }
+    },
+    "result": {
+      "changed_bounds": {
+        "height": 24,
+        "width": 24,
+        "x": 0,
+        "y": 0
+      },
+      "changes": [],
+      "redo_steps": 0,
+      "revision": 11,
+      "undo_steps": 11
+    }
+  },
+  {
+    "tool": "apply_edits",
+    "arguments": {
+      "project_id": "project-1",
+      "expected_revision": 11,
+      "operations": [
+        {
+          "type": "clear_cel",
+          "frame_id": "frame-1",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "ellipse",
+          "x": 7,
+          "y": 15,
+          "width": 10,
+          "height": 6,
+          "palette_index": 1,
+          "filled": true,
+          "frame_id": "frame-1",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "ellipse",
+          "x": 8,
+          "y": 16,
+          "width": 8,
+          "height": 4,
+          "palette_index": 2,
+          "filled": true,
+          "frame_id": "frame-1",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "line",
+          "x1": 9,
+          "y1": 16,
+          "x2": 14,
+          "y2": 16,
+          "palette_index": 3,
+          "frame_id": "frame-1",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "set_pixels",
+          "pixels": [
+            {
+              "x": 14,
+              "y": 18,
+              "palette_index": 4
+            }
+          ],
+          "frame_id": "frame-1",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "clear_cel",
+          "frame_id": "rise",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "ellipse",
+          "x": 9,
+          "y": 10,
+          "width": 6,
+          "height": 9,
+          "palette_index": 1,
+          "filled": true,
+          "frame_id": "rise",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "ellipse",
+          "x": 10,
+          "y": 11,
+          "width": 4,
+          "height": 7,
+          "palette_index": 2,
+          "filled": true,
+          "frame_id": "rise",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "line",
+          "x1": 11,
+          "y1": 11,
+          "x2": 12,
+          "y2": 11,
+          "palette_index": 3,
+          "frame_id": "rise",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "set_pixels",
+          "pixels": [
+            {
+              "x": 12,
+              "y": 14,
+              "palette_index": 4
+            }
+          ],
+          "frame_id": "rise",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "clear_cel",
+          "frame_id": "apex-in",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "ellipse",
+          "x": 8,
+          "y": 4,
+          "width": 8,
+          "height": 8,
+          "palette_index": 1,
+          "filled": true,
+          "frame_id": "apex-in",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "ellipse",
+          "x": 9,
+          "y": 5,
+          "width": 6,
+          "height": 6,
+          "palette_index": 2,
+          "filled": true,
+          "frame_id": "apex-in",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "line",
+          "x1": 10,
+          "y1": 5,
+          "x2": 13,
+          "y2": 5,
+          "palette_index": 3,
+          "frame_id": "apex-in",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "set_pixels",
+          "pixels": [
+            {
+              "x": 13,
+              "y": 8,
+              "palette_index": 4
+            }
+          ],
+          "frame_id": "apex-in",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "clear_cel",
+          "frame_id": "apex-out",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "ellipse",
+          "x": 8,
+          "y": 3,
+          "width": 8,
+          "height": 8,
+          "palette_index": 1,
+          "filled": true,
+          "frame_id": "apex-out",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "ellipse",
+          "x": 9,
+          "y": 4,
+          "width": 6,
+          "height": 6,
+          "palette_index": 2,
+          "filled": true,
+          "frame_id": "apex-out",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "line",
+          "x1": 10,
+          "y1": 4,
+          "x2": 13,
+          "y2": 4,
+          "palette_index": 3,
+          "frame_id": "apex-out",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "set_pixels",
+          "pixels": [
+            {
+              "x": 13,
+              "y": 7,
+              "palette_index": 4
+            }
+          ],
+          "frame_id": "apex-out",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "clear_cel",
+          "frame_id": "fall",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "ellipse",
+          "x": 9,
+          "y": 8,
+          "width": 6,
+          "height": 10,
+          "palette_index": 1,
+          "filled": true,
+          "frame_id": "fall",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "ellipse",
+          "x": 10,
+          "y": 9,
+          "width": 4,
+          "height": 8,
+          "palette_index": 2,
+          "filled": true,
+          "frame_id": "fall",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "line",
+          "x1": 11,
+          "y1": 9,
+          "x2": 12,
+          "y2": 9,
+          "palette_index": 3,
+          "frame_id": "fall",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "set_pixels",
+          "pixels": [
+            {
+              "x": 12,
+              "y": 13,
+              "palette_index": 4
+            }
+          ],
+          "frame_id": "fall",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "clear_cel",
+          "frame_id": "land",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "ellipse",
+          "x": 8,
+          "y": 13,
+          "width": 8,
+          "height": 8,
+          "palette_index": 1,
+          "filled": true,
+          "frame_id": "land",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "ellipse",
+          "x": 9,
+          "y": 14,
+          "width": 6,
+          "height": 6,
+          "palette_index": 2,
+          "filled": true,
+          "frame_id": "land",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "line",
+          "x1": 10,
+          "y1": 14,
+          "x2": 13,
+          "y2": 14,
+          "palette_index": 3,
+          "frame_id": "land",
+          "layer_id": "layer-1"
+        },
+        {
+          "type": "set_pixels",
+          "pixels": [
+            {
+              "x": 13,
+              "y": 17,
+              "palette_index": 4
+            }
+          ],
+          "frame_id": "land",
+          "layer_id": "layer-1"
+        }
+      ]
+    },
+    "result": {
+      "changed_bounds": {
+        "height": 18,
+        "width": 10,
+        "x": 7,
+        "y": 3
+      },
+      "changes": [
+        {
+          "bounds": {
+            "height": 3,
+            "width": 6,
+            "x": 9,
+            "y": 16
+          },
+          "frame_id": "frame-1",
+          "layer_id": "layer-1"
+        },
+        {
+          "bounds": {
+            "height": 11,
+            "width": 10,
+            "x": 7,
+            "y": 10
+          },
+          "frame_id": "rise",
+          "layer_id": "layer-1"
+        },
+        {
+          "bounds": {
+            "height": 17,
+            "width": 10,
+            "x": 7,
+            "y": 4
+          },
+          "frame_id": "apex-in",
+          "layer_id": "layer-1"
+        },
+        {
+          "bounds": {
+            "height": 18,
+            "width": 10,
+            "x": 7,
+            "y": 3
+          },
+          "frame_id": "apex-out",
+          "layer_id": "layer-1"
+        },
+        {
+          "bounds": {
+            "height": 13,
+            "width": 10,
+            "x": 7,
+            "y": 8
+          },
+          "frame_id": "fall",
+          "layer_id": "layer-1"
+        },
+        {
+          "bounds": {
+            "height": 8,
+            "width": 10,
+            "x": 7,
+            "y": 13
+          },
+          "frame_id": "land",
+          "layer_id": "layer-1"
+        }
+      ],
+      "redo_steps": 0,
+      "revision": 12,
+      "undo_steps": 12
+    }
+  },
+  {
+    "tool": "get_contact_sheet",
+    "arguments": {
+      "project_id": "project-1",
+      "scale": 8,
+      "columns": 3
+    },
+    "result": {
+      "distinct_composites": 6,
+      "frames": [
+        {
+          "duration_ms": 200.0,
+          "frame_id": "frame-1",
+          "image_bounds": {
+            "height": 192,
+            "width": 192,
+            "x": 8,
+            "y": 8
+          },
+          "source_frame_index": 0
+        },
+        {
+          "duration_ms": 100.0,
+          "frame_id": "rise",
+          "image_bounds": {
+            "height": 192,
+            "width": 192,
+            "x": 216,
+            "y": 8
+          },
+          "source_frame_index": 1
+        },
+        {
+          "duration_ms": 140.0,
+          "frame_id": "apex-in",
+          "image_bounds": {
+            "height": 192,
+            "width": 192,
+            "x": 424,
+            "y": 8
+          },
+          "source_frame_index": 2
+        },
+        {
+          "duration_ms": 220.0,
+          "frame_id": "apex-out",
+          "image_bounds": {
+            "height": 192,
+            "width": 192,
+            "x": 8,
+            "y": 252
+          },
+          "source_frame_index": 3
+        },
+        {
+          "duration_ms": 90.0,
+          "frame_id": "fall",
+          "image_bounds": {
+            "height": 192,
+            "width": 192,
+            "x": 216,
+            "y": 252
+          },
+          "source_frame_index": 4
+        },
+        {
+          "duration_ms": 120.0,
+          "frame_id": "land",
+          "image_bounds": {
+            "height": 192,
+            "width": 192,
+            "x": 424,
+            "y": 252
+          },
+          "source_frame_index": 5
+        }
+      ],
+      "height": 24,
+      "project_id": "project-1",
+      "revision": 12,
+      "scale": 8,
+      "sheet_height": 488,
+      "sheet_width": 624,
+      "width": 24
+    }
+  },
+  {
+    "tool": "apply_edits",
+    "arguments": {
+      "project_id": "project-1",
+      "expected_revision": 12,
+      "operations": [
+        {
+          "type": "set_pixels",
+          "frame_id": "fall",
+          "layer_id": "layer-1",
+          "pixels": [
+            {
+              "x": 10,
+              "y": 13,
+              "palette_index": 4
+            }
+          ]
+        }
+      ]
+    },
+    "result": {
+      "changed_bounds": {
+        "height": 1,
+        "width": 1,
+        "x": 10,
+        "y": 13
+      },
+      "changes": [
+        {
+          "bounds": {
+            "height": 1,
+            "width": 1,
+            "x": 10,
+            "y": 13
+          },
+          "frame_id": "fall",
+          "layer_id": "layer-1"
+        }
+      ],
+      "redo_steps": 0,
+      "revision": 13,
+      "undo_steps": 13
+    }
+  },
+  {
+    "tool": "inspect_project",
+    "arguments": {
+      "project_id": "project-1",
+      "frame_id": "frame-1",
+      "scale": 10
+    },
+    "result": {
+      "frame_id": "frame-1",
+      "height": 24,
+      "project_id": "project-1",
+      "revision": 13,
+      "scale": 10,
+      "source": {
+        "height": 24,
+        "width": 24,
+        "x": 0,
+        "y": 0
+      },
+      "width": 24
+    }
+  },
+  {
+    "tool": "inspect_project",
+    "arguments": {
+      "project_id": "project-1",
+      "frame_id": "rise",
+      "scale": 10
+    },
+    "result": {
+      "frame_id": "rise",
+      "height": 24,
+      "project_id": "project-1",
+      "revision": 13,
+      "scale": 10,
+      "source": {
+        "height": 24,
+        "width": 24,
+        "x": 0,
+        "y": 0
+      },
+      "width": 24
+    }
+  },
+  {
+    "tool": "inspect_project",
+    "arguments": {
+      "project_id": "project-1",
+      "frame_id": "apex-in",
+      "scale": 10
+    },
+    "result": {
+      "frame_id": "apex-in",
+      "height": 24,
+      "project_id": "project-1",
+      "revision": 13,
+      "scale": 10,
+      "source": {
+        "height": 24,
+        "width": 24,
+        "x": 0,
+        "y": 0
+      },
+      "width": 24
+    }
+  },
+  {
+    "tool": "inspect_project",
+    "arguments": {
+      "project_id": "project-1",
+      "frame_id": "apex-out",
+      "scale": 10
+    },
+    "result": {
+      "frame_id": "apex-out",
+      "height": 24,
+      "project_id": "project-1",
+      "revision": 13,
+      "scale": 10,
+      "source": {
+        "height": 24,
+        "width": 24,
+        "x": 0,
+        "y": 0
+      },
+      "width": 24
+    }
+  },
+  {
+    "tool": "inspect_project",
+    "arguments": {
+      "project_id": "project-1",
+      "frame_id": "fall",
+      "scale": 10
+    },
+    "result": {
+      "frame_id": "fall",
+      "height": 24,
+      "project_id": "project-1",
+      "revision": 13,
+      "scale": 10,
+      "source": {
+        "height": 24,
+        "width": 24,
+        "x": 0,
+        "y": 0
+      },
+      "width": 24
+    }
+  },
+  {
+    "tool": "inspect_project",
+    "arguments": {
+      "project_id": "project-1",
+      "frame_id": "land",
+      "scale": 10
+    },
+    "result": {
+      "frame_id": "land",
+      "height": 24,
+      "project_id": "project-1",
+      "revision": 13,
+      "scale": 10,
+      "source": {
+        "height": 24,
+        "width": 24,
+        "x": 0,
+        "y": 0
+      },
+      "width": 24
+    }
+  },
+  {
+    "tool": "get_contact_sheet",
+    "arguments": {
+      "project_id": "project-1",
+      "scale": 8,
+      "columns": 3
+    },
+    "result": {
+      "distinct_composites": 6,
+      "frames": [
+        {
+          "duration_ms": 200.0,
+          "frame_id": "frame-1",
+          "image_bounds": {
+            "height": 192,
+            "width": 192,
+            "x": 8,
+            "y": 8
+          },
+          "source_frame_index": 0
+        },
+        {
+          "duration_ms": 100.0,
+          "frame_id": "rise",
+          "image_bounds": {
+            "height": 192,
+            "width": 192,
+            "x": 216,
+            "y": 8
+          },
+          "source_frame_index": 1
+        },
+        {
+          "duration_ms": 140.0,
+          "frame_id": "apex-in",
+          "image_bounds": {
+            "height": 192,
+            "width": 192,
+            "x": 424,
+            "y": 8
+          },
+          "source_frame_index": 2
+        },
+        {
+          "duration_ms": 220.0,
+          "frame_id": "apex-out",
+          "image_bounds": {
+            "height": 192,
+            "width": 192,
+            "x": 8,
+            "y": 252
+          },
+          "source_frame_index": 3
+        },
+        {
+          "duration_ms": 90.0,
+          "frame_id": "fall",
+          "image_bounds": {
+            "height": 192,
+            "width": 192,
+            "x": 216,
+            "y": 252
+          },
+          "source_frame_index": 4
+        },
+        {
+          "duration_ms": 120.0,
+          "frame_id": "land",
+          "image_bounds": {
+            "height": 192,
+            "width": 192,
+            "x": 424,
+            "y": 252
+          },
+          "source_frame_index": 5
+        }
+      ],
+      "height": 24,
+      "project_id": "project-1",
+      "revision": 13,
+      "scale": 8,
+      "sheet_height": 488,
+      "sheet_width": 624,
+      "width": 24
+    }
+  },
+  {
+    "tool": "get_project_info",
+    "arguments": {
+      "project_id": "project-1"
+    },
+    "result": {
+      "frames": [
+        {
+          "duration_ms": 200.0,
+          "id": "frame-1",
+          "index": 0
+        },
+        {
+          "duration_ms": 100.0,
+          "id": "rise",
+          "index": 1
+        },
+        {
+          "duration_ms": 140.0,
+          "id": "apex-in",
+          "index": 2
+        },
+        {
+          "duration_ms": 220.0,
+          "id": "apex-out",
+          "index": 3
+        },
+        {
+          "duration_ms": 90.0,
+          "id": "fall",
+          "index": 4
+        },
+        {
+          "duration_ms": 120.0,
+          "id": "land",
+          "index": 5
+        }
+      ],
+      "height": 24,
+      "history_max_bytes": 67108864,
+      "history_max_steps": 32,
+      "layers": [
+        {
+          "id": "ground",
+          "index": 0,
+          "locked": false,
+          "name": "Ground",
+          "opacity": 1.0,
+          "timeline": [
+            {
+              "annotations": {
+                "metadata": {},
+                "user_data": ""
+              },
+              "cel": "cel-2",
+              "link": null,
+              "opacity": 1.0
+            },
+            {
+              "annotations": {
+                "metadata": {},
+                "user_data": ""
+              },
+              "cel": "cel-3",
+              "link": null,
+              "opacity": 1.0
+            },
+            {
+              "annotations": {
+                "metadata": {},
+                "user_data": ""
+              },
+              "cel": "cel-5",
+              "link": null,
+              "opacity": 1.0
+            },
+            {
+              "annotations": {
+                "metadata": {},
+                "user_data": ""
+              },
+              "cel": "cel-7",
+              "link": null,
+              "opacity": 1.0
+            },
+            {
+              "annotations": {
+                "metadata": {},
+                "user_data": ""
+              },
+              "cel": "cel-9",
+              "link": null,
+              "opacity": 1.0
+            },
+            {
+              "annotations": {
+                "metadata": {},
+                "user_data": ""
+              },
+              "cel": "cel-11",
+              "link": null,
+              "opacity": 1.0
+            }
+          ],
+          "visible": true
+        },
+        {
+          "id": "layer-1",
+          "index": 1,
+          "locked": false,
+          "name": "Orb",
+          "opacity": 1.0,
+          "timeline": [
+            {
+              "annotations": {
+                "metadata": {},
+                "user_data": ""
+              },
+              "cel": "cel-1",
+              "link": null,
+              "opacity": 1.0
+            },
+            {
+              "annotations": {
+                "metadata": {},
+                "user_data": ""
+              },
+              "cel": "cel-4",
+              "link": null,
+              "opacity": 1.0
+            },
+            {
+              "annotations": {
+                "metadata": {},
+                "user_data": ""
+              },
+              "cel": "cel-6",
+              "link": null,
+              "opacity": 1.0
+            },
+            {
+              "annotations": {
+                "metadata": {},
+                "user_data": ""
+              },
+              "cel": "cel-8",
+              "link": null,
+              "opacity": 1.0
+            },
+            {
+              "annotations": {
+                "metadata": {},
+                "user_data": ""
+              },
+              "cel": "cel-10",
+              "link": null,
+              "opacity": 1.0
+            },
+            {
+              "annotations": {
+                "metadata": {},
+                "user_data": ""
+              },
+              "cel": "cel-12",
+              "link": null,
+              "opacity": 1.0
+            }
+          ],
+          "visible": true
+        }
+      ],
+      "palette": [
+        "#00000000",
+        "#15243AFF",
+        "#36A9D6FF",
+        "#8CE7E5FF",
+        "#F6E6A6FF",
+        "#42536CFF"
+      ],
+      "palette_semantics": "zero-based indices; exact #RRGGBBAA values, including duplicate colours; uncomposited cel pixels",
+      "project_id": "project-1",
+      "redo_steps": 0,
+      "revision": 13,
+      "undo_steps": 13,
+      "width": 24
+    }
+  },
+  {
+    "tool": "finish_project",
+    "arguments": {
+      "project_id": "project-1"
+    },
+    "result": {
+      "revision": 13,
+      "saved_path": "\\\\?\\D:\\Dev\\5-tools\\pixloom\\examples\\mcp-animation\\output\\bounce.pixloom.json"
+    }
+  }
+]

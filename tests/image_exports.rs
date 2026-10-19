@@ -50,6 +50,7 @@ fn lossless_still_images_preserve_rgba_and_default_to_first_frame() {
             &s,
             format,
             ExportOptions {
+                loop_animation: false,
                 frame: Some(2),
                 background: None,
             },
@@ -78,6 +79,7 @@ fn alpha_incompatible_formats_require_and_apply_explicit_background() {
             &s,
             format,
             ExportOptions {
+                loop_animation: false,
                 frame: None,
                 background: Some([0, 0, 255, 255]),
             },
@@ -95,6 +97,7 @@ fn alpha_incompatible_formats_require_and_apply_explicit_background() {
         &solid,
         ImageFormat::Jpeg,
         ExportOptions {
+            loop_animation: false,
             frame: None,
             background: Some([40, 100, 180, 255]),
         },
@@ -115,14 +118,17 @@ fn invalid_selection_and_nonopaque_background_fail_before_output() {
     let s = sprite(&["#FFFFFFFF"], &[vec![0]], &[100.0]);
     for options in [
         ExportOptions {
+            loop_animation: false,
             frame: Some(0),
             background: None,
         },
         ExportOptions {
+            loop_animation: false,
             frame: Some(2),
             background: None,
         },
         ExportOptions {
+            loop_animation: false,
             frame: None,
             background: Some([0, 0, 0, 128]),
         },
@@ -233,6 +239,7 @@ fn selected_animated_format_frame_is_still_and_lossless_webp_keeps_partial_alpha
             &s,
             format,
             ExportOptions {
+                loop_animation: false,
                 frame: Some(2),
                 background: None,
             },
@@ -255,6 +262,7 @@ fn selected_animated_format_frame_is_still_and_lossless_webp_keeps_partial_alpha
         &opaque,
         ImageFormat::Gif,
         ExportOptions {
+            loop_animation: false,
             frame: Some(2),
             background: None,
         },
@@ -293,6 +301,7 @@ fn lossless_animations_replace_partial_alpha_on_multiline_canvases() {
         &s,
         ImageFormat::Webp,
         ExportOptions {
+            loop_animation: false,
             frame: Some(1),
             background: None,
         },
@@ -377,4 +386,63 @@ fn svg_complexity_and_unrepresentable_durations_are_preflight_errors() {
             "{format:?}"
         );
     }
+}
+
+#[test]
+fn looping_exports_keep_all_frames_and_timing_and_set_format_loop_metadata() {
+    let s = sprite(
+        &["#FF0000FF", "#0000FFFF"],
+        &[vec![0, 1], vec![1, 0]],
+        &[180.0, 90.0, 210.0, 120.0],
+    );
+    for format in [ImageFormat::Gif, ImageFormat::Webp, ImageFormat::Apng] {
+        let bytes = encoded(
+            &s,
+            format,
+            ExportOptions {
+                loop_animation: true,
+                ..Default::default()
+            },
+        );
+        match format {
+            ImageFormat::Gif => {
+                let mut decoder = gif::DecodeOptions::new()
+                    .read_info(Cursor::new(&bytes))
+                    .unwrap();
+                while decoder.read_next_frame().unwrap().is_some() {}
+                assert_eq!(decoder.repeat(), gif::Repeat::Infinite);
+            }
+            ImageFormat::Webp => {
+                let i = bytes.windows(4).position(|w| w == b"ANIM").unwrap();
+                assert_eq!(&bytes[i + 12..i + 14], &[0, 0]);
+            }
+            ImageFormat::Apng => {
+                let i = bytes.windows(4).position(|w| w == b"acTL").unwrap();
+                assert_eq!(&bytes[i + 8..i + 12], &[0, 0, 0, 0]);
+            }
+            _ => unreachable!(),
+        }
+        let decoded = animated_frames(bytes, format);
+        assert_eq!(decoded.len(), s.frames.len());
+        for (i, frame) in decoded.iter().enumerate() {
+            let (n, d) = frame.delay().numer_denom_ms();
+            assert_eq!(f64::from(n) / f64::from(d), s.frames[i].duration_ms);
+            assert_eq!(
+                frame.buffer().as_raw(),
+                &pixloom::raster::render(&s, i).unwrap()
+            );
+        }
+    }
+    assert!(
+        export::validate(
+            &s,
+            ImageFormat::Gif,
+            &ExportOptions {
+                loop_animation: true,
+                frame: Some(1),
+                ..Default::default()
+            }
+        )
+        .is_err()
+    );
 }

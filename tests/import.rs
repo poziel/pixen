@@ -2,7 +2,7 @@ use image::{Rgba, RgbaImage};
 use pixloom::import::{self, Decoded, Options, TransparentMode};
 use std::{path::Path, process::Command};
 fn cli(args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_pixloom"))
+    Command::new(env!("CARGO_BIN_EXE_pixloom-cli"))
         .args(args)
         .output()
         .unwrap()
