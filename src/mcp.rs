@@ -1,5 +1,8 @@
 use crate::session::{CreateProject, Operation, Session};
+#[path = "mcp_desktop.rs"]
+pub(crate) mod desktop;
 use base64::Engine;
+pub use desktop::proxy as desktop_proxy;
 use rmcp::{
     ServerHandler, ServiceExt,
     handler::server::wrapper::Parameters,
@@ -80,6 +83,14 @@ fn first_frame() -> String {
 struct Revision {
     project_id: String,
     expected_revision: u64,
+}
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct ResizeCanvas {
+    project_id: String,
+    expected_revision: u64,
+    width: u32,
+    height: u32,
 }
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -214,10 +225,14 @@ struct State {
     custom_activity: Option<(String, String)>,
     last_inspection: Option<crate::inspection::View>,
     last_review: Option<crate::viewer::review_ui::ViewerReview>,
+    desktop_events: Option<std::sync::mpsc::Sender<desktop::DesktopEvent>>,
 }
 impl State {
     fn inspection(&mut self, view: &crate::inspection::View) {
         self.last_inspection = Some(view.clone());
+        if let Some(events) = &self.desktop_events {
+            let _ = events.send(desktop::DesktopEvent::Inspection(view.clone()));
+        }
         self.last_review = None;
         let Some(path) = self.session.recovery_path() else {
             return;
@@ -242,6 +257,9 @@ impl State {
         };
         self.last_inspection = None;
         self.last_review = Some(wire.clone());
+        if let Some(events) = &self.desktop_events {
+            let _ = events.send(desktop::DesktopEvent::Review(wire.clone()));
+        }
         if let Some(path) = self.session.recovery_path()
             && let Some(viewer) = self.viewers.get_mut(&preview_key(path))
             && let Err(e) = viewer.review(&wire)
@@ -302,6 +320,9 @@ impl State {
         Ok(serde_json::json!({"reported":true,"revision":info["revision"]}))
     }
     fn publish_activity(&mut self, activity: &crate::viewer::Activity) {
+        if let Some(events) = &self.desktop_events {
+            let _ = events.send(desktop::DesktopEvent::Activity(activity.clone()));
+        }
         let Some(path) = self.session.recovery_path() else {
             return;
         };
@@ -736,6 +757,35 @@ impl Server {
     }
 
     #[tool(
+        description = "Resize the active canvas as one revision-checked undo step. Preserve exact palette indices, layer/frame IDs and timing. Anchor pixels at the top left; smaller bounds crop all cels, larger bounds pad with transparency. Does not scale artwork. Invalid dimensions or stale revisions leave document and history unchanged."
+    )]
+    fn resize_canvas(&self, Parameters(args): Parameters<ResizeCanvas>) -> CallToolResult {
+        let mut state = self.state.lock().unwrap();
+        let mut activity = crate::viewer::Activity {
+            label: "Resizing canvas…".into(),
+            busy: true,
+            frame_id: None,
+            layer_id: None,
+        };
+        state.publish_activity(&activity);
+        let resized = state.session.resize_canvas(
+            &args.project_id,
+            args.expected_revision,
+            args.width,
+            args.height,
+        );
+        activity.busy = false;
+        activity.label = if resized.is_ok() {
+            "Canvas resized"
+        } else {
+            "Canvas resize failed · project unchanged"
+        }
+        .into();
+        state.publish_activity(&activity);
+        result(resized)
+    }
+
+    #[tool(
         description = "Apply one atomic transaction at expected_revision containing typed drawing, layer and/or frame operations. Drawing operations explicitly target frame_id and layer_id; structural operations carry the relevant stable ID. Coordinates are zero-based and strictly bounded; shapes have positive dimensions; fill is four-connected equal-index replacement. Invalid or stale batches change nothing, including undo history. One successful batch is one undo step. Returns revision, drawing changed bounds/target changes or conservative full-canvas structural bounds. No PNG is generated."
     )]
     fn apply_edits(&self, Parameters(args): Parameters<ApplyEdits>) -> CallToolResult {
@@ -972,6 +1022,7 @@ pub fn run(viewer: bool) -> anyhow::Result<()> {
                 custom_activity: None,
                 last_inspection: None,
                 last_review: None,
+                desktop_events: None,
             })),
         };
         let service = server.serve(rmcp::transport::stdio()).await?;

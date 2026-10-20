@@ -449,6 +449,39 @@ fn inspection_returns_bounded_png_and_preview_tools_validate_contracts() {
 }
 
 #[test]
+fn standalone_resize_canvas_uses_revision_checks_and_undo() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut client = Client::new(false);
+    let created = client.call("create_project",json!({"width":2,"height":3,"palette":["#00000000"],"output_path":dir.path().join("sized.pixloom")}));
+    let id = text(&created)["project_id"].clone();
+    let resized = client.call(
+        "resize_canvas",
+        json!({"project_id":id,"expected_revision":0,"width":5,"height":4}),
+    );
+    assert_ne!(resized["isError"], true, "{resized}");
+    assert_eq!(
+        (
+            text(&resized)["width"].as_u64(),
+            text(&resized)["height"].as_u64()
+        ),
+        (Some(5), Some(4))
+    );
+    assert_eq!(text(&resized)["revision"], 1);
+    let stale = client.call(
+        "resize_canvas",
+        json!({"project_id":id,"expected_revision":0,"width":1,"height":1}),
+    );
+    assert_eq!(stale["isError"], true);
+    let undone = client.call("undo", json!({"project_id":id,"expected_revision":1}));
+    assert_ne!(undone["isError"], true);
+    let info = text(&client.call("get_project_info", json!({"project_id":id})));
+    assert_eq!(
+        (info["width"].as_u64(), info["height"].as_u64()),
+        (Some(2), Some(3))
+    );
+}
+
+#[test]
 fn stdio_create_draw_preview_edit_finish_and_reuse() {
     let dir = tempfile::tempdir().unwrap();
     let mut c = Client::new(false);
@@ -489,6 +522,7 @@ fn stdio_create_draw_preview_edit_finish_and_reuse() {
             "open_project",
             "redo",
             "report_activity",
+            "resize_canvas",
             "save_project",
             "transform_region",
             "undo",

@@ -2,6 +2,49 @@ use pixloom::session::{CreateProject, Session};
 use serde_json::json;
 
 #[test]
+fn resizing_canvas_preserves_indices_and_is_atomic_and_undoable() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut session = Session::default();
+    session
+        .create(CreateProject {
+            width: 2,
+            height: 2,
+            palette: vec!["#FFFFFFFF".into(), "#FFFFFFFF".into()],
+            output_path: dir.path().join("resize.pixloom"),
+        })
+        .unwrap();
+    session
+        .apply(
+            "project-1",
+            0,
+            serde_json::from_value(
+                json!([{"type":"set_pixels","frame_id":"frame-1","layer_id":"layer-1",
+        "pixels":[{"x":0,"y":0,"palette_index":0},{"x":1,"y":1,"palette_index":1}]}]),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+    let before = session.document_snapshot().unwrap();
+    assert_eq!(
+        session.resize_canvas("project-1", 1, 3, 4).unwrap()["revision"],
+        2
+    );
+    let doc = pixloom::schema::read_document(&session.document_snapshot().unwrap()).unwrap();
+    let grids = pixloom::schema::decode_indices(&doc).unwrap();
+    assert_eq!(grids["cel-1"][0][0], 0);
+    assert_eq!(grids["cel-1"][1][1], 1);
+    assert_eq!(grids["cel-1"][3][2], 2);
+    let resized = session.document_snapshot().unwrap();
+    assert!(session.resize_canvas("project-1", 1, 1, 1).is_err());
+    assert!(session.resize_canvas("project-1", 2, 0, 4).is_err());
+    assert_eq!(session.document_snapshot().unwrap(), resized);
+    session.undo("project-1", 2).unwrap();
+    assert_eq!(session.document_snapshot().unwrap(), before);
+    session.redo("project-1", 3).unwrap();
+    assert_eq!(session.document_snapshot().unwrap(), resized);
+}
+
+#[test]
 fn batches_are_atomic_and_revisions_and_coordinates_are_checked() {
     let dir = tempfile::tempdir().unwrap();
     let mut s = Session::default();

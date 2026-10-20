@@ -43,6 +43,120 @@ pub struct Session {
 }
 
 impl Session {
+    pub fn active_id(&self) -> Option<&str> {
+        self.active.as_ref().map(|p| p.id.as_str())
+    }
+
+    /// Independent baseline for reverting a whole conversational turn.
+    pub fn document_snapshot(&self) -> Result<Vec<u8>> {
+        snapshot(&self.active.as_ref().context("no active project")?.doc)
+    }
+
+    pub fn restore_document(&mut self, bytes: &[u8]) -> Result<()> {
+        let next = schema::read_document(bytes)?;
+        schema::validate_document(&next)?;
+        let p = self.active.as_ref().context("no active project")?;
+        let before = snapshot(&p.doc)?;
+        output::Prepared::new(&p.recovery, |f| output::write_document(f, &next))?.commit(true)?;
+        let p = self.active.as_mut().unwrap();
+        p.doc = next;
+        p.revision += 1;
+        p.undo.push_back(before);
+        p.redo.clear();
+        // used_ids remains a superset, preventing reuse after a revert.
+        trim_history(p, false);
+        Ok(())
+    }
+
+    /// Crop/pad all cels as one revision-checked, recoverable undo step.
+    pub fn resize_canvas(
+        &mut self,
+        id: &str,
+        expected: u64,
+        width: u32,
+        height: u32,
+    ) -> Result<Value> {
+        ensure!(
+            self.project(id)?.revision == expected,
+            "stale revision: current revision is {}",
+            self.project(id)?.revision
+        );
+        if (
+            self.project(id)?.doc.canvas.width,
+            self.project(id)?.doc.canvas.height,
+        ) == (width, height)
+        {
+            return self.info(id);
+        }
+        let mut doc = schema::read_document(&self.document_snapshot()?)?;
+        schema::pixel_bytes(width, height)?;
+        // Validate the target size and total cel budget before allocating grids.
+        let mut target = doc.clone();
+        target.canvas.width = width;
+        target.canvas.height = height;
+        schema::validate_structure(&target)?;
+        schema::pixel_bytes(width, height)?
+            .checked_mul(target.cels.len())
+            .filter(|bytes| *bytes <= 256 * 1024 * 1024)
+            .context("canvas exceeds cel memory budget")?;
+        let grids = schema::decode_indices(&doc)?;
+        let transparent = match doc
+            .palette
+            .iter()
+            .position(|c| schema::decode_color(c).is_ok_and(|rgba| rgba[3] == 0))
+        {
+            Some(index) => index as u32,
+            None => {
+                doc.palette.push("#00000000".into());
+                (doc.palette.len() - 1) as u32
+            }
+        };
+        doc.cels = grids
+            .into_iter()
+            .map(|(id, old)| {
+                let mut pixels = vec![vec![transparent; width as usize]; height as usize];
+                for (dst, src) in pixels.iter_mut().zip(old) {
+                    let count = dst.len().min(src.len());
+                    dst[..count].copy_from_slice(&src[..count]);
+                }
+                schema::CelDefinition::Legacy(schema::LegacyCel { id, pixels })
+            })
+            .collect();
+        doc.canvas.width = width;
+        doc.canvas.height = height;
+        self.restore_document(&serde_json::to_vec(&doc)?)?;
+        self.info(id)
+    }
+
+    pub fn save_as(&mut self, id: &str, destination: &Path) -> Result<Value> {
+        ensure!(
+            project_destination(destination),
+            "choose .pixloom or .pixloom.json"
+        );
+        let destination = output::resolved(destination)?;
+        let p = self.project(id)?;
+        if destination == p.output {
+            return self.save(id);
+        }
+        ensure!(
+            !destination.exists(),
+            "destination already exists; choose a new filename"
+        );
+        let previous_output = p.output.clone();
+        let p = self.active.as_mut().unwrap();
+        let previous_bytes = p.saved_bytes.take();
+        p.output = destination;
+        match self.save(id) {
+            Ok(saved) => Ok(saved),
+            Err(error) => {
+                let p = self.active.as_mut().unwrap();
+                p.output = previous_output;
+                p.saved_bytes = previous_bytes;
+                Err(error)
+            }
+        }
+    }
+
     pub fn create(&mut self, args: CreateProject) -> Result<Value> {
         ensure!(
             self.active.is_none(),

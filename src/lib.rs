@@ -13,6 +13,7 @@ pub mod raster;
 pub mod schema;
 pub mod video;
 
+pub(crate) mod agent;
 pub mod container;
 pub mod edit;
 pub mod edit_extra;

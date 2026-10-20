@@ -151,9 +151,9 @@ impl ReviewState {
             .as_ref()
             .is_some_and(|r| r.report["source_identity"].as_u64() != self.source_identity)
     }
-    pub fn menu(&mut self, ui: &mut egui::Ui) -> bool {
+    pub fn color_menu(&mut self, ui: &mut egui::Ui) -> bool {
         let mut changed = false;
-        ui.menu_button("Review", |ui| {
+        ui.menu_button("Color mode", |ui| {
             for (mode, label) in [
                 (Representation::Color, "Color"),
                 (Representation::Silhouette, "Silhouette"),
@@ -163,6 +163,12 @@ impl ReviewState {
                     .selectable_value(&mut self.representation, mode, label)
                     .changed();
             }
+        });
+        changed
+    }
+    pub fn menu(&mut self, ui: &mut egui::Ui) -> bool {
+        let mut changed = false;
+        ui.menu_button("Review", |ui| {
             changed |= ui
                 .add_enabled(
                     self.active
@@ -315,12 +321,16 @@ impl ReviewState {
         let stale = self.stale();
         let r = &active.report;
         egui::Window::new("Art review")
+            .collapsible(false)
+            .frame(egui::Frame::window(&ctx.style()).inner_margin(16))
             .id(egui::Id::new("art-review-report"))
             .default_width(540.0)
             .default_height(420.0)
             .resizable(true)
             .open(&mut self.show)
             .show(ctx, |ui| {
+                ui.spacing_mut().item_spacing = egui::vec2(12.0, 12.0);
+                ui.add_space(8.0);
                 ui.label(format!(
                     "{} · revision {}",
                     r["kind"].as_str().unwrap_or("Review"),

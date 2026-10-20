@@ -30,6 +30,10 @@ Use it to build game assets from scripts, keep artwork in version control, autom
 
 Pixloom includes a desktop viewer (`pixloom`) and a command-line tool (`pixloom-cli`). Author JSON by hand, produce it with your own scripts, or use the included [AI agent skill](skills/pixloom/SKILL.md). An editor is optional; only video exports require FFmpeg.
 
+The desktop also offers an optional [AI art conversation](docs/art-conversation.md):
+toggle it beside the top-left menu to create and refine artwork with your locally
+installed Codex agent. AI starts with your first message and uses Codex's existing login.
+
 ## Get started
 
 ### Install from source
@@ -125,7 +129,8 @@ and save pixel art while a separate read-only window displays its work. The
 playback and frame thumbnails. Open supported projects for editing with
 `open_project`; `.pixloom` is the default save format, with explicit native/image
 exports available. Revision-checked palette, region, layer, frame and drawing
-tools share atomic batches and bounded undo/redo. Onion-skin, frame-comparison
+tools share atomic batches and bounded undo/redo. `resize_canvas` changes canvas
+bounds with revision checks and undo, cropping or padding without scaling pixels. Onion-skin, frame-comparison
 and isolated-layer images help the AI review its work; inspection modes also
 appear in the viewer menu and synchronize while Follow AI is enabled.
 Use `pixloom-mcp` for headless editing and image review.
@@ -307,3 +312,5 @@ the existing canvas and pixel limits.
 Below playback, the footer shows frame duration on the left, the filename in the
 center, and frame position on the right. Errors replace the filename for eight
 seconds and then disappear; long text truncates and is available on hover.
+
+Custom desktop control icons are editable SVGs in `assets/icons`; see [icon editing](docs/icons.md). Distribute the generated `icons/` folder beside the desktop executable.

@@ -6,35 +6,12 @@ use std::collections::BTreeMap;
 fn eye_button(ui: &mut egui::Ui, visible: bool) -> egui::Response {
     let (rect, response) = ui.allocate_exact_size(egui::vec2(22.0, 28.0), egui::Sense::click());
     let color = ui.style().interact(&response).fg_stroke.color;
-    let center = rect.center();
-    let stroke = egui::Stroke::new(1.5_f32, color);
-    let points = [
-        (-8.0, 0.0),
-        (-4.0, -4.0),
-        (0.0, -5.0),
-        (4.0, -4.0),
-        (8.0, 0.0),
-        (4.0, 4.0),
-        (0.0, 5.0),
-        (-4.0, 4.0),
-    ];
-    ui.painter().add(egui::Shape::closed_line(
-        points
-            .iter()
-            .map(|&(x, y)| center + egui::vec2(x, y))
-            .collect(),
-        stroke,
-    ));
-    ui.painter().circle_filled(center, 2.5, color);
-    if !visible {
-        ui.painter().line_segment(
-            [
-                center + egui::vec2(-8.0, 8.0),
-                center + egui::vec2(8.0, -8.0),
-            ],
-            stroke,
-        );
-    }
+    super::icons::paint(
+        ui,
+        if visible { "eye" } else { "eye-off" },
+        egui::Rect::from_center_size(rect.center(), egui::vec2(22.0, 22.0)),
+        color,
+    );
     response
         .on_hover_cursor(egui::CursorIcon::PointingHand)
         .on_hover_text(if visible {
@@ -108,12 +85,12 @@ impl LayerView {
                     .inner_margin(8.0),
             )
             .default_width(220.0)
-            .width_range(160.0..=360.0)
+            .width_range(160.0..=(ctx.available_rect().width() - 160.0).clamp(160.0, 360.0))
             .show(ctx, |ui| {
                 if !enabled {
                     ui.disable();
                 }
-                ui.horizontal(|ui| {
+                super::panel_header(ui, |ui| {
                     ui.heading("Layers");
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if super::icon_button(ui, super::Icon::Reset, "Reset layer view").clicked()
@@ -130,29 +107,23 @@ impl LayerView {
                             let mut isolated = sprite.clone();
                             isolated.layers.retain(|item| item.id == layer.id);
                             isolated.layers[0].visible = true;
-                            if let Ok(rgba) = crate::raster::render(&isolated, frame) {
-                                let rgba = super::preview_background(
+                            if let Ok(rgba) = crate::raster::render(&isolated, frame)
+                                && let Some(image) = super::square_thumbnail(
                                     background,
-                                    sprite.width as usize,
-                                    sprite.height as usize,
+                                    sprite.width,
+                                    sprite.height,
                                     &rgba,
+                                    40,
+                                )
+                            {
+                                self.thumbnails.insert(
+                                    layer.id.clone(),
+                                    ctx.load_texture(
+                                        format!("layer-{}", layer.id),
+                                        image,
+                                        egui::TextureOptions::NEAREST,
+                                    ),
                                 );
-                                if let Some(image) =
-                                    image::RgbaImage::from_raw(sprite.width, sprite.height, rgba)
-                                {
-                                    let small = image::imageops::thumbnail(&image, 40, 40);
-                                    self.thumbnails.insert(
-                                        layer.id.clone(),
-                                        ctx.load_texture(
-                                            format!("layer-{}", layer.id),
-                                            egui::ColorImage::from_rgba_unmultiplied(
-                                                [small.width() as usize, small.height() as usize],
-                                                small.as_raw(),
-                                            ),
-                                            egui::TextureOptions::NEAREST,
-                                        ),
-                                    );
-                                }
                             }
                         }
                         ui.push_id(&layer.id, |ui| {

@@ -649,3 +649,16 @@ request. Viewer settings never change saved artwork or explicit editing targets.
 See [art-review APIs](art-review.md) for all six review schemas, resource limits,
 inspector controls and examples. [Future critic workflow](critic-workflow.md) is
 a design document only; no critic agent or skill is installed or run.
+
+### Resize canvas bounds
+
+`resize_canvas` is available in both standalone MCP and the embedded artist's
+active-document tool set. Pass `project_id`, `expected_revision`, `width`, and
+`height`. Pixels stay at the top left; smaller bounds crop every cel, larger
+bounds pad with transparency. Palette indices, layer/frame IDs, and timing are
+preserved. A successful change advances revision once and is one undo step;
+stale revisions and invalid dimensions leave the project unchanged.
+
+```json
+{"name":"resize_canvas","arguments":{"project_id":"project-1","expected_revision":3,"width":64,"height":48}}
+```
