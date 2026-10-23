@@ -192,18 +192,10 @@ fn ambiguous_windows_output_names_cannot_replace_the_other_output() {
 }
 
 #[test]
-fn gui_and_cli_have_distinct_entry_points() {
+fn headless_cli_has_its_own_entry_point() {
     let help = run(&["--help"]);
     assert!(help.status.success());
     assert!(String::from_utf8_lossy(&help.stdout).contains("pixloom-cli"));
-    let help = Command::new(env!("CARGO_BIN_EXE_pixloom"))
-        .arg("--help")
-        .output()
-        .unwrap();
-    assert!(help.status.success());
-    let text = String::from_utf8_lossy(&help.stdout);
-    assert!(text.contains("[INPUT]"));
-    assert!(!text.contains("validate"));
 }
 
 #[test]

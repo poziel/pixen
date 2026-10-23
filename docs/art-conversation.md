@@ -1,4 +1,11 @@
-# Art conversation
+# Art conversation backend
+
+The Frame/Tauri desktop currently includes an AI placeholder, not a conversation
+frontend. The Rust adapter, subscription integration, attachments, approvals,
+model preferences, checkpoints/rewind and cancellation remain available without
+egui. Nothing starts AI automatically. The UI descriptions below document the
+preceding egui implementation and are retained as reference for a future chat
+frontend; they are not current desktop instructions.
 
 Use the conversation toggle beside the main menu in the top-left title bar. The
 conversation opens inward on the left, shifting the canvas into the remaining

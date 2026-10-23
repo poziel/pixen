@@ -107,8 +107,9 @@ pub fn image(scope: &ScopedRgba) -> Result<RgbaImage> {
 }
 pub fn label(image: &mut RgbaImage, x: u32, y: u32, text: &str) {
     use ab_glyph::{Font, FontArc, ScaleFont};
-    let fonts = eframe::egui::FontDefinitions::default();
-    let Ok(font) = FontArc::try_from_vec(fonts.font_data["Hack"].font.to_vec()) else {
+
+    let Ok(font) = FontArc::try_from_slice(include_bytes!("../../assets/fonts/Hack-Regular.ttf"))
+    else {
         return;
     };
     let scaled = font.as_scaled(12.0);

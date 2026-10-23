@@ -3,7 +3,7 @@ use super::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct Selection {
+pub struct Selection {
     pub model: String,
     pub effort: String,
 }
@@ -16,7 +16,7 @@ impl Default for Selection {
     }
 }
 #[derive(Clone, Debug)]
-pub(crate) struct Model {
+pub struct Model {
     pub id: String,
     pub label: String,
     pub efforts: Vec<String>,
@@ -59,7 +59,7 @@ impl Selection {
             "summary":"auto","input":[{"type":"text","text":text}]})
     }
 }
-pub(crate) fn parse_catalog(value: &Value, live: bool) -> Vec<Model> {
+pub fn parse_catalog(value: &Value, live: bool) -> Vec<Model> {
     value[if live { "data" } else { "models" }]
         .as_array()
         .into_iter()
@@ -108,7 +108,7 @@ pub(crate) fn parse_catalog(value: &Value, live: bool) -> Vec<Model> {
         })
         .collect()
 }
-pub(crate) fn cached_catalog() -> Vec<Model> {
+pub fn cached_catalog() -> Vec<Model> {
     let home = std::env::var_os("CODEX_HOME")
         .map(PathBuf::from)
         .or_else(|| {

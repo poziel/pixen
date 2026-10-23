@@ -13,6 +13,42 @@ struct Client {
     id: u64,
     diagnostics: mpsc::Receiver<String>,
 }
+
+#[test]
+#[ignore = "requires the built Tauri desktop and an interactive desktop session"]
+fn tauri_managed_preview_acknowledges_updates_focus_and_shutdown() {
+    let root = tempfile::tempdir().unwrap();
+    let destination = root.path().join("preview.pixloom");
+    let mut client = Client::new(false);
+    let created = client.call(
+        "create_project",
+        json!({"width":4,"height":4,"palette":["#00000000","#FF0000FF"],"output_path":destination}),
+    );
+    let id = text(&created)["project_id"].clone();
+    let opened = client.call("open_preview", json!({"project_id":id}));
+    assert_eq!(text(&opened)["opened"], true, "{opened}");
+    let pid = text(&opened)["pid"].clone();
+    let edit = client.call("apply_edits",json!({"project_id":id,"expected_revision":0,"operations":[{"type":"set_pixels","frame_id":"frame-1","layer_id":"layer-1","pixels":[{"x":1,"y":1,"palette_index":1}]}]}));
+    assert_eq!(text(&edit)["revision"], 1);
+    let activity = client.call("report_activity",json!({"project_id":id,"message":"Checking Tauri preview","busy":true,"frame_id":"frame-1","layer_id":"layer-1"}));
+    assert_ne!(activity["isError"], true, "{activity}");
+    let inspection = client.call(
+        "inspect_project",
+        json!({"project_id":id,"frame_id":"frame-1","scale":1}),
+    );
+    assert_ne!(inspection["isError"], true, "{inspection}");
+    let review = client.call(
+        "analyze_sprite",
+        json!({"project_id":id,"frame_id":"frame-1"}),
+    );
+    assert_ne!(review["isError"], true, "{review}");
+    let activated = client.call("open_preview", json!({"project_id":id}));
+    assert_eq!(text(&activated)["reused"], true, "{activated}");
+    assert_eq!(text(&activated)["pid"], pid);
+    let finished = client.call("finish_project", json!({"project_id":id}));
+    assert_ne!(finished["isError"], true, "{finished}");
+    assert!(destination.is_file());
+}
 impl Client {
     fn new(viewer: bool) -> Self {
         let mut command = Command::new(env!("CARGO_BIN_EXE_pixloom-mcp"));

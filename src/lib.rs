@@ -13,7 +13,7 @@ pub mod raster;
 pub mod schema;
 pub mod video;
 
-pub(crate) mod agent;
+pub mod agent;
 pub mod container;
 pub mod edit;
 pub mod edit_extra;
@@ -25,3 +25,10 @@ pub mod preview;
 pub mod review;
 pub mod session;
 pub mod viewer;
+
+pub mod desktop;
+#[path = "viewer_sheet.rs"]
+pub mod sheet;
+pub mod viewer_protocol;
+
+pub mod theme;

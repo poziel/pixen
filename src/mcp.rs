@@ -1,6 +1,6 @@
 use crate::session::{CreateProject, Operation, Session};
 #[path = "mcp_desktop.rs"]
-pub(crate) mod desktop;
+pub mod desktop;
 use base64::Engine;
 pub use desktop::proxy as desktop_proxy;
 use rmcp::{

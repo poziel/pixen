@@ -1,21 +1,25 @@
-# Viewer themes and panels
+# Desktop themes and views
 
-Pixloom uses one left activity rail and one selected sidebar: Layers, Animation, or AI conversation. Clicking the active activity collapses it. Playback controls belong to Animation; hiding the panel does not stop playback or AI processing. The rail and active sidebar share one rounded bordered container, including when collapsed to the rail alone. Drag its right edge to resize; the edge highlights with the accent color. All panels use the same width limits and reserve a minimum canvas width. The canvas is a separate rounded darker surface. Top and status bars share `bar_height`.
+Layers, Timeline and the AI placeholder are separate primary sidebar views in
+Frame. Hiding Timeline does not stop playback. The canvas is a central Vue
+workspace with its own background, pan and zoom.
 
-## Editing the theme
+`assets/themes/manifest.json` lists the default theme. `PIXLOOM_THEME` selects a
+registered ID or JSON file before launch. Missing or invalid fields fall back
+to the bundled 2026 Dark theme. Restart after editing native theme selection.
 
-`assets/themes/manifest.json` lists theme IDs, their JSON files, and the default ID. Duplicate `2026-dark.json`, register the new file, and change `default`. Alternatively set `PIXLOOM_THEME` to a registered ID or a JSON file path before starting Pixloom. Restart the application after editing theme configuration. Missing fields inherit the bundled 2026 Dark defaults; invalid JSON falls back to those defaults.
+`src/theme.rs` reads the registry without a UI dependency. `ui/theme.ts` maps
+shell/panel/canvas/text/muted/accent/border/selection/hover/button/raised colors
+to Frame tokens and Pixloom content variables. Font size, initial sidebar width,
+and a selected TTF/OTF font are carried across. Frame owns the remaining shell
+geometry, spacing, menus and control dimensions; old egui-only metric names no
+longer configure those elements.
 
-The `colors` object defines semantic RGB hex colors. The `metrics` object defines logical pixel sizes (scaled with display DPI): bar/header heights, activity rail/sidebar widths, font sizes, borders, corner radii, spacing, padding, icon/button sizes, empty-workspace icon size, and menu width/row height/padding/separator thickness. These are native egui theme tokens, not CSS. Content-specific drawing geometry, artwork pixels, and native window hit regions are not CSS properties and remain code-owned.
+Distributions can ship `themes/` beside the executable. The source checkout's
+`assets/themes/` is preferred when available; a default is embedded. The frontend
+and SVG icons are bundled into the desktop by Tauri/Vite. SVG changes require a
+frontend rebuild or development server; the old icon registry remains an asset
+reference rather than a runtime Vue feature.
 
-The menu has its own raised surface, full-width separators, and transparent menu rows. General buttons have a filled background. Icon controls are transparent until hovered, with a brighter glyph and hover surface.
-
-`font_file` selects a TTF/OTF file. By default Segoe UI is loaded on Windows when available; other systems use the bundled proportional font.
-
-## Icons
-
-`assets/icons/registry.json` maps semantic names to editable SVG asset basenames. Themes supply tint colors; SVGs supply shapes. Use white SVG artwork so theme tinting works. `empty_workspace` selects the large empty-canvas mark, independently tinted by `empty_icon`. SVG edits refresh while running; registry mappings are read at rendering time.
-
-The application background, including the gutters between containers, shares the top/status bar shell color. The application mark is the approved Pixloom 20px PNG beside the menu button.
-
-The source checkout provides runtime assets. Theme defaults are embedded as a fallback. A packaged distribution should ship the themes and icons directories beside its executable.
+`assets/fonts/Hack-Regular.ttf` and its license keep contact-sheet and review
+labels deterministic without loading egui's default font definitions.

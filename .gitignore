@@ -2,3 +2,10 @@
 /.research/
 /out/
 *.exe
+/node_modules/
+/dist/
+/src-tauri/target/
+/src-tauri/gen/
+/.superpowers/
+/.playwright-cli/
+**/.pixloom-recovery-*.pixloom.json

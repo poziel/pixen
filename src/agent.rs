@@ -5,9 +5,9 @@ mod process;
 use anyhow::{Context, Result, ensure};
 use process::Process;
 #[path = "agent_attachments.rs"]
-pub(crate) mod attachments;
+pub mod attachments;
 #[path = "agent_models.rs"]
-pub(crate) mod models;
+pub mod models;
 use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, VecDeque},
@@ -21,7 +21,17 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(crate) enum Action {
+#[derive(Clone, Default)]
+pub struct Wake(pub Option<Arc<dyn Fn() + Send + Sync>>);
+impl Wake {
+    fn request_repaint(&self) {
+        if let Some(wake) = &self.0 {
+            wake();
+        }
+    }
+}
+
+pub enum Action {
     Send(String),
     SendReferences(String, Vec<attachments::Attachment>),
     Configure(models::Selection),
@@ -35,7 +45,7 @@ pub(crate) enum Action {
     Approval(Value, bool),
     Shutdown,
 }
-pub(crate) enum Event {
+pub enum Event {
     Status(String),
     ApplicationStatus(String),
     Viewer(crate::mcp::desktop::DesktopEvent),
@@ -75,7 +85,7 @@ pub(crate) enum Event {
         recovery: PathBuf,
     },
 }
-pub(crate) struct Agent {
+pub struct Agent {
     pub actions: Sender<Action>,
     pub events: Receiver<Event>,
     pub canvas: Arc<Mutex<Option<Event>>>,
@@ -83,7 +93,7 @@ pub(crate) struct Agent {
 
 /// Document lifetime is independent of the Codex process and its connection.
 #[derive(Clone, Default)]
-pub(crate) struct Workspace(Arc<Mutex<Option<Desktop>>>);
+pub struct Workspace(Arc<Mutex<Option<Desktop>>>);
 impl Workspace {
     #[cfg(test)]
     pub fn is_prepared(&self) -> bool {
@@ -114,7 +124,7 @@ impl Workspace {
         &self,
         action: Action,
         source: Option<PathBuf>,
-        wake: eframe::egui::Context,
+        wake: Wake,
     ) -> Receiver<Event> {
         let (events, receiver) = mpsc::channel();
         let workspace = self.clone();
@@ -175,7 +185,7 @@ impl Workspace {
 
 impl Agent {
     #[cfg(test)]
-    pub fn start(source: Option<PathBuf>, wake: eframe::egui::Context) -> Self {
+    pub fn start(source: Option<PathBuf>, wake: Wake) -> Self {
         Self::start_in(
             source,
             wake,
@@ -185,7 +195,7 @@ impl Agent {
     }
     pub fn start_in(
         source: Option<PathBuf>,
-        wake: eframe::egui::Context,
+        wake: Wake,
         workspace: Workspace,
         selection: models::Selection,
     ) -> Self {
@@ -217,7 +227,7 @@ impl Drop for Agent {
 }
 struct Output {
     events: Sender<Event>,
-    wake: eframe::egui::Context,
+    wake: Wake,
     canvas: Option<Arc<Mutex<Option<Event>>>>,
 }
 impl Output {
@@ -939,7 +949,7 @@ mod tests {
         desktop.create_artwork(4, 4).unwrap();
         let agent = Agent::start_in(
             None,
-            eframe::egui::Context::default(),
+            Wake::default(),
             workspace.clone(),
             models::Selection::default(),
         );
@@ -1045,7 +1055,7 @@ mod tests {
     #[test]
     #[ignore = "requires locally installed and authenticated Codex; no inference requested"]
     fn installed_codex_initializes_with_embedded_mcp() {
-        let agent = Agent::start(None, eframe::egui::Context::default());
+        let agent = Agent::start(None, Wake::default());
         let until = Instant::now() + Duration::from_secs(60);
         let mut saw_catalog = false;
         loop {
@@ -1077,7 +1087,7 @@ mod tests {
         let workspace = Workspace::default();
         let agent = Agent::start_in(
             None,
-            eframe::egui::Context::default(),
+            Wake::default(),
             workspace.clone(),
             models::Selection::default(),
         );
@@ -1139,7 +1149,7 @@ mod tests {
             attachments::Attachment::load(&image).unwrap(),
             attachments::Attachment::load(&text).unwrap(),
         ];
-        let agent = Agent::start(None, eframe::egui::Context::default());
+        let agent = Agent::start(None, Wake::default());
         let until = Instant::now() + Duration::from_secs(120);
         let mut subscription = false;
         let mut replies = BTreeMap::<String, String>::new();

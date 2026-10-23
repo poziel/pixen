@@ -30,9 +30,10 @@ Use it to build game assets from scripts, keep artwork in version control, autom
 
 Pixloom includes a desktop viewer (`pixloom`) and a command-line tool (`pixloom-cli`). Author JSON by hand, produce it with your own scripts, or use the included [AI agent skill](skills/pixloom/SKILL.md). An editor is optional; only video exports require FFmpeg.
 
-The desktop also offers an optional [AI art conversation](docs/art-conversation.md):
-toggle it beside the top-left menu to create and refine artwork with your locally
-installed Codex agent. AI starts with your first message and uses Codex's existing login.
+The desktop uses a Frame/Vue workbench hosted by Tauri. Layers, Timeline, and an
+AI placeholder live in the primary sidebar; the canvas occupies one workspace
+without document tabs. The AI conversation frontend is temporarily unavailable;
+its Rust backend and independent MCP authoring tools are preserved.
 
 ## Get started
 
@@ -46,7 +47,26 @@ pixloom-cli --version
 pixloom-cli --help
 ```
 
-Cargo installs all three executables in its bin directory, which must be on your `PATH`. With the default Cargo setup, that is `~/.cargo/bin` on Linux/macOS or `%USERPROFILE%\.cargo\bin` on Windows.
+Cargo installs the headless `pixloom-cli` and `pixloom-mcp` executables in its bin directory, which must be on your `PATH`. With the default Cargo setup, that is `~/.cargo/bin` on Linux/macOS or `%USERPROFILE%\.cargo\bin` on Windows.
+
+Build the desktop separately with **Bun** and the Tauri native prerequisites.
+Frame is currently a private local dependency: `package.json` points to
+`../../1-codes/frame/packages/core`, whose library must already be built with
+`bun run build:library` in the Frame checkout. Adjust that path for a different
+checkout layout.
+
+```sh
+bun install --frozen-lockfile
+bun run tauri dev
+# Production desktop, without creating an installer:
+bun run tauri build --no-bundle
+```
+
+Build the headless tools with `cargo build --release --locked` as well. The shared
+target directory places all three executables under `target/release`. Distribute
+them together so CLI/MCP preview requests can find `pixloom` beside their own
+executable. A Cargo-only installation does not install the desktop.
+See [desktop architecture and verification](docs/frame-desktop.md).
 
 To build without installing:
 

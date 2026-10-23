@@ -158,8 +158,8 @@ pub fn contact_sheet(
         scale > 0 && columns > 0 && columns <= 64,
         "scale must be positive and columns must be 1..64"
     );
-    let fonts = eframe::egui::FontDefinitions::default();
-    let font = FontArc::try_from_vec(fonts.font_data["Hack"].font.to_vec())?;
+
+    let font = FontArc::try_from_slice(include_bytes!("../assets/fonts/Hack-Regular.ttf"))?;
     let scaled = font.as_scaled(16.0);
     let labels: Vec<_> = indices
         .iter()

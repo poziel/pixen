@@ -119,7 +119,19 @@ impl Session {
                     let count = dst.len().min(src.len());
                     dst[..count].copy_from_slice(&src[..count]);
                 }
-                schema::CelDefinition::Legacy(schema::LegacyCel { id, pixels })
+                if doc.version == 1 {
+                    schema::CelDefinition::Legacy(schema::LegacyCel { id, pixels })
+                } else {
+                    schema::CelDefinition::Encoded(crate::encoding::Encoding::Grid(
+                        crate::encoding::grid::Grid {
+                            id,
+                            pixels,
+                            offset: None,
+                            size: None,
+                            default_index: None,
+                        },
+                    ))
+                }
             })
             .collect();
         doc.canvas.width = width;

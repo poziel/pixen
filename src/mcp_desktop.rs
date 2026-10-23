@@ -5,7 +5,7 @@ use rmcp::{ErrorData, RoleServer, model::*, service::RequestContext};
 use serde_json::Value;
 use std::path::Path;
 
-pub(crate) enum DesktopEvent {
+pub enum DesktopEvent {
     Activity(crate::viewer::Activity),
     Inspection(crate::inspection::View),
     Review(crate::viewer::review_ui::ViewerReview),
@@ -24,7 +24,7 @@ fn store_turn_snapshot(root: &Path, bytes: &[u8]) -> Result<Arc<tempfile::NamedT
     Ok(Arc::new(file))
 }
 #[derive(Clone)]
-pub(crate) struct Desktop {
+pub struct Desktop {
     server: Server,
     root: PathBuf,
     baseline: Arc<Mutex<Option<Vec<u8>>>>,
@@ -353,7 +353,7 @@ impl ServerHandler for Desktop {
     }
 }
 
-pub(crate) struct Bridge {
+pub struct Bridge {
     pub address: std::net::SocketAddr,
     pub token: String,
     shutdown: Option<tokio::sync::oneshot::Sender<()>>,

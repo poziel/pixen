@@ -1,14 +1,12 @@
 //! Snapshot user-selected references; only images and readable UTF-8 enter model input.
 use super::*;
-use eframe::egui;
 
 #[derive(Clone)]
-pub(crate) struct Attachment {
+pub struct Attachment {
     pub name: String,
     pub path: PathBuf,
     pub text: Option<String>,
-    preview: Option<egui::ColorImage>,
-    texture: Arc<Mutex<Option<egui::TextureHandle>>>,
+    pub preview: Option<image::RgbaImage>,
     _directory: Arc<tempfile::TempDir>,
 }
 
@@ -34,7 +32,6 @@ impl Attachment {
             path: directory.path().join("reference.txt"),
             text: None,
             preview: None,
-            texture: Arc::new(Mutex::new(None)),
             _directory: directory,
         };
         let mut reader =
@@ -52,10 +49,7 @@ impl Attachment {
             attachment.path = attachment._directory.path().join("reference.png");
             image.save_with_format(&attachment.path, image::ImageFormat::Png)?;
             let preview = image::imageops::thumbnail(&image, 96, 64);
-            attachment.preview = Some(egui::ColorImage::from_rgba_unmultiplied(
-                [preview.width() as usize, preview.height() as usize],
-                preview.as_raw(),
-            ));
+            attachment.preview = Some(preview);
         } else {
             ensure!(bytes.len() <= 1024 * 1024, "Text reference exceeds 1 MiB");
             let text = String::from_utf8(bytes)
@@ -70,18 +64,6 @@ impl Attachment {
             attachment.text = Some(text);
         }
         Ok(attachment)
-    }
-    pub fn texture(&self, ctx: &egui::Context) -> Option<egui::TextureHandle> {
-        let preview = self.preview.as_ref()?;
-        let mut texture = self.texture.lock().unwrap();
-        if texture.is_none() {
-            *texture = Some(ctx.load_texture(
-                format!("reference-{}", self.path.display()),
-                preview.clone(),
-                egui::TextureOptions::LINEAR,
-            ));
-        }
-        texture.clone()
     }
     pub fn input(&self) -> Value {
         if let Some(text) = &self.text {
