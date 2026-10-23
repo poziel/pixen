@@ -1,6 +1,64 @@
 use super::*;
 
 impl App {
+    pub(super) fn select_panel(&mut self, index: usize) {
+        let was_open = match index {
+            0 => self.show_layers,
+            1 => self.show_animation,
+            _ => self.conversation.visible,
+        };
+        self.show_layers = index == 0 && !was_open;
+        self.show_animation = index == 1 && !was_open;
+        self.conversation.visible = index == 2 && !was_open;
+    }
+    pub(super) fn activity_rail(&mut self, ctx: &egui::Context) {
+        egui::SidePanel::left("activity-rail")
+            .exact_width(theme::metric("rail_width"))
+            .resizable(false)
+            .show_separator_line(false)
+            .frame(egui::Frame::NONE.inner_margin(egui::Margin {
+                left: 6,
+                right: 6,
+                top: theme::metric("gap") as i8 + 2,
+                bottom: theme::metric("gap") as i8,
+            }))
+            .show(ctx, |ui| {
+                for (index, name, label, active) in [
+                    (0, "panel_layers", "Layers", self.show_layers),
+                    (1, "panel_animation", "Animation", self.show_animation),
+                    (2, "panel_ai", "AI conversation", self.conversation.visible),
+                ] {
+                    let side = (theme::metric("rail_width") - 2.0 * theme::metric("gap")).max(24.0);
+                    let (rect, response) = ui.allocate_exact_size(
+                        egui::vec2(side, theme::metric("rail_item_height")),
+                        egui::Sense::click(),
+                    );
+                    if active || response.hovered() {
+                        ui.painter().rect_filled(
+                            rect,
+                            theme::radius("control_radius"),
+                            theme::color(if active { "selected" } else { "hover" }),
+                        );
+                    }
+                    icons::paint(
+                        ui,
+                        name,
+                        egui::Rect::from_center_size(
+                            rect.center(),
+                            egui::Vec2::splat(theme::metric("icon_size")),
+                        ),
+                        theme::color(if active || response.hovered() {
+                            "icon_hover"
+                        } else {
+                            "icon"
+                        }),
+                    );
+                    if response.on_hover_text(label).clicked() {
+                        self.select_panel(index);
+                    }
+                }
+            });
+    }
     fn window_title(&self) -> String {
         self.conversation
             .saved_path()
@@ -16,8 +74,9 @@ impl App {
             })
     }
 
+    #[cfg(test)]
     fn toggle_conversation(&mut self, _ctx: &egui::Context) {
-        self.conversation.visible = !self.conversation.visible;
+        self.select_panel(2);
     }
 
     pub(super) fn minimum_window_size(&self) -> egui::Vec2 {
@@ -43,7 +102,16 @@ impl App {
         } else {
             260.0
         };
-        egui::vec2(width, height)
+        let panel_minimum = if self.show_layers || self.show_animation || self.conversation.visible
+        {
+            theme::metric("rail_width")
+                + theme::metric("sidebar_min_width")
+                + theme::metric("canvas_min_width")
+                + 3.0 * theme::metric("gap")
+        } else {
+            0.0
+        };
+        egui::vec2(width.max(panel_minimum), height)
     }
     pub(super) fn enforce_window_minimum(&self, ctx: &egui::Context) {
         let minimum = self.minimum_window_size();
@@ -162,12 +230,12 @@ impl App {
             ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
         }
         egui::TopBottomPanel::top("window-title-bar")
-            .exact_height(36.0)
+            .exact_height(theme::metric("bar_height"))
             .show_separator_line(false)
             .frame(
                 egui::Frame::NONE
-                    .fill(egui::Color32::from_gray(25))
-                    .inner_margin(egui::Margin::symmetric(8, 4)),
+                    .fill(theme::color("shell"))
+                    .inner_margin(egui::Margin::symmetric(8, 2)),
             )
             .show(ctx, |ui| {
                 let rect = ui.max_rect();
@@ -233,21 +301,43 @@ impl App {
                     |ui| {
                         ui.visuals_mut().widgets.inactive.bg_fill = egui::Color32::TRANSPARENT;
                         ui.visuals_mut().widgets.inactive.bg_stroke = egui::Stroke::NONE;
-                        ui.visuals_mut().widgets.hovered.bg_fill = egui::Color32::from_gray(55);
+                        ui.visuals_mut().widgets.hovered.bg_fill = theme::color("hover");
                         ui.visuals_mut().widgets.hovered.bg_stroke = egui::Stroke::NONE;
                         ui.visuals_mut().widgets.active.bg_stroke = egui::Stroke::NONE;
+                        let (logo_rect, _) =
+                            ui.allocate_exact_size(egui::vec2(28.0, 28.0), egui::Sense::hover());
+                        let logo_id = egui::Id::new("application-logo");
+                        let texture = ctx
+                            .data(|d| d.get_temp::<egui::TextureHandle>(logo_id))
+                            .or_else(|| {
+                                let image = image::load_from_memory(include_bytes!(
+                                    "../assets/pixloom-20.png"
+                                ))
+                                .ok()?
+                                .to_rgba8();
+                                let texture = ctx.load_texture(
+                                    "application-logo",
+                                    egui::ColorImage::from_rgba_unmultiplied(
+                                        [image.width() as usize, image.height() as usize],
+                                        image.as_raw(),
+                                    ),
+                                    egui::TextureOptions::NEAREST,
+                                );
+                                ctx.data_mut(|d| d.insert_temp(logo_id, texture.clone()));
+                                Some(texture)
+                            });
+                        if let Some(texture) = texture {
+                            ui.painter().image(
+                                texture.id(),
+                                egui::Rect::from_center_size(
+                                    logo_rect.center(),
+                                    egui::Vec2::splat(theme::metric("app_icon_size")),
+                                ),
+                                egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
+                                egui::Color32::WHITE,
+                            );
+                        }
                         self.main_menu(ui, ctx);
-                        ui.add_enabled_ui(!self.managed, |ui| {
-                            let selected = self.conversation.visible;
-                            if selected {
-                                ui.visuals_mut().widgets.inactive.fg_stroke.color =
-                                    egui::Color32::WHITE;
-                            }
-                            let response = icon_button(ui, Icon::Chat, "Toggle AI conversation");
-                            if response.clicked() {
-                                self.toggle_conversation(ctx);
-                            }
-                        });
                     },
                 );
                 ui.scope_builder(
@@ -306,9 +396,9 @@ fn window_button(ui: &mut egui::Ui, button: WindowButton) -> egui::Response {
             rect,
             4,
             if matches!(button, WindowButton::Close) {
-                egui::Color32::from_rgb(170, 45, 50)
+                theme::color("close_hover")
             } else {
-                egui::Color32::from_gray(55)
+                theme::color("hover")
             },
         );
     }
@@ -384,7 +474,7 @@ pub(super) fn resize_edges(ctx: &egui::Context) {
     };
     if let Some((direction, cursor)) = direction {
         ctx.set_cursor_icon(cursor);
-        let stroke = egui::Stroke::new(2.0_f32, egui::Color32::from_gray(130));
+        let stroke = egui::Stroke::new(2.0_f32, theme::color("resize_grip"));
         if left {
             painter.line_segment([rect.left_top(), rect.left_bottom()], stroke);
         }
@@ -409,6 +499,63 @@ mod tests {
     fn app() -> App {
         let (_, rx) = mpsc::channel();
         App::empty(rx)
+    }
+    #[test]
+    fn renderer_clear_color_matches_shell_without_linear_conversion() {
+        use eframe::App as _;
+        let app = app();
+        assert_eq!(
+            app.clear_color(&egui::Visuals::dark()),
+            theme::color("shell").to_normalized_gamma_f32()
+        );
+    }
+    #[test]
+    fn panel_switching_is_exclusive_and_toggling_preserves_playback() {
+        let mut app = app();
+        app.playback.frame = 3;
+        app.speed = 2.0;
+        for index in [1, 2, 0, 2, 1] {
+            app.select_panel(index);
+            assert_eq!(
+                [
+                    app.show_layers,
+                    app.show_animation,
+                    app.conversation.visible
+                ]
+                .into_iter()
+                .filter(|v| *v)
+                .count(),
+                1
+            );
+            assert_eq!(app.playback.frame, 3);
+            assert_eq!(app.speed, 2.0);
+            assert!(!app.conversation.active());
+        }
+        app.select_panel(1);
+        assert!(!app.show_layers && !app.show_animation && !app.conversation.visible);
+    }
+    #[test]
+    fn title_and_status_bars_share_theme_height() {
+        let mut app = app();
+        let ctx = egui::Context::default();
+        let _ = ctx.run(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(800.0, 600.0),
+                )),
+                ..Default::default()
+            },
+            |ctx| {
+                app.title_bar(ctx);
+                assert_eq!(ctx.available_rect().top(), theme::metric("bar_height"));
+                app.footer(ctx);
+                assert_eq!(
+                    600.0 - ctx.available_rect().bottom(),
+                    theme::metric("bar_height")
+                );
+            },
+        );
     }
     #[test]
     fn chat_toggles_inward_without_native_window_changes_or_starting_ai() {

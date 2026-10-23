@@ -22,20 +22,25 @@ fn directory() -> PathBuf {
 fn raster(bytes: &[u8]) -> Result<egui::ColorImage> {
     ensure!(bytes.len() <= 128 * 1024, "SVG icon exceeds 128 KiB");
     let tree = resvg::usvg::Tree::from_data(bytes, &resvg::usvg::Options::default())?;
-    let mut pixels = resvg::tiny_skia::Pixmap::new(72, 72).context("icon buffer")?;
-    let scale = (72.0 / tree.size().width()).min(72.0 / tree.size().height());
+    let mut pixels = resvg::tiny_skia::Pixmap::new(256, 256).context("icon buffer")?;
+    let scale = (256.0 / tree.size().width()).min(256.0 / tree.size().height());
     let transform = resvg::tiny_skia::Transform::from_scale(scale, scale).post_translate(
-        (72.0 - tree.size().width() * scale) * 0.5,
-        (72.0 - tree.size().height() * scale) * 0.5,
+        (256.0 - tree.size().width() * scale) * 0.5,
+        (256.0 - tree.size().height() * scale) * 0.5,
     );
     resvg::render(&tree, transform, &mut pixels.as_mut());
     Ok(egui::ColorImage::from_rgba_premultiplied(
-        [72, 72],
+        [256, 256],
         pixels.data(),
     ))
 }
 
 pub(super) fn paint(ui: &egui::Ui, name: &str, rect: egui::Rect, color: egui::Color32) {
+    let registry: Value = std::fs::read(directory().join("registry.json"))
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or_default();
+    let name = registry[name].as_str().unwrap_or(name);
     let id = egui::Id::new(("svg-icon", name));
     let cached = ui.ctx().data(|d| d.get_temp::<Cached>(id));
     let texture = if let Some(cached) = &cached

@@ -94,7 +94,7 @@ fn short_bubbles_fit_content_and_times_are_hidden_by_default() {
         .iter()
         .find_map(|s| match &s.shape {
             egui::Shape::Rect(r)
-                if r.fill == egui::Color32::from_gray(43) && r.rect.contains(text.pos) =>
+                if r.fill == super::super::theme::color("raised") && r.rect.contains(text.pos) =>
             {
                 Some(r.rect)
             }
@@ -246,7 +246,7 @@ fn message_times_are_below_messages_and_align_to_the_correct_side() {
 }
 
 #[test]
-fn chat_panel_clamps_to_half_window_width_and_send_is_compact() {
+fn chat_panel_reserves_canvas_space_and_send_is_compact() {
     let mut conversation = Conversation {
         visible: true,
         ..Default::default()
@@ -259,7 +259,8 @@ fn chat_panel_clamps_to_half_window_width_and_send_is_compact() {
             .data(|d| d.get_temp::<egui::Rect>(egui::Id::new("conversation-panel-test-rect")))
             .unwrap();
         assert!(
-            panel.width() >= 260.0 && panel.width() <= width * 0.5 + 1.0,
+            panel.width() >= super::super::theme::metric("sidebar_min_width")
+                && panel.width() <= width - super::super::theme::metric("canvas_min_width") + 1.0,
             "{panel:?} for {width}"
         );
         let send = ctx
@@ -485,7 +486,7 @@ fn conversation_is_left_and_consecutive_messages_stack_without_author_tags() {
         .iter()
         .find_map(|shape| match &shape.shape {
             egui::Shape::Rect(rect)
-                if rect.fill == egui::Color32::from_gray(43)
+                if rect.fill == super::super::theme::color("raised")
                     && rect.rect.contains(text("user first")[0].pos) =>
             {
                 Some(rect.rect)

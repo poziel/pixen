@@ -77,143 +77,125 @@ impl LayerView {
             self.frame = Some(frame);
         }
         let mut changed = false;
-        egui::SidePanel::right("layers")
-            .resizable(enabled)
-            .frame(
-                egui::Frame::NONE
-                    .fill(egui::Color32::from_gray(32))
-                    .inner_margin(8.0),
-            )
-            .default_width(220.0)
-            .width_range(160.0..=(ctx.available_rect().width() - 160.0).clamp(160.0, 360.0))
-            .show(ctx, |ui| {
-                if !enabled {
-                    ui.disable();
-                }
-                super::panel_header(ui, |ui| {
-                    ui.heading("Layers");
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if super::icon_button(ui, super::Icon::Reset, "Reset layer view").clicked()
-                        {
-                            self.visibility.clear();
-                            changed = true;
-                        }
-                    });
-                });
-                ui.separator();
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    for layer in sprite.layers.iter().rev() {
-                        if !self.thumbnails.contains_key(&layer.id) {
-                            let mut isolated = sprite.clone();
-                            isolated.layers.retain(|item| item.id == layer.id);
-                            isolated.layers[0].visible = true;
-                            if let Ok(rgba) = crate::raster::render(&isolated, frame)
-                                && let Some(image) = super::square_thumbnail(
-                                    background,
-                                    sprite.width,
-                                    sprite.height,
-                                    &rgba,
-                                    40,
-                                )
-                            {
-                                self.thumbnails.insert(
-                                    layer.id.clone(),
-                                    ctx.load_texture(
-                                        format!("layer-{}", layer.id),
-                                        image,
-                                        egui::TextureOptions::NEAREST,
-                                    ),
-                                );
-                            }
-                        }
-                        ui.push_id(&layer.id, |ui| {
-                            let selected = self.selected.as_ref() == Some(&layer.id);
-                            let (rect, row) = ui.allocate_exact_size(
-                                egui::vec2(ui.available_width(), 68.0),
-                                egui::Sense::click(),
-                            );
-                            if row.clicked() {
-                                self.selected = Some(layer.id.clone());
-                            }
-                            let fill = if selected {
-                                ui.visuals().selection.bg_fill
-                            } else if ui.rect_contains_pointer(rect) {
-                                ui.visuals().widgets.hovered.bg_fill
-                            } else {
-                                egui::Color32::TRANSPARENT
-                            };
-                            ui.painter().rect_filled(rect, 4.0, fill);
-                            ui.scope_builder(
-                                egui::UiBuilder::new().max_rect(rect.shrink(4.0)),
-                                |ui| {
-                                    ui.with_layout(
-                                        egui::Layout::left_to_right(egui::Align::Min),
-                                        |ui| {
-                                            ui.vertical(|ui| {
-                                                ui.spacing_mut().item_spacing.y = 0.0;
-                                                let visible = self
-                                                    .visibility
-                                                    .get(&layer.id)
-                                                    .copied()
-                                                    .unwrap_or(layer.visible);
-                                                if eye_button(ui, visible).clicked() {
-                                                    self.visibility
-                                                        .insert(layer.id.clone(), !visible);
-                                                    changed = true;
-                                                }
-                                                if super::icon_button(
-                                                    ui,
-                                                    super::Icon::Solo,
-                                                    "Show only this layer",
-                                                )
-                                                .clicked()
-                                                {
-                                                    self.show_only(sprite, &layer.id);
-                                                    changed = true;
-                                                }
-                                            });
-                                            if let Some(texture) = self.thumbnails.get(&layer.id) {
-                                                ui.vertical(|ui| {
-                                                    ui.add_space(8.0);
-                                                    ui.add(
-                                                        egui::Image::new(texture)
-                                                            .fit_to_exact_size(egui::vec2(
-                                                                40.0, 40.0,
-                                                            ))
-                                                            .maintain_aspect_ratio(true)
-                                                            .sense(egui::Sense::empty()),
-                                                    );
-                                                });
-                                            }
-                                            ui.vertical(|ui| {
-                                                ui.add_space(8.0);
-                                                let name = ui.add(
-                                                    egui::Label::new(&layer.name)
-                                                        .truncate()
-                                                        .sense(egui::Sense::click()),
-                                                );
-                                                let opacity = ui.add(
-                                                    egui::Label::new(
-                                                        egui::RichText::new(format!(
-                                                            "{:.0}% opacity",
-                                                            layer.opacity * 100.0
-                                                        ))
-                                                        .small(),
-                                                    )
-                                                    .sense(egui::Sense::click()),
-                                                );
-                                                if name.clicked() || opacity.clicked() {
-                                                    self.selected = Some(layer.id.clone());
-                                                }
-                                            });
-                                        },
-                                    );
-                                },
-                            );
-                        });
+        super::theme::sidebar("layers", ctx).show(ctx, |ui| {
+            super::theme::fill_sidebar(ui);
+            if !enabled {
+                ui.disable();
+            }
+            super::panel_header(ui, |ui| {
+                ui.heading("LAYERS");
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if super::icon_button(ui, super::Icon::Reset, "Reset layer view").clicked() {
+                        self.visibility.clear();
+                        changed = true;
                     }
                 });
             });
+            ui.separator();
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                for layer in sprite.layers.iter().rev() {
+                    if !self.thumbnails.contains_key(&layer.id) {
+                        let mut isolated = sprite.clone();
+                        isolated.layers.retain(|item| item.id == layer.id);
+                        isolated.layers[0].visible = true;
+                        if let Ok(rgba) = crate::raster::render(&isolated, frame)
+                            && let Some(image) = super::square_thumbnail(
+                                background,
+                                sprite.width,
+                                sprite.height,
+                                &rgba,
+                                40,
+                            )
+                        {
+                            self.thumbnails.insert(
+                                layer.id.clone(),
+                                ctx.load_texture(
+                                    format!("layer-{}", layer.id),
+                                    image,
+                                    egui::TextureOptions::NEAREST,
+                                ),
+                            );
+                        }
+                    }
+                    ui.push_id(&layer.id, |ui| {
+                        let selected = self.selected.as_ref() == Some(&layer.id);
+                        let (rect, row) = ui.allocate_exact_size(
+                            egui::vec2(ui.available_width(), 68.0),
+                            egui::Sense::click(),
+                        );
+                        if row.clicked() {
+                            self.selected = Some(layer.id.clone());
+                        }
+                        let fill = if selected {
+                            ui.visuals().selection.bg_fill
+                        } else if ui.rect_contains_pointer(rect) {
+                            ui.visuals().widgets.hovered.bg_fill
+                        } else {
+                            egui::Color32::TRANSPARENT
+                        };
+                        ui.painter().rect_filled(rect, 4.0, fill);
+                        ui.scope_builder(egui::UiBuilder::new().max_rect(rect.shrink(4.0)), |ui| {
+                            ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
+                                ui.vertical(|ui| {
+                                    ui.spacing_mut().item_spacing.y = 0.0;
+                                    let visible = self
+                                        .visibility
+                                        .get(&layer.id)
+                                        .copied()
+                                        .unwrap_or(layer.visible);
+                                    if eye_button(ui, visible).clicked() {
+                                        self.visibility.insert(layer.id.clone(), !visible);
+                                        changed = true;
+                                    }
+                                    if super::icon_button(
+                                        ui,
+                                        super::Icon::Solo,
+                                        "Show only this layer",
+                                    )
+                                    .clicked()
+                                    {
+                                        self.show_only(sprite, &layer.id);
+                                        changed = true;
+                                    }
+                                });
+                                if let Some(texture) = self.thumbnails.get(&layer.id) {
+                                    ui.vertical(|ui| {
+                                        ui.add_space(8.0);
+                                        ui.add(
+                                            egui::Image::new(texture)
+                                                .fit_to_exact_size(egui::vec2(40.0, 40.0))
+                                                .maintain_aspect_ratio(true)
+                                                .sense(egui::Sense::empty()),
+                                        );
+                                    });
+                                }
+                                ui.vertical(|ui| {
+                                    ui.add_space(8.0);
+                                    let name = ui.add(
+                                        egui::Label::new(&layer.name)
+                                            .truncate()
+                                            .sense(egui::Sense::click()),
+                                    );
+                                    let opacity = ui.add(
+                                        egui::Label::new(
+                                            egui::RichText::new(format!(
+                                                "{:.0}% opacity",
+                                                layer.opacity * 100.0
+                                            ))
+                                            .small(),
+                                        )
+                                        .sense(egui::Sense::click()),
+                                    );
+                                    if name.clicked() || opacity.clicked() {
+                                        self.selected = Some(layer.id.clone());
+                                    }
+                                });
+                            });
+                        });
+                    });
+                }
+            });
+        });
         changed
     }
 }

@@ -2,13 +2,11 @@ use super::*;
 
 impl Conversation {
     pub(super) fn show_panel(&mut self, ctx: &egui::Context, source: Option<&Path>) {
-        let _panel = egui::SidePanel::left("art-conversation")
-            .frame(egui::Frame::NONE.fill(egui::Color32::from_gray(32)).inner_margin(8.0))
-            .default_width(340.0).min_width(260.0)
-            .max_width((ctx.content_rect().width()*0.5).max(260.0)).resizable(true)
+        let _panel = super::super::theme::sidebar("art-conversation", ctx)
             .show(ctx, |ui| {
+                super::super::theme::fill_sidebar(ui);
                 super::super::panel_header(ui, |ui| {
-                    ui.heading("Art conversation").on_hover_text(&self.account);
+                    ui.heading("AI CONVERSATION").on_hover_text(&self.account);
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.add_enabled_ui(!self.busy, |ui| {
                             if super::super::icon_button(ui,super::super::Icon::NewChat,"New conversation").clicked() {
@@ -30,10 +28,10 @@ impl Conversation {
                 body.show(ui, |ui| {
                     if let Some((id,description))=self.approvals.first().cloned() {
                         ui.group(|ui| {
-                            ui.label(egui::RichText::new("Codex requests approval").color(super::super::SYSTEM_TEXT));
+                            ui.label(egui::RichText::new("Codex requests approval").color(super::super::theme::color("muted")));
                             egui::ScrollArea::vertical().id_salt("approval")
                                 .min_scrolled_height(8.0).max_height(approval_height)
-                                .show(ui,|ui| { ui.label(egui::RichText::new(description).monospace().color(super::super::SYSTEM_TEXT)); });
+                                .show(ui,|ui| { ui.label(egui::RichText::new(description).monospace().color(super::super::theme::color("muted"))); });
                             ui.horizontal(|ui| {
                                 if ui.button("Allow once").clicked() { self.action(Action::Approval(id.clone(),true)); }
                                 if ui.button("Decline").clicked() { self.action(Action::Approval(id.clone(),false)); }
@@ -66,7 +64,7 @@ impl Conversation {
                                     });
                                 } else {
                                     ui.with_layout(egui::Layout::top_down(egui::Align::Max),|ui| {
-                                        egui::Frame::NONE.fill(egui::Color32::from_gray(43)).corner_radius(6).inner_margin(10).show(ui,|ui| {
+                                        egui::Frame::NONE.fill(super::super::theme::color("raised")).corner_radius(6).inner_margin(10).show(ui,|ui| {
                                             ui.set_max_width((full_width-44.0).max(1.0));
                                             if !message.attachments.is_empty() {attachment_cards(ui,&message.attachments,false);ui.add_space(6.0);}
                                             if !message.text.is_empty() {ui.add(egui::Label::new(&message.text).wrap().selectable(true));}
@@ -78,7 +76,7 @@ impl Conversation {
                                 ui.add_space(3.0);
                                 ui.allocate_ui_with_layout(egui::vec2(full_width,22.0),if artist {egui::Layout::left_to_right(egui::Align::Center)} else {egui::Layout::right_to_left(egui::Align::Center)},|ui| {
                                     if !hovered {ui.set_opacity(0.0);ui.disable();}
-                                    ui.label(egui::RichText::new(message.sent_at.format("%H:%M").to_string()).small().color(super::super::SYSTEM_TEXT));
+                                    ui.label(egui::RichText::new(message.sent_at.format("%H:%M").to_string()).small().color(super::super::theme::color("muted")));
                                     if artist {
                                         if message_tool(ui,"copy","Copy message").clicked() {ui.ctx().copy_text(message.text.clone());}
                                     } else if let Some(token)=self.checkpoints.get(&message.id) {
@@ -117,8 +115,8 @@ impl Conversation {
         let focused = ui
             .ctx()
             .memory(|m| m.has_focus(egui::Id::new("art-prompt")));
-        egui::Frame::NONE.fill(egui::Color32::from_gray(24))
-            .stroke(egui::Stroke::new(1.0_f32,egui::Color32::from_gray(if focused {110} else {65})))
+        egui::Frame::NONE.fill(super::super::theme::color("canvas"))
+            .stroke(egui::Stroke::new(1.0_f32,super::super::theme::color(if focused {"accent"} else {"input_border"})))
             .corner_radius(6).inner_margin(12).show(ui, |ui| {
                 if !self.attachments.is_empty() {
                     if let Some(index)=attachment_cards(ui,&self.attachments,!self.busy) { self.attachments.remove(index); }
@@ -141,7 +139,7 @@ impl Conversation {
                         ui.visuals_mut().widgets.inactive.bg_stroke=egui::Stroke::NONE;
                         ui.visuals_mut().widgets.inactive.bg_fill=egui::Color32::TRANSPARENT;
                         ui.visuals_mut().widgets.inactive.bg_stroke=egui::Stroke::NONE;
-                        ui.visuals_mut().widgets.hovered.bg_fill=egui::Color32::from_gray(55);
+                        ui.visuals_mut().widgets.hovered.bg_fill=super::super::theme::color("hover");
                         ui.visuals_mut().widgets.hovered.bg_stroke=egui::Stroke::NONE;
                         ui.visuals_mut().widgets.active.bg_stroke=egui::Stroke::NONE;
                         let attach=super::super::icon_button(ui,super::super::Icon::Attach,"Attach reference files");
@@ -182,7 +180,7 @@ fn attachment_cards(
                         let (rect, response) =
                             ui.allocate_exact_size(egui::vec2(96.0, 88.0), egui::Sense::hover());
                         ui.painter()
-                            .rect_filled(rect, 4, egui::Color32::from_gray(38));
+                            .rect_filled(rect, 4, super::super::theme::color("selected"));
                         let preview = egui::Rect::from_min_max(
                             rect.min + egui::vec2(6.0, 6.0),
                             rect.max - egui::vec2(6.0, 22.0),
@@ -257,13 +255,17 @@ fn send_button(ui: &mut egui::Ui, stopping: bool, enabled: bool) -> egui::Respon
             .data_mut(|data| data.insert_temp(egui::Id::new("composer-action-rect"), rect));
         let visuals = ui.style().interact(&response);
         let fill = if enabled {
-            egui::Color32::from_gray(if response.hovered() { 240 } else { 218 })
+            super::super::theme::color(if response.hovered() {
+                "icon_hover"
+            } else {
+                "icon"
+            })
         } else {
             visuals.weak_bg_fill
         };
         ui.painter().rect_filled(rect, 4, fill);
         let color = if enabled {
-            egui::Color32::from_gray(28)
+            super::super::theme::color("shell")
         } else {
             visuals.fg_stroke.color
         };
@@ -288,9 +290,14 @@ fn message_tool(ui: &mut egui::Ui, name: &str, label: &str) -> egui::Response {
     let (rect, response) = ui.allocate_exact_size(egui::vec2(22.0, 22.0), egui::Sense::click());
     if response.hovered() {
         ui.painter()
-            .rect_filled(rect, 4, egui::Color32::from_gray(55));
+            .rect_filled(rect, 4, super::super::theme::color("hover"));
     }
-    super::super::icons::paint(ui, name, rect.shrink(3.0), super::super::SYSTEM_TEXT);
+    super::super::icons::paint(
+        ui,
+        name,
+        rect.shrink(3.0),
+        super::super::theme::color("muted"),
+    );
     response.widget_info(|| {
         egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label)
     });
@@ -328,7 +335,7 @@ fn thoughts_at(ui: &mut egui::Ui, thoughts: &[Thought], position: usize) {
                     &thought.text
                 })
                 .small()
-                .color(super::super::SYSTEM_TEXT),
+                .color(super::super::theme::color("muted")),
             );
         });
     }

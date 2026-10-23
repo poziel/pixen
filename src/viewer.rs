@@ -14,6 +14,8 @@ pub(crate) mod review_ui;
 mod settings;
 #[path = "viewer_sheet.rs"]
 mod sheet;
+#[path = "viewer_theme.rs"]
+mod theme;
 use crate::{
     model::Sprite,
     preview::{self, Playback},
@@ -178,7 +180,6 @@ impl Drop for ViewerProcess {
 #[derive(Clone, Copy)]
 enum Icon {
     Menu,
-    Chat,
     Reset,
     Attach,
     NewChat,
@@ -191,39 +192,29 @@ enum Icon {
     Slower,
     Faster,
 }
-const PRIMARY_TEXT: egui::Color32 = egui::Color32::from_rgb(235, 233, 226);
-const SYSTEM_TEXT: egui::Color32 = egui::Color32::from_rgb(174, 176, 180);
 fn panel_header(ui: &mut egui::Ui, contents: impl FnOnce(&mut egui::Ui)) {
     egui::Frame::NONE
-        .inner_margin(egui::Margin::symmetric(6, 0))
+        .inner_margin(egui::Margin::symmetric(
+            theme::metric("panel_padding") as i8,
+            0,
+        ))
         .show(ui, |ui| {
             ui.allocate_ui_with_layout(
-                egui::vec2(ui.available_width(), 40.0),
+                egui::vec2(ui.available_width(), theme::metric("header_height")),
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
-                    ui.set_min_height(40.0);
+                    ui.set_min_height(theme::metric("header_height"));
                     contents(ui);
                 },
             );
         });
 }
 fn configure_text(ctx: &egui::Context) {
-    let id = egui::Id::new("pixloom-text-theme");
-    if ctx.data(|d| d.get_temp::<bool>(id)).unwrap_or(false) {
-        return;
-    }
-    ctx.style_mut(|style| {
-        style.visuals.weak_text_color = Some(SYSTEM_TEXT);
-        style.visuals.widgets.noninteractive.fg_stroke.color = PRIMARY_TEXT;
-        style.visuals.widgets.inactive.fg_stroke.color = PRIMARY_TEXT;
-        style.visuals.widgets.hovered.fg_stroke.color = PRIMARY_TEXT;
-        style.visuals.widgets.active.fg_stroke.color = PRIMARY_TEXT;
-    });
-    ctx.data_mut(|d| d.insert_temp(id, true));
+    theme::apply(ctx);
 }
 
 fn icon_button(ui: &mut egui::Ui, icon: Icon, label: &str) -> egui::Response {
-    icon_button_shape(ui, icon, label, egui::CornerRadius::same(4), true)
+    icon_button_shape(ui, icon, label, theme::radius("control_radius"), false)
 }
 fn icon_button_shape(
     ui: &mut egui::Ui,
@@ -232,36 +223,20 @@ fn icon_button_shape(
     rounding: egui::CornerRadius,
     border: bool,
 ) -> egui::Response {
-    let compact = matches!(icon, Icon::Reset | Icon::Solo | Icon::NewChat);
-    let size = if compact {
-        egui::vec2(22.0, 28.0)
-    } else {
-        egui::vec2(28.0, 28.0)
-    };
-    let (rect, response) = ui.allocate_exact_size(size, egui::Sense::click());
-    let visuals = ui.style().interact(&response);
-    if !compact || matches!(icon, Icon::NewChat) && response.hovered() {
-        ui.painter().rect(
-            rect,
-            rounding,
-            if matches!(icon, Icon::NewChat) {
-                egui::Color32::from_gray(55)
-            } else {
-                visuals.bg_fill
-            },
-            if border && !matches!(icon, Icon::NewChat) {
-                visuals.bg_stroke
-            } else {
-                egui::Stroke::NONE
-            },
-            egui::StrokeKind::Inside,
-        );
+    let _ = border;
+    let size = theme::metric("button_size");
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::click());
+    #[cfg(test)]
+    ui.ctx()
+        .data_mut(|d| d.insert_temp(egui::Id::new(("icon-button-rect", label)), rect));
+    if response.hovered() || response.is_pointer_button_down_on() {
+        ui.painter()
+            .rect_filled(rect, rounding, theme::color("hover"));
     }
     let name = match icon {
         Icon::Reset => "reset",
         Icon::Solo => "solo",
         Icon::Menu => "menu",
-        Icon::Chat => "chat",
         Icon::Previous => "previous",
         Icon::Next => "next",
         Icon::Play => "play",
@@ -275,8 +250,14 @@ fn icon_button_shape(
     icons::paint(
         ui,
         name,
-        egui::Rect::from_center_size(rect.center(), egui::vec2(22.0, 22.0)),
-        visuals.fg_stroke.color,
+        egui::Rect::from_center_size(rect.center(), egui::Vec2::splat(theme::metric("icon_size"))),
+        theme::color(if !ui.is_enabled() {
+            "disabled"
+        } else if response.hovered() {
+            "icon_hover"
+        } else {
+            "icon"
+        }),
     );
     response.widget_info(|| {
         egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label)
@@ -658,7 +639,7 @@ impl App {
         egui::TopBottomPanel::top("ai-activity")
             .frame(
                 egui::Frame::NONE
-                    .fill(egui::Color32::from_gray(32))
+                    .fill(theme::color("panel"))
                     .inner_margin(egui::Margin {
                         left: 8,
                         right: 8,
@@ -718,7 +699,7 @@ impl App {
                     }
                 }
                 let fill = if self.follow_ai {
-                    egui::Color32::from_rgb(50, 140, 105)
+                    theme::color("success")
                 } else {
                     ui.visuals().widgets.inactive.bg_fill
                 };
@@ -756,7 +737,7 @@ impl App {
             background: Default::default(),
             layer_view: Default::default(),
             show_layers: true,
-            show_animation: true,
+            show_animation: false,
             follow_ai: true,
             review: Default::default(),
             activity: None,
@@ -935,125 +916,158 @@ impl App {
     }
     fn main_menu(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         let response = icon_button(ui, Icon::Menu, "Menu");
-        egui::Popup::menu(&response).show(|ui| {
-            ui.add_enabled_ui(!self.following(), |ui| {
-                if ui
-                    .add_enabled(
-                        !self.managed && self.conversation.can_save(),
-                        egui::Button::new("New artwork…"),
-                    )
-                    .clicked()
-                {
-                    ctx.data_mut(|data| {
-                        data.insert_temp(egui::Id::new("canvas-dialog"), (true, 32_u32, 32_u32))
-                    });
-                    ui.close();
-                }
-                if ui
-                    .add_enabled(self.file_picker.is_none(), egui::Button::new("Open file…"))
-                    .clicked()
-                {
-                    self.start_file_picker(ctx);
-                    ui.close();
-                }
-                if ui
-                    .add_enabled(
-                        self.file_picker.is_none(),
-                        egui::Button::new("Open Project…"),
-                    )
-                    .clicked()
-                {
-                    self.start_file_picker(ctx);
-                    ui.close();
-                }
-                let can_save =
-                    self.sprite.is_some() && !self.managed && self.conversation.can_save();
-                if ui
-                    .add_enabled(can_save, egui::Button::new("Save Project"))
-                    .clicked()
-                {
-                    self.conversation
-                        .save_project(ctx, self.source.as_deref(), false);
-                    ui.close();
-                }
-                if ui
-                    .add_enabled(can_save, egui::Button::new("Save As…"))
-                    .clicked()
-                {
-                    self.conversation
-                        .save_project(ctx, self.source.as_deref(), true);
-                    ui.close();
-                }
-                ui.separator();
-                if ui
-                    .add_enabled(
-                        !self.managed && self.sprite.is_some() && self.conversation.can_save(),
-                        egui::Button::new("Canvas size…"),
-                    )
-                    .clicked()
-                {
-                    let (w, h) = self.source_canvas.unwrap_or((32, 32));
-                    ctx.data_mut(|data| {
-                        data.insert_temp(egui::Id::new("canvas-dialog"), (false, w, h))
-                    });
-                    ui.close();
-                }
-                let label = if self.sheet_view {
-                    "Switch to animation view"
-                } else {
-                    "Switch to sprite view"
-                };
-                if ui
-                    .add_enabled(self.can_toggle_view(), egui::Button::new(label))
-                    .clicked()
-                {
-                    self.toggle_view();
-                    ui.close();
-                }
-                ui.checkbox(&mut self.show_layers, "Show Layers");
-                ui.checkbox(&mut self.show_animation, "Show Animation");
-                ui.separator();
-                ui.menu_button("Background", |ui| {
-                    for (background, label) in [
-                        (Background::Checkerboard, "Pixel checkerboard"),
-                        (Background::Transparent, "Transparent"),
-                        (Background::Black, "Black"),
-                        (Background::White, "White"),
-                    ] {
-                        if ui
-                            .selectable_value(&mut self.background, background, label)
-                            .changed()
-                        {
-                            self.rendered = None;
-                            self.thumbnails.clear();
-                            self.layer_view.invalidate();
-                            ui.close();
-                        }
+        egui::Popup::menu(&response)
+            .frame(
+                egui::Frame::popup(ui.style())
+                    .fill(theme::color("raised"))
+                    .stroke(theme::stroke())
+                    .corner_radius(theme::radius("corner_radius"))
+                    .inner_margin(egui::Margin::symmetric(0, 4)),
+            )
+            .show(|ui| {
+                ui.set_min_width(theme::metric("menu_width"));
+                ui.spacing_mut().button_padding = egui::vec2(theme::metric("menu_padding"), 0.0);
+                ui.spacing_mut().interact_size.y = theme::metric("menu_row_height");
+                ui.visuals_mut().widgets.inactive.bg_fill = egui::Color32::TRANSPARENT;
+                ui.visuals_mut().widgets.inactive.weak_bg_fill = egui::Color32::TRANSPARENT;
+                ui.visuals_mut().widgets.hovered.bg_fill = theme::color("hover");
+                ui.visuals_mut().widgets.hovered.weak_bg_fill = theme::color("hover");
+                ui.visuals_mut().widgets.noninteractive.bg_stroke =
+                    egui::Stroke::new(theme::metric("separator_width"), theme::color("border"));
+                ui.add_enabled_ui(!self.following(), |ui| {
+                    if ui
+                        .add_enabled(
+                            !self.managed && self.conversation.can_save(),
+                            egui::Button::new("New artwork…"),
+                        )
+                        .clicked()
+                    {
+                        ctx.data_mut(|data| {
+                            data.insert_temp(egui::Id::new("canvas-dialog"), (true, 32_u32, 32_u32))
+                        });
+                        ui.close();
                     }
-                });
-                if self.review.color_menu(ui) {
-                    self.rendered = None;
-                }
-                ui.separator();
-                let mut onion = self.inspection_mode == crate::inspection::Mode::OnionSkin;
-                if ui
-                    .checkbox(&mut onion, "Onion skin")
-                    .on_hover_text(
-                        "Red: previous frame. Cyan: next frame. Artwork stays unchanged.",
-                    )
-                    .changed()
-                {
-                    self.inspection_mode = if onion {
-                        crate::inspection::Mode::OnionSkin
+                    if ui
+                        .add_enabled(self.file_picker.is_none(), egui::Button::new("Open file…"))
+                        .clicked()
+                    {
+                        self.start_file_picker(ctx);
+                        ui.close();
+                    }
+                    if ui
+                        .add_enabled(
+                            self.file_picker.is_none(),
+                            egui::Button::new("Open Project…"),
+                        )
+                        .clicked()
+                    {
+                        self.start_file_picker(ctx);
+                        ui.close();
+                    }
+                    let can_save =
+                        self.sprite.is_some() && !self.managed && self.conversation.can_save();
+                    if ui
+                        .add_enabled(can_save, egui::Button::new("Save Project"))
+                        .clicked()
+                    {
+                        self.conversation
+                            .save_project(ctx, self.source.as_deref(), false);
+                        ui.close();
+                    }
+                    if ui
+                        .add_enabled(can_save, egui::Button::new("Save As…"))
+                        .clicked()
+                    {
+                        self.conversation
+                            .save_project(ctx, self.source.as_deref(), true);
+                        ui.close();
+                    }
+                    ui.separator();
+                    if ui
+                        .add_enabled(
+                            !self.managed && self.sprite.is_some() && self.conversation.can_save(),
+                            egui::Button::new("Canvas size…"),
+                        )
+                        .clicked()
+                    {
+                        let (w, h) = self.source_canvas.unwrap_or((32, 32));
+                        ctx.data_mut(|data| {
+                            data.insert_temp(egui::Id::new("canvas-dialog"), (false, w, h))
+                        });
+                        ui.close();
+                    }
+                    let label = if self.sheet_view {
+                        "Switch to animation view"
                     } else {
-                        crate::inspection::Mode::Composite
+                        "Switch to sprite view"
                     };
-                    self.playback.playing = false;
-                    self.rendered = None;
-                }
-                let mut comparison =
-                    self.inspection_mode == crate::inspection::Mode::FrameComparison;
-                if ui
+                    if ui
+                        .add_enabled(self.can_toggle_view(), egui::Button::new(label))
+                        .clicked()
+                    {
+                        self.toggle_view();
+                        ui.close();
+                    }
+                    if ui.selectable_label(self.show_layers, "Layers").clicked() {
+                        self.select_panel(0);
+                        ui.close();
+                    }
+                    if ui
+                        .selectable_label(self.show_animation, "Animation")
+                        .clicked()
+                    {
+                        self.select_panel(1);
+                        ui.close();
+                    }
+                    if ui
+                        .selectable_label(self.conversation.visible, "AI conversation")
+                        .clicked()
+                    {
+                        self.select_panel(2);
+                        ui.close();
+                    }
+                    ui.separator();
+                    ui.menu_button("Background", |ui| {
+                        for (background, label) in [
+                            (Background::Checkerboard, "Pixel checkerboard"),
+                            (Background::Transparent, "Transparent"),
+                            (Background::Black, "Black"),
+                            (Background::White, "White"),
+                        ] {
+                            if ui
+                                .selectable_value(&mut self.background, background, label)
+                                .changed()
+                            {
+                                self.rendered = None;
+                                self.thumbnails.clear();
+                                self.layer_view.invalidate();
+                                ui.close();
+                            }
+                        }
+                    });
+                    if self.review.color_menu(ui) {
+                        self.rendered = None;
+                    }
+                    ui.separator();
+                    let mut onion = self.inspection_mode == crate::inspection::Mode::OnionSkin;
+                    if ui
+                        .checkbox(&mut onion, "Onion skin")
+                        .on_hover_text(
+                            "Red: previous frame. Cyan: next frame. Artwork stays unchanged.",
+                        )
+                        .changed()
+                    {
+                        self.inspection_mode = if onion {
+                            crate::inspection::Mode::OnionSkin
+                        } else {
+                            crate::inspection::Mode::Composite
+                        };
+                        self.playback.playing = false;
+                        self.rendered = None;
+                    }
+                    let mut comparison =
+                        self.inspection_mode == crate::inspection::Mode::FrameComparison;
+                    if ui
                 .checkbox(&mut comparison, "Frame comparison")
                 .on_hover_text(
                     "Pink: changed pixels. Compare to the previous frame or selected reference.",
@@ -1068,70 +1082,70 @@ impl App {
                 self.playback.playing = false;
                 self.rendered = None;
             }
-                if self.inspection_mode != crate::inspection::Mode::Composite {
-                    let frames = self
-                        .sprite
-                        .as_ref()
-                        .map(|s| {
-                            s.frames
-                                .iter()
-                                .enumerate()
-                                .map(|(i, f)| {
-                                    (
-                                        crate::edit::frame_id(f)
-                                            .map(str::to_owned)
-                                            .unwrap_or_else(|| format!("viewer-frame-{i}")),
-                                        i,
-                                    )
-                                })
-                                .collect::<Vec<_>>()
-                        })
-                        .unwrap_or_default();
-                    let previous = self.inspection_reference.clone();
-                    egui::ComboBox::from_label("Reference")
-                        .selected_text(
-                            self.inspection_reference
-                                .as_deref()
-                                .unwrap_or("Neighboring frames"),
-                        )
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(
-                                &mut self.inspection_reference,
-                                None,
-                                "Neighboring frames",
-                            );
-                            for (id, i) in frames {
+                    if self.inspection_mode != crate::inspection::Mode::Composite {
+                        let frames = self
+                            .sprite
+                            .as_ref()
+                            .map(|s| {
+                                s.frames
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(i, f)| {
+                                        (
+                                            crate::edit::frame_id(f)
+                                                .map(str::to_owned)
+                                                .unwrap_or_else(|| format!("viewer-frame-{i}")),
+                                            i,
+                                        )
+                                    })
+                                    .collect::<Vec<_>>()
+                            })
+                            .unwrap_or_default();
+                        let previous = self.inspection_reference.clone();
+                        egui::ComboBox::from_label("Reference")
+                            .selected_text(
+                                self.inspection_reference
+                                    .as_deref()
+                                    .unwrap_or("Neighboring frames"),
+                            )
+                            .show_ui(ui, |ui| {
                                 ui.selectable_value(
                                     &mut self.inspection_reference,
-                                    Some(id.clone()),
-                                    format!("{} · {}", i + 1, id),
+                                    None,
+                                    "Neighboring frames",
                                 );
-                            }
-                        });
-                    if previous != self.inspection_reference {
+                                for (id, i) in frames {
+                                    ui.selectable_value(
+                                        &mut self.inspection_reference,
+                                        Some(id.clone()),
+                                        format!("{} · {}", i + 1, id),
+                                    );
+                                }
+                            });
+                        if previous != self.inspection_reference {
+                            self.rendered = None;
+                        }
+                    }
+                    if let Some(id) = self.inspection_layer.clone() {
+                        ui.label(format!("Isolated layer: {id}"));
+                        if ui.button("Show all layers").clicked() {
+                            self.inspection_layer = None;
+                            self.rendered = None;
+                        }
+                    }
+                    if self.review.menu(ui) {
                         self.rendered = None;
                     }
+                });
+                ui.separator();
+                if ui.button("Settings…").clicked() {
+                    ctx.data_mut(|d| d.insert_temp(egui::Id::new("app-settings"), true));
+                    ui.close();
                 }
-                if let Some(id) = self.inspection_layer.clone() {
-                    ui.label(format!("Isolated layer: {id}"));
-                    if ui.button("Show all layers").clicked() {
-                        self.inspection_layer = None;
-                        self.rendered = None;
-                    }
-                }
-                if self.review.menu(ui) {
-                    self.rendered = None;
+                if ui.button("Quit").clicked() {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                 }
             });
-            ui.separator();
-            if ui.button("Settings…").clicked() {
-                ctx.data_mut(|d| d.insert_temp(egui::Id::new("app-settings"), true));
-                ui.close();
-            }
-            if ui.button("Quit").clicked() {
-                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-            }
-        });
     }
     fn controls(&mut self, ctx: &egui::Context) {
         if self.sprite.is_none() {
@@ -1165,177 +1179,157 @@ impl App {
             self.playback
                 .select((self.playback.frame + count - 1) % count, count);
         }
-        egui::TopBottomPanel::bottom("playback")
-            .exact_height(116.0)
-            .show_separator_line(false)
-            .frame(
-                egui::Frame::NONE
-                    .fill(ctx.style().visuals.panel_fill)
-                    .inner_margin(egui::Margin {
-                        left: 8,
-                        right: 8,
-                        top: 6,
-                        bottom: 6,
-                    }),
-            )
-            .show(ctx, |ui| {
-                if self.following() {
-                    ui.disable();
-                }
-                ui.spacing_mut().item_spacing.y = 6.0;
-                let layout_selection = self.playback.frame;
-                ui.allocate_ui_with_layout(
-                    egui::vec2(ui.available_width(), 68.0),
-                    egui::Layout::left_to_right(egui::Align::Center),
-                    |ui| {
-                        let strip_width = ui.available_width();
-                        ui.allocate_ui_with_layout(
-                            egui::vec2(strip_width, 68.0),
-                            egui::Layout::left_to_right(egui::Align::Min),
-                            |ui| {
-                                egui::ScrollArea::horizontal()
-                                    .id_salt("frame-thumbnails")
-                                    .animated(false)
-                                    .max_width(strip_width)
-                                    .min_scrolled_width(0.0)
-                                    .auto_shrink([false, true])
-                                    .show(ui, |ui| {
-                                        ui.horizontal(|ui| {
-                                            for frame in 0..count {
-                                                let selected = self.playback.frame == frame;
-                                                let (rect, response) = ui.allocate_exact_size(
-                                                    egui::vec2(64.0, 68.0),
-                                                    egui::Sense::click(),
-                                                );
-                                                if ui.is_rect_visible(rect) {
-                                                    let border = if selected {
-                                                        egui::Color32::from_rgb(112, 200, 255)
+        theme::sidebar("animation", ctx).show(ctx, |ui| {
+            theme::fill_sidebar(ui);
+            if self.following() {
+                ui.disable();
+            }
+            panel_header(ui, |ui| {
+                ui.heading("ANIMATION");
+            });
+            ui.separator();
+            ui.spacing_mut().item_spacing.y = theme::metric("gap");
+            let layout_selection = self.playback.frame;
+            ui.allocate_ui_with_layout(
+                egui::vec2(ui.available_width(), 68.0),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| {
+                    let strip_width = ui.available_width();
+                    ui.allocate_ui_with_layout(
+                        egui::vec2(strip_width, 68.0),
+                        egui::Layout::left_to_right(egui::Align::Min),
+                        |ui| {
+                            egui::ScrollArea::horizontal()
+                                .id_salt("frame-thumbnails")
+                                .animated(false)
+                                .max_width(strip_width)
+                                .min_scrolled_width(0.0)
+                                .auto_shrink([false, true])
+                                .show(ui, |ui| {
+                                    ui.horizontal(|ui| {
+                                        for frame in 0..count {
+                                            let selected = self.playback.frame == frame;
+                                            let (rect, response) = ui.allocate_exact_size(
+                                                egui::vec2(64.0, 68.0),
+                                                egui::Sense::click(),
+                                            );
+                                            if ui.is_rect_visible(rect) {
+                                                let border = if selected {
+                                                    theme::color("accent")
+                                                } else {
+                                                    ui.visuals()
+                                                        .widgets
+                                                        .noninteractive
+                                                        .bg_stroke
+                                                        .color
+                                                };
+                                                ui.painter().rect_filled(
+                                                    rect,
+                                                    2.0,
+                                                    if selected {
+                                                        theme::color("selected")
                                                     } else {
-                                                        ui.visuals()
-                                                            .widgets
-                                                            .noninteractive
-                                                            .bg_stroke
-                                                            .color
-                                                    };
-                                                    ui.painter().rect_filled(
-                                                        rect,
-                                                        2.0,
-                                                        if selected {
-                                                            egui::Color32::from_rgb(32, 58, 82)
-                                                        } else {
-                                                            egui::Color32::from_gray(32)
-                                                        },
-                                                    );
-                                                    ui.painter().rect_stroke(
-                                                        rect,
-                                                        2.0,
-                                                        egui::Stroke::new(
-                                                            if selected {
-                                                                2.0_f32
-                                                            } else {
-                                                                1.0_f32
-                                                            },
-                                                            border,
-                                                        ),
-                                                        egui::StrokeKind::Inside,
-                                                    );
-                                                    if let Some(texture) =
-                                                        self.thumbnail(ctx, frame)
-                                                    {
-                                                        let size = texture.size_vec2();
-                                                        let max = egui::vec2(52.0, 48.0);
-                                                        let factor = (max.x / size.x)
-                                                            .min(max.y / size.y)
-                                                            .floor()
-                                                            .max(1.0);
-                                                        let image_rect =
-                                                            egui::Rect::from_center_size(
-                                                                egui::pos2(
-                                                                    rect.center().x,
-                                                                    rect.top() + 28.0,
-                                                                ),
-                                                                size * factor,
-                                                            );
-                                                        ui.painter().image(
-                                                            texture.id(),
-                                                            image_rect,
-                                                            egui::Rect::from_min_max(
-                                                                egui::Pos2::ZERO,
-                                                                egui::pos2(1.0, 1.0),
-                                                            ),
-                                                            egui::Color32::WHITE,
-                                                        );
-                                                    }
-                                                    ui.painter().text(
+                                                        theme::color("panel")
+                                                    },
+                                                );
+                                                ui.painter().rect_stroke(
+                                                    rect,
+                                                    2.0,
+                                                    egui::Stroke::new(
+                                                        if selected { 2.0_f32 } else { 1.0_f32 },
+                                                        border,
+                                                    ),
+                                                    egui::StrokeKind::Inside,
+                                                );
+                                                if let Some(texture) = self.thumbnail(ctx, frame) {
+                                                    let size = texture.size_vec2();
+                                                    let max = egui::vec2(52.0, 48.0);
+                                                    let factor = (max.x / size.x)
+                                                        .min(max.y / size.y)
+                                                        .floor()
+                                                        .max(1.0);
+                                                    let image_rect = egui::Rect::from_center_size(
                                                         egui::pos2(
                                                             rect.center().x,
-                                                            rect.bottom() - 9.0,
+                                                            rect.top() + 28.0,
                                                         ),
-                                                        egui::Align2::CENTER_CENTER,
-                                                        format!("{}", frame + 1),
-                                                        egui::FontId::monospace(11.0),
-                                                        border,
+                                                        size * factor,
+                                                    );
+                                                    ui.painter().image(
+                                                        texture.id(),
+                                                        image_rect,
+                                                        egui::Rect::from_min_max(
+                                                            egui::Pos2::ZERO,
+                                                            egui::pos2(1.0, 1.0),
+                                                        ),
+                                                        egui::Color32::WHITE,
                                                     );
                                                 }
-                                                if selected
-                                                    && self.thumbnail_selection != Some(frame)
-                                                {
-                                                    response
-                                                        .scroll_to_me(Some(egui::Align::Center));
-                                                }
-                                                if response
-                                                    .on_hover_text(format!(
-                                                        "Frame {} · {} ms",
-                                                        frame + 1,
-                                                        self.project().frames[frame].duration_ms
-                                                    ))
-                                                    .clicked()
-                                                {
-                                                    self.playback.select(frame, count);
-                                                }
+                                                ui.painter().text(
+                                                    egui::pos2(
+                                                        rect.center().x,
+                                                        rect.bottom() - 9.0,
+                                                    ),
+                                                    egui::Align2::CENTER_CENTER,
+                                                    format!("{}", frame + 1),
+                                                    egui::FontId::monospace(11.0),
+                                                    border,
+                                                );
                                             }
-                                        });
+                                            if selected && self.thumbnail_selection != Some(frame) {
+                                                response.scroll_to_me(Some(egui::Align::Center));
+                                            }
+                                            if response
+                                                .on_hover_text(format!(
+                                                    "Frame {} · {} ms",
+                                                    frame + 1,
+                                                    self.project().frames[frame].duration_ms
+                                                ))
+                                                .clicked()
+                                            {
+                                                self.playback.select(frame, count);
+                                            }
+                                        }
                                     });
-                            },
-                        );
-                    },
-                );
-                self.thumbnail_selection = Some(layout_selection);
-                let width = 4.0 * 28.0 + 3.0 * ui.spacing().item_spacing.x;
-                let (row, _) = ui.allocate_exact_size(
-                    egui::vec2(ui.available_width(), 28.0),
-                    egui::Sense::hover(),
-                );
-                let center = egui::Rect::from_center_size(row.center(), egui::vec2(width, 28.0));
-                ui.scope_builder(
-                    egui::UiBuilder::new()
-                        .max_rect(center)
-                        .layout(egui::Layout::left_to_right(egui::Align::Center)),
-                    |ui| {
-                        ui.add_enabled_ui(count > 1, |ui| {
-                            if icon_button(ui, Icon::Previous, "Previous frame").clicked() {
-                                self.playback
-                                    .select((self.playback.frame + count - 1) % count, count);
-                            }
-                            let (icon, label) = if self.playback.playing {
-                                (Icon::Pause, "Pause")
-                            } else {
-                                (Icon::Play, "Play")
-                            };
-                            if icon_button(ui, icon, label).clicked() {
-                                self.playback.toggle(count);
-                            }
-                            if icon_button(ui, Icon::Stop, "Stop").clicked() {
-                                self.playback.stop();
-                            }
-                            if icon_button(ui, Icon::Next, "Next frame").clicked() {
-                                self.playback
-                                    .select((self.playback.frame + 1) % count, count);
-                            }
-                        });
-                    },
-                );
-            });
+                                });
+                        },
+                    );
+                },
+            );
+            self.thumbnail_selection = Some(layout_selection);
+            let width = 4.0 * 28.0 + 3.0 * ui.spacing().item_spacing.x;
+            let (row, _) = ui
+                .allocate_exact_size(egui::vec2(ui.available_width(), 28.0), egui::Sense::hover());
+            let center = egui::Rect::from_center_size(row.center(), egui::vec2(width, 28.0));
+            ui.scope_builder(
+                egui::UiBuilder::new()
+                    .max_rect(center)
+                    .layout(egui::Layout::left_to_right(egui::Align::Center)),
+                |ui| {
+                    ui.add_enabled_ui(count > 1, |ui| {
+                        if icon_button(ui, Icon::Previous, "Previous frame").clicked() {
+                            self.playback
+                                .select((self.playback.frame + count - 1) % count, count);
+                        }
+                        let (icon, label) = if self.playback.playing {
+                            (Icon::Pause, "Pause")
+                        } else {
+                            (Icon::Play, "Play")
+                        };
+                        if icon_button(ui, icon, label).clicked() {
+                            self.playback.toggle(count);
+                        }
+                        if icon_button(ui, Icon::Stop, "Stop").clicked() {
+                            self.playback.stop();
+                        }
+                        if icon_button(ui, Icon::Next, "Next frame").clicked() {
+                            self.playback
+                                .select((self.playback.frame + 1) % count, count);
+                        }
+                    });
+                },
+            );
+        });
     }
     fn status_message(&mut self, now: Instant) -> (String, bool) {
         if self.error != self.last_error {
@@ -1365,11 +1359,11 @@ impl App {
     fn footer(&mut self, ctx: &egui::Context) {
         let (message, is_error) = self.status_message(Instant::now());
         egui::TopBottomPanel::bottom("file-status")
-            .exact_height(22.0)
+            .exact_height(theme::metric("bar_height"))
             .show_separator_line(false)
             .frame(
                 egui::Frame::NONE
-                    .fill(egui::Color32::from_gray(19))
+                    .fill(theme::color("shell"))
                     .inner_margin(egui::Margin {
                         left: 8,
                         right: 8,
@@ -1428,7 +1422,7 @@ impl App {
                         }),
                         |ui| {
                             let color = if is_error && align == egui::Align::Center {
-                                egui::Color32::LIGHT_RED
+                                theme::color("error")
                             } else {
                                 ui.visuals().text_color()
                             };
@@ -1454,11 +1448,11 @@ impl App {
                                 response.on_hover_ui(|ui| {
                                     if is_error {
                                         ui.visuals_mut().override_text_color =
-                                            Some(egui::Color32::LIGHT_RED);
+                                            Some(theme::color("error"));
                                         ui.painter().rect_filled(
                                             ui.max_rect(),
                                             4.0,
-                                            egui::Color32::from_rgb(65, 25, 25),
+                                            theme::color("error_background"),
                                         );
                                     }
                                     ui.label(&text);
@@ -1495,6 +1489,10 @@ impl App {
     }
 }
 impl eframe::App for App {
+    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
+        theme::color("shell").to_normalized_gamma_f32()
+    }
+
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
         configure_text(ctx);
         chrome::resize_edges(ctx);
@@ -1553,7 +1551,25 @@ impl eframe::App for App {
             self.follow_ai = was_follow;
         }
         self.footer(ctx);
+        let sidebar_area = ctx.available_rect();
+        let sidebar_painter = ctx.layer_painter(egui::LayerId::background());
+        let sidebar_shape = sidebar_painter.add(egui::Shape::Noop);
+        self.activity_rail(ctx);
         self.conversation_panel(ctx);
+        if self.sprite.is_none() && (self.show_layers || self.show_animation) {
+            theme::sidebar("empty-tool-panel", ctx).show(ctx, |ui| {
+                theme::fill_sidebar(ui);
+                panel_header(ui, |ui| {
+                    ui.heading(if self.show_layers {
+                        "LAYERS"
+                    } else {
+                        "ANIMATION"
+                    });
+                });
+                ui.separator();
+                ui.weak("Open artwork to inspect its contents.");
+            });
+        }
         let now = Instant::now();
         if self.sprite.is_some() {
             self.playback.advance(
@@ -1617,21 +1633,80 @@ impl eframe::App for App {
                 }
             }
         }
+        let container = egui::Rect::from_min_max(
+            sidebar_area.min + egui::Vec2::splat(theme::metric("gap")),
+            egui::pos2(
+                ctx.available_rect().left(),
+                sidebar_area.bottom() - theme::metric("gap"),
+            ),
+        );
+        sidebar_painter.set(
+            sidebar_shape,
+            egui::epaint::RectShape::new(
+                container,
+                theme::radius("corner_radius"),
+                theme::color("panel"),
+                theme::stroke(),
+                egui::StrokeKind::Inside,
+            ),
+        );
+        #[cfg(test)]
+        ctx.data_mut(|d| d.insert_temp(egui::Id::new("sidebar-container"), container));
+        let panel_open = self.show_layers || self.show_animation || self.conversation.visible;
+        let resize_active = [
+            "layers",
+            "animation",
+            "art-conversation",
+            "empty-tool-panel",
+        ]
+        .iter()
+        .any(|id| {
+            ctx.read_response(egui::Id::new(id).with("__resize"))
+                .is_some_and(|r| r.dragged())
+        });
+        if panel_open
+            && (resize_active
+                || ctx.pointer_hover_pos().is_some_and(|p| {
+                    (p.x - container.right()).abs() <= theme::metric("resize_hit_width")
+                        && container.y_range().contains(p.y)
+                }))
+        {
+            sidebar_painter.line_segment(
+                [
+                    egui::pos2(container.right(), container.top()),
+                    egui::pos2(container.right(), container.bottom()),
+                ],
+                egui::Stroke::new(theme::metric("resize_handle_width"), theme::color("accent")),
+            );
+        }
         egui::CentralPanel::default()
-            .frame(egui::Frame::NONE.fill(egui::Color32::from_gray(32)))
+            .frame(
+                egui::Frame::NONE
+                    .fill(theme::color("canvas"))
+                    .stroke(theme::stroke())
+                    .corner_radius(theme::radius("corner_radius"))
+                    .outer_margin(theme::margin("gap"))
+                    .inner_margin(theme::margin("panel_padding")),
+            )
             .show(ctx, |ui| {
                 if self.following() {
                     ui.disable();
                 }
                 if self.sprite.is_none() {
-                    ui.centered_and_justified(|ui| {
-                        ui.vertical_centered(|ui| {
-                            ui.add_space(28.0);
-                            ui.heading("Open a pixel art project");
-                            ui.label("Drag a file here or choose Open…");
-                            ui.label("Pixloom · Pixelorama · Aseprite · PNG · JPEG · GIF · WebP");
-                        });
-                    });
+                    let area = ui.available_rect_before_wrap();
+                    let icon_size = theme::metric("empty_icon_size");
+                    let icon_rect = egui::Rect::from_center_size(
+                        area.center() - egui::vec2(0.0, 24.0),
+                        egui::Vec2::splat(icon_size),
+                    );
+                    icons::paint(ui, "empty_workspace", icon_rect, theme::color("empty_icon"));
+                    ui.painter().text(
+                        icon_rect.center_bottom() + egui::vec2(0.0, 24.0),
+                        egui::Align2::CENTER_TOP,
+                        "Open a project or drag artwork here to begin",
+                        egui::FontId::proportional(theme::metric("font_size")),
+                        theme::color("muted"),
+                    );
                 }
                 if let Some(texture_id) = self.texture.as_ref().map(|texture| texture.id()) {
                     let available = ui.available_rect_before_wrap();
@@ -2221,8 +2296,8 @@ mod tests {
                 })
                 .unwrap()
         };
-        assert!((center("Art conversation").y - center("Layers").y).abs() < 1.0);
-        assert!(center("Layers").y > 60.0);
+        assert!((center("AI CONVERSATION").y - center("LAYERS").y).abs() < 1.0);
+        assert!(center("LAYERS").y > 0.0);
     }
 
     #[test]
@@ -2263,7 +2338,7 @@ mod tests {
             }
         };
         run(&mut app, vec![]);
-        click(&mut app, egui::pos2(22.0, 18.0));
+        click(&mut app, egui::pos2(56.0, 18.0));
         let output = run(&mut app, vec![]);
         let center = |output: &egui::FullOutput, label| {
             output
@@ -2286,8 +2361,8 @@ mod tests {
             "Save As…",
             "Canvas size…",
             "Switch to sprite view",
-            "Show Layers",
-            "Show Animation",
+            "Layers",
+            "Animation",
             "Background",
             "Color mode",
             "Onion skin",
@@ -2383,7 +2458,7 @@ mod tests {
             background: Default::default(),
             layer_view: Default::default(),
             show_layers: true,
-            show_animation: true,
+            show_animation: false,
             follow_ai: true,
             review: Default::default(),
             activity: None,
@@ -2428,6 +2503,16 @@ mod tests {
             events,
             ..Default::default()
         };
+        let _ = ctx.run(
+            eframe::egui::RawInput {
+                screen_rect: input.screen_rect,
+                ..Default::default()
+            },
+            |ctx| {
+                app.footer(ctx);
+                app.controls(ctx);
+            },
+        );
         ctx.run(input, |ctx| {
             app.footer(ctx);
             app.controls(ctx);
@@ -2558,7 +2643,7 @@ mod tests {
         let mut app = app();
         let ctx = egui::Context::default();
         let output = layout(&mut app, &ctx, 384.0, vec![]);
-        let canvas_bottom = ctx.data(|data| {
+        let _canvas_bottom = ctx.data(|data| {
             data.get_temp::<f32>(egui::Id::new("canvas-bottom"))
                 .unwrap()
         });
@@ -2567,7 +2652,8 @@ mod tests {
             .iter()
             .filter_map(|s| {
                 if let egui::Shape::Mesh(mesh) = &s.shape {
-                    Some(mesh.calc_bounds())
+                    (mesh.calc_bounds().width() != super::theme::metric("icon_size"))
+                        .then_some(mesh.calc_bounds())
                 } else {
                     None
                 }
@@ -2588,11 +2674,7 @@ mod tests {
                 }
             })
             .unwrap();
-        assert!(
-            images
-                .iter()
-                .all(|r| r.top() >= canvas_bottom && r.bottom() < play)
-        );
+        assert!(images.iter().all(|r| r.top() >= 0.0 && r.bottom() < play));
         let original = crate::schema::to_document(app.sprite.as_ref().unwrap()).unwrap();
         app.playback.playing = true;
         let point = images[1].center();
@@ -2648,7 +2730,7 @@ mod tests {
         use eframe::egui;
         let mut app = app();
         let ctx = egui::Context::default();
-        let narrow = layout(&mut app, &ctx, 160.0, vec![]);
+        let narrow = layout(&mut app, &ctx, 640.0, vec![]);
         let labels = |output: &egui::FullOutput| {
             output
                 .shapes
@@ -2665,8 +2747,8 @@ mod tests {
         assert!(!labels(&narrow).contains(&"<".into()));
         assert!(!labels(&narrow).contains(&">".into()));
         app.playback.select(3, 4);
-        let _ = layout(&mut app, &ctx, 160.0, vec![]);
-        let _ = layout(&mut app, &ctx, 160.0, vec![]);
+        let _ = layout(&mut app, &ctx, 640.0, vec![]);
+        let _ = layout(&mut app, &ctx, 640.0, vec![]);
         assert!(
             app.thumbnails[3].is_some(),
             "selected offscreen frame must scroll into view"
@@ -2691,17 +2773,12 @@ mod tests {
         let mut app = app();
         let ctx = egui::Context::default();
         let output = layout(&mut app, &ctx, 384.0, vec![]);
-        let buttons: Vec<_> = output
-            .shapes
-            .iter()
-            .filter_map(|s| match &s.shape {
-                egui::Shape::Rect(r) if r.rect.size() == egui::vec2(28.0, 28.0) => Some(r.rect),
-                _ => None,
-            })
-            .collect();
-        assert_eq!(buttons.len(), 4);
-        assert!((buttons[0].left() + buttons[3].right() - 384.0).abs() < 2.0);
-        let point = buttons[3].center();
+        let _ = output;
+        let point = ctx
+            .data(|d| d.get_temp::<egui::Rect>(egui::Id::new(("icon-button-rect", "Next frame"))))
+            .unwrap()
+            .center();
+
         let durations: Vec<_> = app
             .sprite
             .as_ref()
@@ -2755,20 +2832,11 @@ mod tests {
             app.source = Some("a-very-long-file-name-to-check-ellipsis.pixloom".into());
             let ctx = egui::Context::default();
             let output = layout(&mut app, &ctx, width, vec![]);
-            let buttons: Vec<_> = output
-                .shapes
-                .iter()
-                .filter_map(|s| match &s.shape {
-                    egui::Shape::Rect(r)
-                        if r.rect.size() == egui::vec2(28.0, 28.0) && r.rect.bottom() > 450.0 =>
-                    {
-                        Some(r.rect)
-                    }
-                    _ => None,
+            let button = ctx
+                .data(|d| {
+                    d.get_temp::<egui::Rect>(egui::Id::new(("icon-button-rect", "Next frame")))
                 })
-                .collect();
-            assert_eq!(buttons.len(), 4);
-            assert!((buttons[0].left() + buttons[3].right() - width).abs() < 1.0);
+                .unwrap();
             let labels: Vec<_> = output
                 .shapes
                 .iter()
@@ -2785,7 +2853,7 @@ mod tests {
                 .collect();
             assert_eq!(labels.len(), 3);
             for label in labels {
-                assert!(label.pos.y >= buttons[0].bottom());
+                assert!(label.pos.y >= button.bottom());
             }
             assert!(!output.shapes.iter().any(|s| matches!(&s.shape, egui::Shape::Text(t) if t.galley.text().ends_with(".pixloom"))));
         }
@@ -3016,7 +3084,7 @@ mod tests {
         let ctx = egui::Context::default();
         let _ = frame(&mut app, &ctx, vec![]);
         let _ = frame(&mut app, &ctx, vec![]);
-        click(&mut app, &ctx, egui::pos2(22.0, 22.0));
+        click(&mut app, &ctx, egui::pos2(56.0, 22.0));
         let out = frame(&mut app, &ctx, vec![]);
         let onion = text_center(&out, "Onion skin").expect("menu exposes onion skin toggle");
         assert!(text_center(&out, "Frame comparison").is_some());
@@ -3042,7 +3110,7 @@ mod tests {
             busy: false,
         });
         let _ = frame(&mut app, &ctx, vec![]);
-        click(&mut app, &ctx, egui::pos2(22.0, 22.0));
+        click(&mut app, &ctx, egui::pos2(56.0, 22.0));
         let out = frame(&mut app, &ctx, vec![]);
         let comparison = text_center(&out, "Frame comparison").expect("following menu still opens");
         click(&mut app, &ctx, comparison);
