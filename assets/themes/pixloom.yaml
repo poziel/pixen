@@ -1,0 +1,50 @@
+version: 1
+id: pixloom
+name: Pixloom
+appearance: dark
+
+# Native Frame tokens. Orange is sampled directly from assets/pixloom.svg.
+tokens:
+  frame:
+    bg: "#1D1A19"
+    surface: "#211D1C"
+    canvas: "#151313"
+    text: "#DED6D2"
+    muted: "#A99B95"
+    line: "#332B28"
+    border.color: "#3A302D"
+    accent: "#FE725E"
+    accent.foreground: "#241713"
+    danger: "#FF8B78"
+    font:
+      body: '"Segoe UI", sans-serif'
+      size.body: "13px"
+    control:
+      background: "#272220"
+      border: "#493A35"
+      text: "var(--frame-text)"
+    overlay.surface: "#282220"
+    menu:
+      border: "var(--frame-border-color)"
+      hover: "#372A26"
+      disabled: "#756862"
+      shortcut: "var(--frame-muted)"
+    list:
+      selection:
+        background: "#48302B"
+        foreground: "#FFE4DD"
+        border: "transparent"
+      hover.background: "#302622"
+    quick.selection: "var(--frame-accent)"
+    command.result.active.color: "var(--frame-accent-foreground)"
+    button:
+      primary:
+        background: "var(--frame-accent)"
+        border: "transparent"
+      frame.button.primary.color: "var(--frame-accent-foreground)"
+    workspace.tab:
+      strip: "#211D1C"
+      active: "var(--frame-canvas)"
+      active.text: "var(--frame-text)"
+      text: "var(--frame-muted)"
+      border: "var(--frame-line)"

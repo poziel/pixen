@@ -1,6 +1,6 @@
 {
-  "default": "2026-dark",
+  "default": "pixloom",
   "themes": {
-    "2026-dark": "2026-dark.json"
+    "pixloom": "pixloom.yaml"
   }
 }

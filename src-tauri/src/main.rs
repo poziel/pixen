@@ -1,6 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use clap::Parser;
-use pixloom::desktop::{Application, RenderRequest, Rendered, Snapshot};
+use pixloom::desktop::{
+    Application, DocumentWorkspace, RenderRequest, Rendered, WorkspaceSnapshot,
+};
 use std::{
     io::{BufRead, Write},
     path::PathBuf,
@@ -17,7 +19,7 @@ struct Args {
 }
 #[derive(Clone)]
 struct Backend {
-    app: Arc<Mutex<Application>>,
+    app: Arc<Mutex<DocumentWorkspace>>,
     managed: bool,
 }
 type Reply<T> = Result<T, String>;
@@ -27,6 +29,12 @@ fn error(e: impl std::fmt::Display) -> String {
 async fn work<T: Send + 'static>(
     state: &Backend,
     run: impl FnOnce(&mut Application) -> Reply<T> + Send + 'static,
+) -> Reply<T> {
+    workspace_work(state, move |workspace| run(workspace.active())).await
+}
+async fn workspace_work<T: Send + 'static>(
+    state: &Backend,
+    run: impl FnOnce(&mut DocumentWorkspace) -> Reply<T> + Send + 'static,
 ) -> Reply<T> {
     let app = state.app.clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -42,15 +50,15 @@ fn acknowledge(value: serde_json::Value) {
     let _ = out.flush();
 }
 #[tauri::command]
-async fn snapshot(state: tauri::State<'_, Backend>) -> Reply<Snapshot> {
-    work(&state, |app| app.snapshot().map_err(error)).await
+async fn snapshot(state: tauri::State<'_, Backend>) -> Reply<WorkspaceSnapshot> {
+    workspace_work(&state, |app| app.snapshot().map_err(error)).await
 }
 #[tauri::command]
 async fn open_document(state: tauri::State<'_, Backend>, path: Option<PathBuf>) -> Reply<bool> {
     if state.managed {
         return Err("managed preview cannot open another file".into());
     }
-    work(&state, move |app| {
+    workspace_work(&state, move |app| {
         let path = path.or_else(|| {
             rfd::FileDialog::new()
                 .add_filter(
@@ -73,7 +81,7 @@ async fn open_document(state: tauri::State<'_, Backend>, path: Option<PathBuf>) 
 }
 #[tauri::command]
 async fn create_document(state: tauri::State<'_, Backend>, width: u32, height: u32) -> Reply<()> {
-    work(&state, move |app| app.create(width, height).map_err(error)).await
+    workspace_work(&state, move |app| app.create(width, height).map_err(error)).await
 }
 #[tauri::command]
 async fn resize_document(state: tauri::State<'_, Backend>, width: u32, height: u32) -> Reply<()> {
@@ -127,8 +135,30 @@ async fn save_document(state: tauri::State<'_, Backend>, save_as: bool) -> Reply
     .await
 }
 #[tauri::command]
-async fn render(state: tauri::State<'_, Backend>, request: RenderRequest) -> Reply<Rendered> {
-    work(&state, move |app| app.render(request).map_err(error)).await
+async fn render(
+    state: tauri::State<'_, Backend>,
+    request: RenderRequest,
+    document_id: Option<String>,
+) -> Reply<Rendered> {
+    workspace_work(&state, move |app| {
+        app.render(document_id.as_deref(), request).map_err(error)
+    })
+    .await
+}
+#[tauri::command]
+async fn activate_document(state: tauri::State<'_, Backend>, document_id: String) -> Reply<()> {
+    workspace_work(&state, move |app| app.activate(&document_id).map_err(error)).await
+}
+#[tauri::command]
+async fn close_document(
+    state: tauri::State<'_, Backend>,
+    document_id: String,
+    discard: bool,
+) -> Reply<()> {
+    workspace_work(&state, move |app| {
+        app.close(&document_id, discard).map_err(error)
+    })
+    .await
 }
 #[tauri::command]
 async fn review_document(
@@ -152,19 +182,8 @@ fn desktop_ready(state: tauri::State<'_, Backend>) {
     }
 }
 #[tauri::command]
-fn theme_config() -> serde_json::Value {
-    use base64::Engine;
-    let mut config = pixloom::theme::config().clone();
-    if let Some(path) = config["font_file"].as_str() {
-        if let Ok(bytes) = std::fs::read(path) {
-            if bytes.len() <= 16 * 1024 * 1024 {
-                config["font_base64"] = base64::engine::general_purpose::STANDARD
-                    .encode(bytes)
-                    .into();
-            }
-        }
-    }
-    config
+fn theme_config() -> pixloom::theme::ThemeSource {
+    pixloom::theme::config().clone()
 }
 fn main() {
     let args = Args::parse();
@@ -179,12 +198,12 @@ fn main() {
         }
     }
     let backend = Backend {
-        app: Arc::new(Mutex::new(application)),
+        app: Arc::new(Mutex::new(DocumentWorkspace::new(application))),
         managed: args.managed,
     };
     let protocol = backend.clone();
     let result = tauri::Builder::default().plugin(tauri_plugin_opener::init()).manage(backend)
-        .invoke_handler(tauri::generate_handler![snapshot, open_document, create_document, resize_document, toggle_view, follow_target, save_document, render, review_document, desktop_ready, theme_config])
+        .invoke_handler(tauri::generate_handler![snapshot, open_document, create_document, activate_document, close_document, resize_document, toggle_view, follow_target, save_document, render, review_document, desktop_ready, theme_config])
         .setup(move |app| {
             if protocol.managed {
                 let handle = app.handle().clone();
@@ -197,7 +216,7 @@ fn main() {
                                 acknowledge(serde_json::json!({"opened":true,"pid":std::process::id(),"activation_requested":true,"focused":window.is_focused().unwrap_or(false)}));
                             }
                         } else if let Ok(mut app) = protocol.app.lock() {
-                            if let Err(e) = app.message(&line) { eprintln!("pixloom: ignored invalid preview message: {e}"); }
+                            if let Err(e) = app.active().message(&line) { eprintln!("pixloom: ignored invalid preview message: {e}"); }
                             let _ = handle.emit("pixloom:update", ());
                         }
                     }

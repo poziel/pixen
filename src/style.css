@@ -1,0 +1,293 @@
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  font-family: var(--frame-font-body);
+  background: var(--frame-bg);
+  color: var(--frame-text);
+  font-size: var(--frame-font-size-body);
+}
+.sidebar-content {
+  padding: 10px;
+  height: 100%;
+  overflow: auto;
+}
+.view-tools,
+.playback-tools,
+.dialog-actions,
+.canvas-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.view-tools {
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.playback-tools {
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.hint,
+.empty-note,
+small {
+  color: var(--frame-muted);
+  line-height: 1.6;
+}
+.empty-note {
+  padding: 12px;
+}
+.field {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 12px 0;
+}
+.field input[type="number"] {
+  width: 120px;
+}
+.field input,
+.field select {
+  font: inherit;
+  color: inherit;
+  background: var(--frame-control-background);
+  border: 1px solid var(--frame-control-border);
+  border-radius: 4px;
+  padding: 6px;
+}
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.preview-list { height: 100%; overflow: auto; padding: 0; color: var(--frame-text); }
+.preview-row { display: flex; align-items: center; width: 100%; border-radius: 0; }
+.preview-row-actions { display: flex; flex-direction: column; flex-shrink: 0; padding-left: 4px; }
+.preview-row-select {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  text-align: left;
+  background: transparent;
+  padding: 8px;
+  border-radius: 0;
+}
+.preview-row-select:focus-visible { outline-offset: -2px; }
+.preview-row-text { min-width: 0; }
+.preview-row-text strong {
+  display: block;
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.preview-row-text small { display: block; font-size: 11px; }
+.canvas-tools button { border: 0; background: transparent; color: var(--frame-muted); padding: 4px 6px; }
+.thumbnail {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: 1px solid var(--frame-line);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.thumbnail img {
+  max-width: 100%;
+  max-height: 100%;
+  image-rendering: pixelated;
+}
+.checkerboard {
+  background-color: #292929;
+  background-image: conic-gradient(
+    #383838 25%,
+    transparent 0 50%,
+    #383838 0 75%,
+    transparent 0
+  );
+  background-size: 12px 12px;
+}
+.artwork-drop-host, .artwork-drop-zone {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+.canvas-workspace {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.canvas-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  touch-action: none;
+  background: var(--frame-canvas);
+  cursor: grab;
+}
+.canvas-stage:active {
+  cursor: grabbing;
+}
+.background-black {
+  background: #000;
+}
+.background-white {
+  background: #fff;
+}
+.artwork {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-origin: center;
+  image-rendering: pixelated;
+  box-shadow: 0 0 0 1px var(--frame-border-color);
+  max-width: none;
+}
+.canvas-tools {
+  padding: 5px 10px;
+  border-top: 1px solid var(--frame-line);
+  color: var(--frame-muted);
+  font-size: 11px;
+}
+.canvas-tools span:first-child {
+  margin-right: auto;
+}
+.empty-workspace {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: var(--frame-muted);
+  cursor: default;
+}
+.empty-workspace > img {
+  width: 112px;
+  height: 112px;
+  opacity: 0.25;
+}
+.empty-workspace h1 {
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--frame-text);
+}
+.empty-workspace > div {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.error-banner {
+  display: flex;
+  gap: 12px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--frame-danger) 12%, var(--frame-surface));
+  color: var(--frame-danger);
+  word-break: break-word;
+}
+.error-banner button {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+}
+.dialog-content {
+  padding: 20px;
+  overflow: auto;
+  height: 100%;
+}
+.dialog-content h3 {
+  font-size: 13px;
+  font-weight: 600;
+}
+.artwork-presets { border: 0; padding: 0; margin: 0 0 16px; }
+.artwork-presets legend { margin-bottom: 8px; }
+.artwork-size-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.artwork-dimensions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.artwork-dimensions .field { min-width: 0; }
+.artwork-dimensions input { width: 100%; min-width: 0; box-sizing: border-box; }
+.dialog-actions {
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+.review-content img {
+  max-width: 100%;
+  image-rendering: pixelated;
+}
+.review-content figure {
+  margin: 12px 0;
+}
+.review-content pre {
+  white-space: pre-wrap;
+  font-size: 11px;
+  word-break: break-word;
+}
+.review-content summary {
+  cursor: pointer;
+}
+.background-transparent {
+  background: transparent;
+}
+/* Application views inherit the same Frame tokens as the shell and overlays. */
+.canvas-stage {
+  background: var(--frame-canvas);
+}
+.background-black {
+  background: #000;
+}
+.background-white {
+  background: #fff;
+}
+.background-transparent {
+  background: transparent;
+}
+.sidebar-content,
+.dialog-content {
+  color: var(--frame-text);
+}
+.hint,
+.empty-note,
+small,
+.canvas-tools {
+  color: var(--frame-muted);
+}
+@media (hover: hover) { .preview-row:hover { background: var(--frame-list-hover-background); } }
+.preview-row.selected {
+  background: var(--frame-list-selection-background) !important;
+  color: var(--frame-list-selection-foreground);
+}
+.field input,
+.field select {
+  background: var(--frame-control-background);
+  border-color: var(--frame-control-border);
+}
+.canvas-tools {
+  border-color: var(--frame-border-color);
+}
+.error-banner {
+  background: color-mix(in srgb, var(--frame-danger) 12%, var(--frame-surface));
+  color: var(--frame-danger);
+}
+
+.canvas-tools {
+  flex-wrap: wrap;
+}
+
+.timeline-playback-tools { display: flex; align-items: center; justify-content: center; gap: 8px; }
+

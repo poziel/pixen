@@ -17,7 +17,7 @@ async (page) => {
       .count()) === 1,
     "one primary view bar",
   );
-  check((await page.getByRole("tab").count()) === 0, "no document tabs");
+  check((await page.getByRole("tab").count()) === 0, "empty welcome page has no document tabs");
   await invoke("open_document", {
     path: `${root}/examples/mcp-animation/output/bounce.pixloom.json`,
   });
@@ -76,7 +76,7 @@ async (page) => {
     frames: snapshot.document.frames.length,
     layers: snapshot.document.layers.length,
     canvas: "24x24",
-    tabs: 0,
+    tabs: await page.getByRole("tab").count(),
     review: report.report.kind,
   };
   const closed=page.waitForEvent('close',{timeout:10000});

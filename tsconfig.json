@@ -10,5 +10,6 @@
     "allowImportingTsExtensions": true,
     "types": ["vite/client", "bun"]
   },
-  "include": ["ui/**/*.ts", "ui/**/*.vue", "vite.config.ts"]
+  "include": ["src/**/*.ts", "src/**/*.vue", "tests/frontend/**/*.ts", "vite.config.ts"]
 }
+

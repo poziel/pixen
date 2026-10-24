@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/pixloom-48.png" alt="Pixloom logo" width="48" height="48">
+<img src="assets/pixloom.png" alt="Pixloom logo" width="48" height="48">
 
 # Pixloom
 
@@ -57,12 +57,12 @@ checkout layout.
 
 ```sh
 bun install --frozen-lockfile
-bun run tauri dev
+bun run dev
 # Production desktop, without creating an installer:
-bun run tauri build --no-bundle
+bun run build
 ```
 
-Build the headless tools with `cargo build --release --locked` as well. The shared
+Build the headless tools with `bun run build:tools` (or `cargo build --release --locked`) as well. Use `bun run build:cli` or `bun run build:mcp` to build either tool individually, without Tauri. The shared
 target directory places all three executables under `target/release`. Distribute
 them together so CLI/MCP preview requests can find `pixloom` beside their own
 executable. A Cargo-only installation does not install the desktop.
@@ -308,7 +308,8 @@ loaders. Changes to the opened source reload automatically. The playback control
 adjust preview speed from 0.125× to 8× without changing saved timing. The bottom
 left shows effective milliseconds per frame; the bottom right shows frame position.
 
-Build all three executables with `cargo build --release --locked` and keep them together:
+Build the desktop with `bun run tauri build --no-bundle` and the headless tools with
+`cargo build --release --locked`. Keep them together when desktop previews are wanted:
 
 - `pixloom.exe`: desktop app; launches without a console on Windows.
 - `pixloom-cli.exe`: file commands and conversions.
@@ -333,4 +334,18 @@ Below playback, the footer shows frame duration on the left, the filename in the
 center, and frame position on the right. Errors replace the filename for eight
 seconds and then disappear; long text truncates and is available on hover.
 
-Custom desktop control icons are editable SVGs in `assets/icons`; see [icon editing](docs/icons.md). Distribute the generated `icons/` folder beside the desktop executable.
+Desktop SVG icons are bundled by Vite from `assets/icons`; they do not require a runtime `icons/` folder beside the executable.
+
+## Source layout
+
+- `core/`: shared Rust engine and application services, with executable entry
+  points at `core/bin/pixloom-cli.rs` and `core/bin/pixloom-mcp.rs`.
+- `src/`: Vue and Frame frontend.
+- `src-tauri/`: native desktop host, Tauri commands, dialogs and configuration.
+
+The root `Cargo.toml` defines the shared library at `core/lib.rs` and both
+headless binaries. The desktop has its own manifest and depends on that library.
+`bun run dev` runs the desktop with frontend hot reload; standalone browser
+execution and the former web bridge are no longer supported.
+
+See [Code layout](docs/code-layout.md) for the source and test folder guide.
