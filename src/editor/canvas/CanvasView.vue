@@ -4,18 +4,30 @@ import { useEditor } from "../editor";
 import { zoomPan } from "./zoom";
 import { LatestRequest } from "../timeline/playback";
 import ArtworkDropZone from './ArtworkDropZone.vue';
+import { useTools } from '../tools/gestures';
+import ToolCursor from '../tools/ToolCursor.vue';
+import { resizedToolValue } from '../tools/interaction';
+import type { Point } from '../tools/raster';
 
 
 const editor = useEditor(),
   s = editor.state;
 const stage = ref<HTMLElement>(),
-  canvas = ref<HTMLCanvasElement>();
+  canvas = ref<HTMLCanvasElement>(), overlay = ref<HTMLCanvasElement>();
 const width = ref(s.canvasWidth || 1),
   height = ref(s.canvasHeight || 1),
   viewport = ref({ width: 1, height: 1 }),
   zoom = computed({ get: () => s.canvasView.zoom, set: value => { s.canvasView.zoom = value; } }),
   pan = computed({ get: () => s.canvasView.pan, set: value => { s.canvasView.pan = value; } });
 const pending = new LatestRequest();
+const pointer = ref<Point|null>(null), pointerButtons = ref(0);
+const cursorPixel = computed(() => {
+  if (!pointer.value || !stage.value || manual.panHeld.value) return null;
+  const bounds = stage.value.getBoundingClientRect();
+  const x = Math.floor((pointer.value.x-bounds.left-viewport.value.width/2-pan.value.x)/scale.value+width.value/2);
+  const y = Math.floor((pointer.value.y-bounds.top-viewport.value.height/2-pan.value.y)/scale.value+height.value/2);
+  return x>=0&&y>=0&&x<width.value&&y<height.value?{x,y}:null;
+});
 let observer: ResizeObserver | undefined;
 const doc = computed(() => s.snapshot?.document);
 const fitScale = computed(() => Math.max(0.01, Math.min(
@@ -63,6 +75,7 @@ watch(
       context.imageSmoothingEnabled = false;
       context.clearRect(0, 0, image.width, image.height);
       context.drawImage(bitmap, 0, 0);
+      manual.paintSelection();
     } catch (e) {
       if (pending.current(serial) && !s.working) s.error = String(e);
     }
@@ -101,18 +114,37 @@ watch(() => s.zoomRequest, request => {
 function wheel(e: WheelEvent) {
   const bounds = stage.value?.getBoundingClientRect();
   if (!bounds || !doc.value) return;
+  pointer.value = {x:e.clientX,y:e.clientY};
+  if (e.ctrlKey) {
+    const slot = e.shiftKey || (pointerButtons.value&2) ? 'right' : 'left';
+    const tool = s.tools[slot];
+    const brush = tool==='pencil'||tool==='eraser'?s.tools.brushes[slot][tool]:null;
+    const size = resizedToolValue(tool,brush?.size??s.tools.textSize,e.deltaY);
+    if (size!==null) {
+      if (brush) brush.size=size;
+      else s.tools.textSize=size;
+    }
+    return;
+  }
   setScale(scale.value * (e.deltaY < 0 ? 1.15 : 1 / 1.15), {
     x: e.clientX - bounds.left - bounds.width / 2,
     y: e.clientY - bounds.top - bounds.height / 2,
   });
 }
 let drag: { x: number; y: number; px: number; py: number } | null = null;
+const manual = useTools(editor,stage,canvas,overlay,setScale,scale);
 function down(e: PointerEvent) {
-  if (e.button !== 0 && e.button !== 1) return;
+  pointer.value = {x:e.clientX,y:e.clientY};
+  pointerButtons.value=e.buttons;
+  const tool=e.button===2?s.tools.right:s.tools.left;
+  if(e.button!==1&&!manual.panHeld.value&&tool!=='pan'){void manual.down(e);return;}
   stage.value?.setPointerCapture(e.pointerId);
   drag = { x: e.clientX, y: e.clientY, px: pan.value.x, py: pan.value.y };
 }
 function move(e: PointerEvent) {
+  pointer.value = {x:e.clientX,y:e.clientY};
+  pointerButtons.value=e.buttons;
+  if (!drag) manual.move(e);
   if (drag)
     pan.value = {
       x: drag.px + e.clientX - drag.x,
@@ -146,13 +178,16 @@ onBeforeUnmount(() => {
       class="canvas-stage"
       :class="{ empty: !doc }"
       tabindex="0"
-      aria-label="Artwork canvas. Scroll to zoom, drag to pan."
+      aria-label="Artwork canvas. Draw with left or right button. Hold Space or Enter to pan. Ctrl+wheel resizes tools. Scroll to zoom."
+      :style="{cursor:manual.panHeld.value||s.tools.left==='pan'?'grab':'crosshair'}"
+      @contextmenu.prevent
       @wheel.prevent="wheel"
       @pointerdown="down"
       @pointermove="move"
-      @pointerup="drag = null"
-      @pointercancel="drag = null"
-      @dblclick="reset"
+      @pointerup="drag = null; pointerButtons=$event.buttons; manual.up()"
+      @pointercancel="drag = null; pointerButtons=0; pointer=null; manual.cancel()"
+      @pointerleave="pointer=null"
+      @dblclick="manual.doubleClick()"
     >
       <canvas
         v-show="doc"
@@ -162,6 +197,8 @@ onBeforeUnmount(() => {
         :class="[`background-${s.background}`, { checkerboard: s.background === 'checkerboard' }]"
         aria-label="Pixel artwork"
       />
+      <canvas v-show="doc" ref="overlay" :style="style" class="artwork selection-overlay" aria-hidden="true" />
+      <ToolCursor v-if="doc" :pixel="cursorPixel" :width="width" :height="height" :scale="scale" :style="style" />
     </div>
   </div>
   </ArtworkDropZone>

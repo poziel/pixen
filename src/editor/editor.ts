@@ -7,12 +7,24 @@ import {
   type Review,
 } from "../services/backend";
 import { advancePlayback } from "./timeline/playback";
+import type { Tool } from './tools/raster';
+import { createBrushSettings } from './tools/interaction';
 
 export function createEditor(transport: typeof call = call) {
   const state = reactive({
+    tools: {
+      temporaryPan: false,
+      left: 'pencil' as Tool, right: 'eraser' as Tool,
+      primary: '#20212b', secondary: '#ffffff', colorTarget: 'primary' as 'primary'|'secondary',
+      picker: 'rectangle' as 'rectangle'|'wheel'|'circle',
+      brushes: {left:createBrushSettings(),right:createBrushSettings()},
+      tolerance: 0, contiguous: true, selectionMode: 'replace' as 'replace'|'add'|'subtract',
+      moveCopy: false, text: 'Text', textSize: 8,
+    },
     snapshot: null as Snapshot | null,
     error: "",
     working: false,
+    selectionClear: 0,
     frame: 0,
     layer: null as string | null,
     hidden: [] as string[],
@@ -302,6 +314,7 @@ export function createEditor(transport: typeof call = call) {
     idle: () => operationQueue,
     refresh,
     action,
+    readCel: (args: Record<string, unknown>) => transport<{pixels:number[];opacity:number}>('read_cel', args),
     select,
     step,
     play,

@@ -28,6 +28,7 @@ import { createEditor, EditorKey } from "./editor/editor";
 import CanvasView from "./editor/canvas/CanvasView.vue";
 import EditorDialogActions from "./editor/EditorDialogActions.vue";
 import LayersView from "./editor/layers/LayersView.vue";
+import ToolsView from './editor/tools/ToolsView.vue';
 import TimelineView from "./editor/timeline/TimelineView.vue";
 import TimelineControls from "./editor/timeline/TimelineControls.vue";
 import AiView from "./views/AiView.vue";
@@ -131,6 +132,7 @@ const timelineActions: PanelAction[] = [{
   onSelect: item => { if (!editor.following()) { s.fps = Number(item.id); s.elapsed = 0; } },
 }];
 for (const [id, label, component, src] of [
+  ["tools", "Tools", ToolsView, "edit"],
   ["layers", "Layers", LayersView, "layers"],
   ["timeline", "Timeline", TimelineView, "play"],
   ["ai", "AI chat", AiView, "comment-discussion"],
@@ -547,12 +549,7 @@ function key(event: KeyboardEvent) {
   )
     return;
   if (!doc.value) return;
-  if (event.code === "Space") {
-    event.preventDefault();
-    s.playing = !s.playing;
-    s.mode = "composite";
-    s.sheet = false;
-  } else if (event.key === "ArrowRight") {
+  if (event.key === "ArrowRight") {
     event.preventDefault();
     editor.step(1);
   } else if (event.key === "ArrowLeft") {

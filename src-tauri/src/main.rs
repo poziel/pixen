@@ -54,6 +54,76 @@ async fn snapshot(state: tauri::State<'_, Backend>) -> Reply<WorkspaceSnapshot> 
     workspace_work(&state, |app| app.snapshot().map_err(error)).await
 }
 #[tauri::command]
+async fn read_cel(
+    state: tauri::State<'_, Backend>,
+    document_id: String,
+    frame_id: String,
+    layer_id: String,
+) -> Reply<pixloom::desktop::CelPixels> {
+    workspace_work(&state, move |workspace| {
+        if workspace
+            .snapshot()
+            .map_err(error)?
+            .active_document
+            .as_deref()
+            != Some(&document_id)
+        {
+            return Err("active document changed".into());
+        }
+        workspace
+            .active()
+            .cel_data(&frame_id, &layer_id)
+            .map_err(error)
+    })
+    .await
+}
+#[tauri::command]
+async fn paint_pixels(
+    state: tauri::State<'_, Backend>,
+    document_id: String,
+    generation: u64,
+    frame_id: String,
+    layer_id: String,
+    pixels: Vec<pixloom::desktop::PaintPixel>,
+) -> Reply<()> {
+    workspace_work(&state, move |workspace| {
+        if workspace
+            .snapshot()
+            .map_err(error)?
+            .active_document
+            .as_deref()
+            != Some(&document_id)
+        {
+            return Err("active document changed".into());
+        }
+        workspace
+            .active()
+            .paint(generation, &frame_id, &layer_id, pixels)
+            .map_err(error)
+    })
+    .await
+}
+#[tauri::command]
+async fn edit_history(
+    state: tauri::State<'_, Backend>,
+    document_id: String,
+    redo: bool,
+) -> Reply<()> {
+    workspace_work(&state, move |workspace| {
+        if workspace
+            .snapshot()
+            .map_err(error)?
+            .active_document
+            .as_deref()
+            != Some(&document_id)
+        {
+            return Err("active document changed".into());
+        }
+        workspace.active().history(redo).map_err(error)
+    })
+    .await
+}
+#[tauri::command]
 async fn open_document(state: tauri::State<'_, Backend>, path: Option<PathBuf>) -> Reply<bool> {
     if state.managed {
         return Err("managed preview cannot open another file".into());
@@ -203,7 +273,7 @@ fn main() {
     };
     let protocol = backend.clone();
     let result = tauri::Builder::default().plugin(tauri_plugin_opener::init()).manage(backend)
-        .invoke_handler(tauri::generate_handler![snapshot, open_document, create_document, activate_document, close_document, resize_document, toggle_view, follow_target, save_document, render, review_document, desktop_ready, theme_config])
+        .invoke_handler(tauri::generate_handler![snapshot, read_cel, paint_pixels, edit_history, open_document, create_document, activate_document, close_document, resize_document, toggle_view, follow_target, save_document, render, review_document, desktop_ready, theme_config])
         .setup(move |app| {
             if protocol.managed {
                 let handle = app.handle().clone();

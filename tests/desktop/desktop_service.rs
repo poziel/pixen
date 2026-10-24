@@ -1,6 +1,52 @@
 use pixloom::desktop::{Application, RenderRequest};
 
 #[test]
+fn manual_strokes_are_atomic_revision_checked_and_undoable() {
+    let mut app = Application::new(false);
+    app.create(2, 2).unwrap();
+    let doc = app.snapshot().unwrap().document.unwrap();
+    let frame = &doc.frames[0].id;
+    let layer = &doc.layers[0].id;
+    let pixels = vec![pixloom::desktop::PaintPixel {
+        x: 1,
+        y: 0,
+        color: "#ff000080".into(),
+    }];
+    app.paint(doc.generation, frame, layer, pixels.clone())
+        .unwrap();
+    assert!(app.paint(doc.generation, frame, layer, pixels).is_err());
+    assert_eq!(&app.cel(frame, layer).unwrap()[4..8], &[255, 0, 0, 128]);
+    app.history(false).unwrap();
+    assert_eq!(&app.cel(frame, layer).unwrap()[4..8], &[0, 0, 0, 0]);
+    app.history(true).unwrap();
+    assert_eq!(&app.cel(frame, layer).unwrap()[4..8], &[255, 0, 0, 128]);
+    let before = app.snapshot().unwrap().document.unwrap().generation;
+    assert!(
+        app.paint(
+            before,
+            frame,
+            layer,
+            vec![pixloom::desktop::PaintPixel {
+                x: 9,
+                y: 0,
+                color: "#ffffffff".into()
+            }]
+        )
+        .is_err()
+    );
+    assert_eq!(app.snapshot().unwrap().document.unwrap().generation, before);
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("manual-stroke.pixloom");
+    app.save(Some(&path)).unwrap();
+    let mut reopened = Application::new(false);
+    reopened.open(&path).unwrap();
+    assert_eq!(
+        &reopened.cel(frame, layer).unwrap()[4..8],
+        &[255, 0, 0, 128]
+    );
+}
+
+#[test]
 fn document_lifetime_save_and_preview_do_not_require_a_frontend() {
     let root = tempfile::tempdir().unwrap();
     let path = root.path().join("saved.pixloom");

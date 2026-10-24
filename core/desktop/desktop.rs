@@ -75,6 +75,19 @@ pub struct Rendered {
     pub png: String,
 }
 
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PaintPixel {
+    pub x: u32,
+    pub y: u32,
+    pub color: String,
+}
+#[derive(Serialize)]
+pub struct CelPixels {
+    pub pixels: Vec<u8>,
+    pub opacity: f64,
+}
+
 pub struct Application {
     managed: bool,
     desktop: Option<crate::mcp::desktop::Desktop>,
@@ -272,6 +285,54 @@ impl Application {
             .as_ref()
             .context("no document")?
             .resize_canvas(width, height)?;
+        self.refresh_document();
+        Ok(())
+    }
+    pub fn cel(&mut self, frame: &str, layer: &str) -> Result<Vec<u8>> {
+        Ok(self.cel_data(frame, layer)?.pixels)
+    }
+    pub fn cel_data(&mut self, frame: &str, layer: &str) -> Result<CelPixels> {
+        self.refresh_document();
+        ensure!(
+            !self.alternate_view,
+            "switch to the original artwork before editing"
+        );
+        self.desktop
+            .as_ref()
+            .context("read-only preview")?
+            .read_cel(frame, layer)
+    }
+    pub fn paint(
+        &mut self,
+        generation: u64,
+        frame: &str,
+        layer: &str,
+        pixels: Vec<PaintPixel>,
+    ) -> Result<()> {
+        ensure!(!self.managed, "managed preview is read-only");
+        self.refresh_document();
+        ensure!(
+            generation == self.generation,
+            "artwork changed; retry the stroke"
+        );
+        ensure!(
+            !self.alternate_view,
+            "switch to the original artwork before editing"
+        );
+        self.desktop
+            .as_ref()
+            .context("no document")?
+            .paint(self.revision, frame, layer, pixels)?;
+        self.refresh_document();
+        Ok(())
+    }
+    pub fn history(&mut self, redo: bool) -> Result<()> {
+        ensure!(!self.managed, "managed preview is read-only");
+        self.refresh_document();
+        self.desktop
+            .as_ref()
+            .context("no document")?
+            .history(self.revision, redo)?;
         self.refresh_document();
         Ok(())
     }

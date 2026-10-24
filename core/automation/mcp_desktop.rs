@@ -34,6 +34,100 @@ pub struct Desktop {
 }
 
 impl Desktop {
+    pub fn read_cel(&self, frame: &str, layer: &str) -> Result<crate::desktop::CelPixels> {
+        let state = self.server.state.lock().unwrap();
+        let doc = crate::schema::read_document(&state.session.document_snapshot()?)?;
+        let f = crate::edit::frame_index(&doc, frame)?;
+        let l = doc
+            .layers
+            .iter()
+            .position(|l| l.id == layer)
+            .context("unknown layer")?;
+        let grid = crate::edit::grid(&doc, l, f)?;
+        let palette = doc
+            .palette
+            .iter()
+            .map(|c| crate::schema::decode_color(c))
+            .collect::<Result<Vec<_>>>()?;
+        Ok(crate::desktop::CelPixels {
+            pixels: grid
+                .into_iter()
+                .flatten()
+                .flat_map(|i| palette[i as usize])
+                .collect(),
+            opacity: doc.layers[l].opacity * doc.layers[l].timeline[f].opacity,
+        })
+    }
+    pub fn paint(
+        &self,
+        revision: u64,
+        frame: &str,
+        layer: &str,
+        pixels: Vec<crate::desktop::PaintPixel>,
+    ) -> Result<()> {
+        use crate::edit::{DrawOperation, Drawing, Operation, Pixel};
+        let mut state = self.server.state.lock().unwrap();
+        let id = state.session.active_id().context("no artwork")?.to_owned();
+        let doc = crate::schema::read_document(&state.session.document_snapshot()?)?;
+        anyhow::ensure!(
+            !pixels.is_empty()
+                && pixels.len() <= (doc.canvas.width as usize * doc.canvas.height as usize),
+            "invalid stroke size"
+        );
+        let mut palette = doc
+            .palette
+            .iter()
+            .map(|c| crate::schema::decode_color(c))
+            .collect::<Result<Vec<_>>>()?;
+        let mut indices = palette
+            .iter()
+            .enumerate()
+            .map(|(i, c)| (*c, i as u32))
+            .collect::<std::collections::HashMap<_, _>>();
+        let mut colors = Vec::new();
+        let mut drawing = Vec::with_capacity(pixels.len());
+        for p in pixels {
+            anyhow::ensure!(
+                p.x < doc.canvas.width && p.y < doc.canvas.height,
+                "pixel outside canvas"
+            );
+            let color = crate::schema::decode_color(&p.color)?;
+            let index = *indices.entry(color).or_insert_with(|| {
+                let i = palette.len() as u32;
+                palette.push(color);
+                colors.push(p.color);
+                i
+            });
+            drawing.push(Pixel {
+                x: p.x.into(),
+                y: p.y.into(),
+                palette_index: index,
+            });
+        }
+        let mut ops = Vec::new();
+        if !colors.is_empty() {
+            ops.push(Operation::Palette(
+                crate::edit_extra::PaletteOperation::AppendColors { colors },
+            ));
+        }
+        ops.push(Operation::Draw(DrawOperation {
+            frame_id: frame.into(),
+            layer_id: layer.into(),
+            drawing: Drawing::SetPixels { pixels: drawing },
+        }));
+        state.session.apply(&id, revision, ops)?;
+        Ok(())
+    }
+    pub fn history(&self, revision: u64, redo: bool) -> Result<()> {
+        let mut state = self.server.state.lock().unwrap();
+        let id = state.session.active_id().context("no artwork")?.to_owned();
+        if redo {
+            state.session.redo(&id, revision)?;
+        } else {
+            state.session.undo(&id, revision)?;
+        }
+        Ok(())
+    }
     pub fn drain_events(&self) -> Vec<DesktopEvent> {
         self.events.lock().unwrap().try_iter().collect()
     }
