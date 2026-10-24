@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/pixloom-48.png" alt="Pixloom logo" width="48" height="48">
+<img src="assets/pixloom.png" alt="Pixloom logo" width="48" height="48">
 
 # Pixloom
 
@@ -30,6 +30,11 @@ Use it to build game assets from scripts, keep artwork in version control, autom
 
 Pixloom includes a desktop viewer (`pixloom`) and a command-line tool (`pixloom-cli`). Author JSON by hand, produce it with your own scripts, or use the included [AI agent skill](skills/pixloom/SKILL.md). An editor is optional; only video exports require FFmpeg.
 
+The desktop uses a Frame/Vue workbench hosted by Tauri. Layers, Timeline, and an
+AI placeholder live in the primary sidebar; the canvas occupies one workspace
+without document tabs. The AI conversation frontend is temporarily unavailable;
+its Rust backend and independent MCP authoring tools are preserved.
+
 ## Get started
 
 ### Install from source
@@ -42,7 +47,26 @@ pixloom-cli --version
 pixloom-cli --help
 ```
 
-Cargo installs all three executables in its bin directory, which must be on your `PATH`. With the default Cargo setup, that is `~/.cargo/bin` on Linux/macOS or `%USERPROFILE%\.cargo\bin` on Windows.
+Cargo installs the headless `pixloom-cli` and `pixloom-mcp` executables in its bin directory, which must be on your `PATH`. With the default Cargo setup, that is `~/.cargo/bin` on Linux/macOS or `%USERPROFILE%\.cargo\bin` on Windows.
+
+Build the desktop separately with **Bun** and the Tauri native prerequisites.
+Frame is currently a private local dependency: `package.json` points to
+`../../1-codes/frame/packages/core`, whose library must already be built with
+`bun run build:library` in the Frame checkout. Adjust that path for a different
+checkout layout.
+
+```sh
+bun install --frozen-lockfile
+bun run dev
+# Production desktop, without creating an installer:
+bun run build
+```
+
+Build the headless tools with `bun run build:tools` (or `cargo build --release --locked`) as well. Use `bun run build:cli` or `bun run build:mcp` to build either tool individually, without Tauri. The shared
+target directory places all three executables under `target/release`. Distribute
+them together so CLI/MCP preview requests can find `pixloom` beside their own
+executable. A Cargo-only installation does not install the desktop.
+See [desktop architecture and verification](docs/frame-desktop.md).
 
 To build without installing:
 
@@ -125,7 +149,8 @@ and save pixel art while a separate read-only window displays its work. The
 playback and frame thumbnails. Open supported projects for editing with
 `open_project`; `.pixloom` is the default save format, with explicit native/image
 exports available. Revision-checked palette, region, layer, frame and drawing
-tools share atomic batches and bounded undo/redo. Onion-skin, frame-comparison
+tools share atomic batches and bounded undo/redo. `resize_canvas` changes canvas
+bounds with revision checks and undo, cropping or padding without scaling pixels. Onion-skin, frame-comparison
 and isolated-layer images help the AI review its work; inspection modes also
 appear in the viewer menu and synchronize while Follow AI is enabled.
 Use `pixloom-mcp` for headless editing and image review.
@@ -283,7 +308,8 @@ loaders. Changes to the opened source reload automatically. The playback control
 adjust preview speed from 0.125× to 8× without changing saved timing. The bottom
 left shows effective milliseconds per frame; the bottom right shows frame position.
 
-Build all three executables with `cargo build --release --locked` and keep them together:
+Build the desktop with `bun run tauri build --no-bundle` and the headless tools with
+`cargo build --release --locked`. Keep them together when desktop previews are wanted:
 
 - `pixloom.exe`: desktop app; launches without a console on Windows.
 - `pixloom-cli.exe`: file commands and conversions.
@@ -307,3 +333,19 @@ the existing canvas and pixel limits.
 Below playback, the footer shows frame duration on the left, the filename in the
 center, and frame position on the right. Errors replace the filename for eight
 seconds and then disappear; long text truncates and is available on hover.
+
+Desktop SVG icons are bundled by Vite from `assets/icons`; they do not require a runtime `icons/` folder beside the executable.
+
+## Source layout
+
+- `core/`: shared Rust engine and application services, with executable entry
+  points at `core/bin/pixloom-cli.rs` and `core/bin/pixloom-mcp.rs`.
+- `src/`: Vue and Frame frontend.
+- `src-tauri/`: native desktop host, Tauri commands, dialogs and configuration.
+
+The root `Cargo.toml` defines the shared library at `core/lib.rs` and both
+headless binaries. The desktop has its own manifest and depends on that library.
+`bun run dev` runs the desktop with frontend hot reload; standalone browser
+execution and the former web bridge are no longer supported.
+
+See [Code layout](docs/code-layout.md) for the source and test folder guide.
