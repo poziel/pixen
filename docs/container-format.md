@@ -1,4 +1,4 @@
-# Pixloom container v1
+# Pixen container v1
 
 The container layout version is independent of authoring versions 1 and 2.
 Released readers must read older released container versions; unsupported versions
@@ -42,4 +42,4 @@ modified. Standalone optimize rejects containers: unpack, optimize JSON, then pa
 (or pack JSON with --optimize). JSON input continues accepting legacy filenames.
 
 Legacy containers with the `spritex` format identifier and `.spritex` extension
-remain readable. New containers use `pixloom` and `.pixloom`.
+remain readable. New containers use `pixen` and `.pixloom`.

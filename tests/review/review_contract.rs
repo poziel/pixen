@@ -1,4 +1,4 @@
-use pixloom::{
+use pixen::{
     review::{
         self,
         animation::AuditAnimationRequest,
@@ -102,7 +102,7 @@ fn measurement_truncates_evidence_but_keeps_full_component_totals() {
         }
     }
     let scope = review::render::ScopedRgba {
-        source: pixloom::preview::Crop {
+        source: pixen::preview::Crop {
             x: 0,
             y: 0,
             width: 34,
@@ -223,8 +223,8 @@ fn animation_holds_and_subset_order_have_exact_timing_without_quality_scores() {
 #[test]
 fn checkpoint_management_is_read_only_and_stale_mutations_do_not_consume_ids() {
     let d = tempfile::tempdir().unwrap();
-    let mut s = pixloom::session::Session::default();
-    s.create(pixloom::session::CreateProject {
+    let mut s = pixen::session::Session::default();
+    s.create(pixen::session::CreateProject {
         width: 2,
         height: 2,
         palette: vec!["#00000000".into()],
@@ -343,7 +343,7 @@ fn rendered_color_inventory_and_empty_motion_keep_honest_totals() {
         }
     }
     let scope = review::render::ScopedRgba {
-        source: pixloom::preview::Crop {
+        source: pixen::preview::Crop {
             x: 0,
             y: 0,
             width: 18,

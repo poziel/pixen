@@ -14,10 +14,10 @@ that message is retained during connection and sent once the art tools are ready
 Normal startup, opening files, and showing the panel do not launch AI or check login.
 
 Install the Codex CLI and sign in with `codex login` in a terminal first. Keep
-`pixloom-mcp` beside the `pixloom` executable; build/install all three Pixloom
-binaries together. Pixloom uses the installed Codex App Server and its existing
+`pixen-mcp` beside the `pixen` executable; build/install all three Pixen
+binaries together. Pixen uses the installed Codex App Server and its existing
 credentials. Hover the conversation status for authentication information;
-Pixloom does not collect credentials or provide a direct API client.
+Pixen does not collect credentials or provide a direct API client.
 
 Describe an asset, then send follow-up requests in the same conversation. Changes
 appear in the current canvas. **Enter** sends; **Shift+Enter** inserts a newline.
@@ -33,7 +33,7 @@ For an initially empty project, that baseline is the new transparent canvas.
 Navigation and inspection remain usable while the artist works.
 
 Before editing, existing artwork receives a separate recovery copy. New artwork is
-created under the operating-system temporary directory (`%TEMP%\pixloom-art-*` on
+created under the operating-system temporary directory (`%TEMP%\pixen-art-*` on
 Windows). Each edit writes its recoverable `.pixloom.json` source before committing;
 the temporary `artwork.pixloom` container is also updated. The footer reports current
 application activity, including connection and saving status, without file paths.
@@ -90,7 +90,7 @@ The artist defaults to `gpt-6.1-sol` with `low` thinking. The model picker initi
 uses the installed Codex catalog without launching a process; once AI connects,
 it refreshes from App Server's `model/list`. Thinking options follow each model's
 advertised capabilities. Model changes apply to the next message in the same
-conversation. Preferences are stored in `%APPDATA%\Pixloom\artist.json` on Windows,
+conversation. Preferences are stored in `%APPDATA%\Pixen\artist.json` on Windows,
 separately from Codex login and global configuration. Opening Settings does not
 initialize the artist. Protocol details: [Codex App Server](https://learn.chatgpt.com/docs/app-server).
 
@@ -118,7 +118,7 @@ when the section is closed. Only summaries supplied by Codex are displayed. The 
 aspect-correct artwork and nearest-neighbor sampling.
 
 AI edits use real MCP calls: the conversation starts Codex App Server, which launches
-pixloom-mcp as a stdio proxy to the app-owned authenticated loopback MCP server.
+pixen-mcp as a stdio proxy to the app-owned authenticated loopback MCP server.
 That server edits the shared Session and the app receives rendered document
 snapshots. Manual controls call that same Session engine directly. resize_canvas
 is now exposed through MCP as well.
@@ -150,7 +150,7 @@ controls unlock when the embedded turn finishes. The footer is reserved for app
 operations such as Codex connection setup, saving and reference-file errors;
 artwork activity and approval progress belong to the activity bar/chat instead.
 
-Custom control glyphs are editable SVG files in `assets/icons`; see [icon editing](icons.md).
+Control glyphs are bundled Frame, Lucide, and inline SVG components; see [application icons](icons.md).
 
 ## Window and animation controls
 

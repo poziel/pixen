@@ -2,23 +2,31 @@ export type Point = {
     x: number;
     y: number;
 };
-export type Tool = 'rectangle' | 'ellipse' | 'polygon' | 'color' | 'lasso' | 'move' | 'zoom' | 'pan' | 'text' | 'paper' | 'pencil' | 'eraser' | 'bucket' | 'eyedropper';
+export type Tool = 'rectangle' | 'ellipse' | 'polygon' | 'color' | 'lasso' | 'move' | 'zoom' | 'pan' | 'text' | 'paper' | 'pencil' | 'eraser' | 'bucket' | 'eyedropper' | 'line' | 'curve' | 'draw-rectangle' | 'draw-ellipse' | 'isometric' | 'paint-select' | 'wand';
 export type Brush = {
     size: number;
     density: number;
     opacity: number;
+    shape?: 'square'|'circle';
+    filled?: boolean;
+    fillInside?: boolean;
+    overwrite?: boolean;
+    spacing?: boolean;
+    gapX?: number;
+    gapY?: number;
 };
 export const tools: {
     id: Tool;
     label: string;
-    glyph: string;
 }[] = [
-    { id: 'rectangle', label: 'Rectangular selection', glyph: '▧' }, { id: 'ellipse', label: 'Elliptical selection', glyph: '◌' },
-    { id: 'polygon', label: 'Polygonal selection', glyph: '⬠' }, { id: 'color', label: 'Select by color', glyph: '◈' },
-    { id: 'lasso', label: 'Select by drawing', glyph: '♧' }, { id: 'move', label: 'Move', glyph: '✥' },
-    { id: 'zoom', label: 'Zoom', glyph: '⊕' }, { id: 'pan', label: 'Pan', glyph: '✋' }, { id: 'text', label: 'Text', glyph: 'T' },
-    { id: 'paper', label: 'Colored paper', glyph: '▣' }, { id: 'pencil', label: 'Pencil', glyph: '✎' },
-    { id: 'eraser', label: 'Eraser', glyph: '▱' }, { id: 'bucket', label: 'Bucket', glyph: '◩' }, { id: 'eyedropper', label: 'Color picker', glyph: '⚗' },
+    { id: 'rectangle', label: 'Rectangular Selection' }, { id: 'ellipse', label: 'Elliptical Selection' },
+    { id: 'polygon', label: 'Polygonal Selection' }, { id: 'color', label: 'Select By Color' },
+    { id:'wand',label: 'Magic Wand' },
+    { id: 'lasso', label: 'Lasso / Free Select' }, { id:'paint-select',label: 'Select By Drawing' }, { id: 'move', label: 'Move' },
+    { id: 'zoom', label: 'Zoom' }, { id: 'pan', label: 'Pan' }, { id: 'text', label: 'Text' },
+    { id: 'paper', label: 'Colored Paper' }, { id: 'pencil', label: 'Pencil' },
+    { id: 'eraser', label: 'Eraser' }, { id: 'bucket', label: 'Bucket' }, { id: 'eyedropper', label: 'Color Picker' },
+    {id:'line',label: 'Line'},{id:'curve',label: 'Curve'},{id:'draw-rectangle',label: 'Rectangle'},{id:'draw-ellipse',label: 'Ellipse'},{id:'isometric',label: 'Isometric Box'},
 ];
 export function hsvToHex(h: number, s: number, v: number): string {
     const c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c;
@@ -46,12 +54,22 @@ export function line(a: Point, b: Point): Point[] {
     }
     return result;
 }
-export function brush(data: Uint8ClampedArray, w: number, h: number, path: Point[], color: string, settings: Brush, erase = false, selection: Set<number> | null = null) {
+export function brush(data: Uint8ClampedArray, w: number, h: number, path: Point[], color: string, settings: Brush, erase = false, selection: Set<number> | null = null, interpolate = true) {
     const ink = rgba(color), visited = new Set<number>(), size = Math.max(1, Math.min(256, Math.round(settings.size) || 1));
-    const centers = path.flatMap((p, i) => i ? line(path[i - 1], p) : [p]);
-    for (const p of centers)
+    const centers = interpolate ? path.flatMap((p, i) => i ? line(path[i - 1], p) : [p]) : [...path];
+    if(settings.fillInside&&!erase&&path.length>=3)
+        for(const n of selectionMask('polygon',w,h,path))centers.push({x:n%w,y:Math.floor(n/w)});
+    let lastStamp:Point|undefined;
+    for (const p of centers) {
+        if(settings.spacing&&lastStamp&&Math.abs(p.x-lastStamp.x)<size+(settings.gapX??0)&&Math.abs(p.y-lastStamp.y)<size+(settings.gapY??0))continue;
+        lastStamp=p;
         for (let oy = 0; oy < size; oy++)
             for (let ox = 0; ox < size; ox++) {
+                const dx=ox+.5-size/2,dy=oy+.5-size/2;
+                if(settings.shape==='circle'){
+                    if(dx*dx+dy*dy>(size/2)**2)continue;
+                    if(settings.filled===false&&size>2&&dx*dx+dy*dy<=((size-2)/2)**2)continue;
+                }else if(settings.filled===false&&ox>0&&oy>0&&ox<size-1&&oy<size-1)continue;
                 const x = p.x + ox - Math.floor(size / 2), y = p.y + oy - Math.floor(size / 2), n = y * w + x;
                 if (x < 0 || y < 0 || x >= w || y >= h || visited.has(n) || (selection && !selection.has(n)))
                     continue;
@@ -65,12 +83,14 @@ export function brush(data: Uint8ClampedArray, w: number, h: number, path: Point
                         data.fill(0, i, i + 4);
                     continue;
                 }
+                if(settings.overwrite){data.set([ink[0],ink[1],ink[2],Math.round(a*255)],i);continue;}
                 const old = data[i + 3] / 255, out = a + old * (1 - a);
                 if (out)
                     for (let c = 0; c < 3; c++)
                         data[i + c] = (ink[c] * a + data[i + c] * old * (1 - a)) / out;
                 data[i + 3] = Math.round(out * 255);
             }
+    }
 }
 function matches(data: Uint8ClampedArray, a: number, b: number, t: number) { for (let c = 0; c < 4; c++)
     if (Math.abs(data[a * 4 + c] - data[b * 4 + c]) > t)

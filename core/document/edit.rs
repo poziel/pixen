@@ -20,6 +20,13 @@ pub enum Drawing {
     SetPixels {
         pixels: Vec<Pixel>,
     },
+    /// Dense rectangular palette indices, top-to-bottom rows starting at (x, y).
+    /// Every index writes a pixel, including transparent indices. No clipping.
+    SetPixelRows {
+        x: i64,
+        y: i64,
+        rows: Vec<Vec<u32>>,
+    },
     Line {
         x1: i64,
         y1: i64,
@@ -71,8 +78,41 @@ pub struct DrawOperation {
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum LayerOperation {
+    PasteCells {
+        layer_id: String,
+        frame_ids: Vec<String>,
+        width: u32,
+        height: u32,
+        pixels: Vec<[u8; 4]>,
+        opacity: f64,
+    },
+    ClearCells {
+        layer_id: String,
+        frame_ids: Vec<String>,
+    },
+    LinkCells {
+        layer_id: String,
+        source_frame_id: String,
+        frame_ids: Vec<String>,
+        link_id: String,
+    },
+    UnlinkCells {
+        layer_id: String,
+        frame_ids: Vec<String>,
+    },
+    CopyCells {
+        layer_id: String,
+        source_frame_id: String,
+        frame_ids: Vec<String>,
+    },
     AddLayer {
         layer_id: String,
+        name: String,
+        index: Option<usize>,
+    },
+    DuplicateLayer {
+        layer_id: String,
+        new_layer_id: String,
         name: String,
         index: Option<usize>,
     },
@@ -112,6 +152,10 @@ pub enum FrameOperation {
     ReorderFrame {
         frame_id: String,
         index: usize,
+    },
+    RenameFrame {
+        frame_id: String,
+        name: String,
     },
     SetFrameDuration {
         frame_id: String,
@@ -344,6 +388,150 @@ pub fn execute(
             }
         }
         Operation::Layer(op) => match op {
+            LayerOperation::PasteCells {
+                layer_id,
+                frame_ids,
+                width,
+                height,
+                pixels,
+                opacity,
+            } => {
+                ensure!(
+                    width == doc.canvas.width && height == doc.canvas.height,
+                    "copied cel size differs from the artwork"
+                );
+                ensure!(
+                    pixels.len() == width as usize * height as usize,
+                    "invalid copied cel pixel count"
+                );
+                ensure!(
+                    opacity.is_finite() && (0.0..=1.0).contains(&opacity),
+                    "invalid cel opacity"
+                );
+                ensure!(!frame_ids.is_empty(), "select cels to paste into");
+                let layer = layer_index(doc, &layer_id)?;
+                ensure!(!doc.layers[layer].locked, "layer is locked");
+                let targets = frame_ids
+                    .iter()
+                    .map(|id| frame_index(doc, id))
+                    .collect::<Result<Vec<_>>>()?;
+                let mut palette = std::collections::HashMap::new();
+                for (index, color) in doc.palette.iter().enumerate() {
+                    palette
+                        .entry(schema::decode_color(color)?)
+                        .or_insert(index as u32);
+                }
+                let mut indices = Vec::with_capacity(pixels.len());
+                for color in pixels {
+                    let index = if let Some(index) = palette.get(&color) {
+                        *index
+                    } else {
+                        ensure!(doc.palette.len() < 1_048_576, "palette limit reached");
+                        let index = doc.palette.len() as u32;
+                        doc.palette.push(format!(
+                            "#{:02X}{:02X}{:02X}{:02X}",
+                            color[0], color[1], color[2], color[3]
+                        ));
+                        palette.insert(color, index);
+                        index
+                    };
+                    indices.push(index);
+                }
+                let id = new_cel(
+                    doc,
+                    indices
+                        .chunks(width as usize)
+                        .map(|row| row.to_vec())
+                        .collect(),
+                    next_cel,
+                );
+                for frame in targets {
+                    let entry = &mut doc.layers[layer].timeline[frame];
+                    entry.cel = Some(id.clone());
+                    entry.link = None;
+                    entry.opacity = opacity;
+                }
+            }
+            LayerOperation::ClearCells {
+                layer_id,
+                frame_ids,
+            } => {
+                let layer = layer_index(doc, &layer_id)?;
+                ensure!(!doc.layers[layer].locked, "layer is locked");
+                ensure!(!frame_ids.is_empty(), "select cells to clear");
+                for id in frame_ids {
+                    let frame = frame_index(doc, &id)?;
+                    // Clearing a selection detaches it without erasing unselected link partners.
+                    let entry = &mut doc.layers[layer].timeline[frame];
+                    entry.cel = None;
+                    entry.link = None;
+                }
+            }
+            LayerOperation::LinkCells {
+                layer_id,
+                source_frame_id,
+                frame_ids,
+                link_id,
+            } => {
+                schema::identifier(&link_id)?;
+                let layer = layer_index(doc, &layer_id)?;
+                ensure!(!doc.layers[layer].locked, "layer is locked");
+                ensure!(
+                    !doc.layers[layer]
+                        .timeline
+                        .iter()
+                        .any(|e| e.link.as_ref() == Some(&link_id)),
+                    "link ID is already used"
+                );
+                ensure!(!frame_ids.is_empty(), "select cells to link");
+                let source = frame_index(doc, &source_frame_id)?;
+                let mut targets = frame_ids
+                    .iter()
+                    .map(|id| frame_index(doc, id))
+                    .collect::<Result<Vec<_>>>()?;
+                targets.push(source);
+                let cel = doc.layers[layer].timeline[source].cel.clone();
+                let opacity = doc.layers[layer].timeline[source].opacity;
+                for frame in targets {
+                    let entry = &mut doc.layers[layer].timeline[frame];
+                    entry.cel = cel.clone();
+                    entry.opacity = opacity;
+                    entry.link = Some(link_id.clone());
+                }
+            }
+            LayerOperation::UnlinkCells {
+                layer_id,
+                frame_ids,
+            } => {
+                let layer = layer_index(doc, &layer_id)?;
+                ensure!(!doc.layers[layer].locked, "layer is locked");
+                ensure!(!frame_ids.is_empty(), "select cells to unlink");
+                for id in frame_ids {
+                    let frame = frame_index(doc, &id)?;
+                    // Drawing uses copy-on-write for cel references outside a link group.
+                    doc.layers[layer].timeline[frame].link = None;
+                }
+            }
+            LayerOperation::CopyCells {
+                layer_id,
+                source_frame_id,
+                frame_ids,
+            } => {
+                let layer = layer_index(doc, &layer_id)?;
+                ensure!(!doc.layers[layer].locked, "layer is locked");
+                ensure!(!frame_ids.is_empty(), "select cells to copy into");
+                let source = frame_index(doc, &source_frame_id)?;
+                let entry = doc.layers[layer].timeline[source].clone();
+                for id in frame_ids {
+                    let frame = frame_index(doc, &id)?;
+                    if frame == source {
+                        continue;
+                    }
+                    let mut copy = entry.clone();
+                    copy.link = None;
+                    doc.layers[layer].timeline[frame] = copy;
+                }
+            }
             LayerOperation::AddLayer {
                 layer_id,
                 name,
@@ -374,6 +562,47 @@ pub fn execute(
                         annotations: Default::default(),
                     },
                 );
+            }
+            LayerOperation::DuplicateLayer {
+                layer_id,
+                new_layer_id,
+                name,
+                index,
+            } => {
+                let source = layer_index(doc, &layer_id)?;
+                reserve(used, "layer", &new_layer_id)?;
+                ensure!(!name.trim().is_empty(), "layer name must not be empty");
+                ensure!(
+                    doc.layers.len() < schema::MAX_LAYERS
+                        && (doc.layers.len() + 1) * doc.frames.len() <= schema::MAX_SLOTS,
+                    "layer/slot limit reached"
+                );
+                let at = index.unwrap_or(source);
+                ensure!(
+                    at <= doc.layers.len(),
+                    "layer insertion index out of bounds"
+                );
+                let mut layer = doc.layers[source].clone();
+                layer.id = new_layer_id;
+                layer.name = name;
+                // Copies are independent from their source, including linked cels.
+                let mut copied = std::collections::HashMap::<String, String>::new();
+                for f in 0..doc.frames.len() {
+                    let entry = &mut layer.timeline[f];
+                    if let Some(id) = entry.cel.clone() {
+                        let new_id = if let Some(id) = copied.get(&id) {
+                            id.clone()
+                        } else {
+                            let pixels = grid(doc, source, f)?;
+                            let id_new = new_cel(doc, pixels, next_cel);
+                            copied.insert(id, id_new.clone());
+                            id_new
+                        };
+                        entry.cel = Some(new_id);
+                    }
+                    entry.link = None;
+                }
+                doc.layers.insert(at, layer);
             }
             LayerOperation::RemoveLayer { layer_id } => {
                 let i = layer_index(doc, &layer_id)?;
@@ -491,6 +720,14 @@ pub fn execute(
                         layer.timeline.insert(index, entry);
                     }
                 }
+                FrameOperation::RenameFrame { frame_id, name } => {
+                    let i = frame_index(doc, &frame_id)?;
+                    ensure!(!name.trim().is_empty(), "frame name must not be empty");
+                    doc.frames[i]
+                        .annotations
+                        .metadata
+                        .insert("pixen.frame_name".into(), json!(name));
+                }
                 FrameOperation::SetFrameDuration {
                     frame_id,
                     duration_ms,
@@ -521,6 +758,29 @@ fn draw(grid: &mut [Vec<u32>], palette_len: usize, drawing: Drawing) -> Result<(
         Ok(())
     };
     match drawing {
+        Drawing::SetPixelRows { x, y, rows } => {
+            check(x, y)?;
+            let width = rows.first().map_or(0, Vec::len);
+            ensure!(
+                width > 0 && !rows.is_empty(),
+                "pixel rows must not be empty"
+            );
+            // Compare lengths before addition to avoid overflow with hostile coordinates.
+            ensure!(
+                width <= (w - x) as usize && rows.len() <= (h - y) as usize,
+                "pixel rows out of bounds"
+            );
+            ensure!(
+                rows.iter().all(|row| row.len() == width),
+                "pixel rows must have equal widths"
+            );
+            for (dy, row) in rows.into_iter().enumerate() {
+                for &index in &row {
+                    color(index)?;
+                }
+                grid[y as usize + dy][x as usize..x as usize + width].copy_from_slice(&row);
+            }
+        }
         Drawing::SetPixels { pixels } => {
             ensure!(
                 pixels.len() <= schema::MAX_PIXELS as usize,

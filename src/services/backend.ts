@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 export interface FrameInfo {
+  name?: string | null;
   id: string;
   duration_ms: number;
 }
@@ -8,6 +9,8 @@ export interface LayerInfo {
   name: string;
   visible: boolean;
   opacity: number;
+  locked?: boolean;
+  cells?: { cel: string | null; link: string | null }[];
 }
 export interface DocumentInfo {
   generation: number;
@@ -16,6 +19,7 @@ export interface DocumentInfo {
   height: number;
   source_width: number;
   source_height: number;
+  source_frame_count?: number;
   alternate_view: boolean;
   can_toggle_view: boolean;
   frames: FrameInfo[];
@@ -39,6 +43,7 @@ export interface Snapshot {
   documents?: OpenDocument[];
   document: DocumentInfo | null;
   managed: boolean;
+  recovery?: { writing: boolean; revision: number | null; saved_at: number | null; error: string | null } | null;
   activity: {
     label: string;
     frame_id: string | null;

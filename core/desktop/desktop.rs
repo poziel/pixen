@@ -1,4 +1,7 @@
-//! Frontend-independent application service. No webview, window, or event-loop types.
+#[path = "checkpoint.rs"]
+mod checkpoint;
+pub use checkpoint::WorkspaceCheckpoint;
+// Frontend-independent application service. No webview, window, or event-loop types.
 use crate::{
     inspection,
     model::Sprite,
@@ -14,9 +17,18 @@ use std::{
     time::SystemTime,
 };
 
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub enum StructureOperation {
+    Batch(Vec<StructureOperation>),
+    Layer(crate::edit::LayerOperation),
+    Frame(crate::edit::FrameOperation),
+}
+
 #[derive(Clone, Serialize)]
 pub struct FrameInfo {
     pub id: String,
+    pub name: Option<String>,
     pub duration_ms: f64,
 }
 #[derive(Clone, Serialize)]
@@ -25,6 +37,13 @@ pub struct LayerInfo {
     pub name: String,
     pub visible: bool,
     pub opacity: f64,
+    pub locked: bool,
+    pub cells: Vec<CellInfo>,
+}
+#[derive(Clone, Serialize)]
+pub struct CellInfo {
+    pub cel: Option<String>,
+    pub link: Option<String>,
 }
 #[derive(Clone, Serialize)]
 pub struct DocumentInfo {
@@ -38,6 +57,7 @@ pub struct DocumentInfo {
     pub dirty: bool,
     pub source_width: u32,
     pub source_height: u32,
+    pub source_frame_count: usize,
     pub alternate_view: bool,
     pub can_toggle_view: bool,
 }
@@ -45,6 +65,7 @@ pub struct DocumentInfo {
 pub struct Snapshot {
     pub document: Option<DocumentInfo>,
     pub managed: bool,
+    pub recovery: Option<crate::recovery::RecoveryStatus>,
     pub activity: Option<Activity>,
     pub inspection: Option<inspection::View>,
     pub review: Option<ViewerReview>,
@@ -84,6 +105,7 @@ pub struct PaintPixel {
 }
 #[derive(Serialize)]
 pub struct CelPixels {
+    pub cel_opacity: f64,
     pub pixels: Vec<u8>,
     pub opacity: f64,
 }
@@ -100,6 +122,7 @@ pub struct Application {
     destination: Option<PathBuf>,
     revision: u64,
     saved_revision: u64,
+    saving: bool,
     generation: u64,
     activity: Option<Activity>,
     inspection: Option<inspection::View>,
@@ -108,6 +131,22 @@ pub struct Application {
     review_generation: Option<u64>,
 }
 impl Application {
+    pub fn export_document(&self) -> Result<crate::schema::Document> {
+        self.desktop
+            .as_ref()
+            .context("no document")?
+            .export_document()
+    }
+    /// Shares the exact session used by manual tools; never opens or replaces artwork.
+    pub fn ai_desktop(&self) -> Result<crate::mcp::desktop::Desktop> {
+        ensure!(
+            !self.managed,
+            "AI editing is unavailable in managed previews"
+        );
+        self.desktop
+            .clone()
+            .context("Open or create artwork before starting AI chat")
+    }
     pub fn new(managed: bool) -> Self {
         Self {
             managed,
@@ -121,6 +160,7 @@ impl Application {
             destination: None,
             revision: 0,
             saved_revision: 0,
+            saving: false,
             generation: 0,
             activity: None,
             inspection: None,
@@ -136,9 +176,7 @@ impl Application {
     pub fn open(&mut self, path: &Path) -> Result<()> {
         let path = crate::output::resolved(path)?;
         let sprite = crate::preview::load(&path)?;
-        let directory = tempfile::Builder::new()
-            .prefix("pixloom-desktop-")
-            .tempdir()?;
+        let directory = crate::storage::temporary_dir("pixen-desktop-")?;
         let desktop = if self.managed {
             None
         } else {
@@ -147,8 +185,11 @@ impl Application {
                 Some(&path),
             )?)
         };
+        if let Some(desktop) = &desktop {
+            desktop.enable_background_recovery();
+        }
         let native = path.extension().is_some_and(|x| x == "pixloom")
-            || path.to_string_lossy().ends_with(".pixloom.json");
+            || path.to_string_lossy().ends_with(".pixen.json");
         self.cleanup_saved_recovery();
         self.stamp = Some(Self::file_stamp(&path)?);
         self.source = Some(path.clone());
@@ -173,11 +214,10 @@ impl Application {
     }
     pub fn create(&mut self, width: u32, height: u32) -> Result<()> {
         ensure!(!self.managed, "managed preview is read-only");
-        let directory = tempfile::Builder::new()
-            .prefix("pixloom-desktop-")
-            .tempdir()?;
+        let directory = crate::storage::temporary_dir("pixen-desktop-")?;
         let desktop = crate::mcp::desktop::Desktop::new(directory.path().to_owned(), None)?;
         desktop.create_artwork(width, height)?;
+        desktop.enable_background_recovery();
         let (revision, sprite, _) = desktop
             .snapshot(None)
             .context("new document snapshot unavailable")?;
@@ -199,6 +239,9 @@ impl Application {
         Ok(())
     }
     fn cleanup_saved_recovery(&self) {
+        if let Some(desktop) = &self.desktop {
+            desktop.cancel_recovery();
+        }
         if self.saved_revision == self.revision
             && let Some((_, _, recovery)) = self.desktop.as_ref().and_then(|d| d.snapshot(None))
         {
@@ -206,6 +249,28 @@ impl Application {
         }
     }
     fn refresh_document(&mut self) {
+        let mut received_review = false;
+        if let Some(desktop) = &self.desktop {
+            for event in desktop.drain_events() {
+                use crate::mcp::desktop::DesktopEvent;
+                match event {
+                    DesktopEvent::Activity(activity) => {
+                        self.activity = Some(activity);
+                        self.inspection = None;
+                        self.review = None;
+                    }
+                    DesktopEvent::Inspection(view) => {
+                        self.inspection = Some(view);
+                        self.review = None;
+                    }
+                    DesktopEvent::Review(review) => {
+                        self.review = Some(review);
+                        received_review = true;
+                    }
+                }
+                self.event_serial += 1;
+            }
+        }
         if let Some((revision, sprite, _)) = self
             .desktop
             .as_ref()
@@ -214,6 +279,17 @@ impl Application {
             self.revision = revision;
             self.update_sprite(sprite);
             self.generation += 1;
+        }
+        if received_review {
+            // Events and edits may arrive in the same polling interval. Match the
+            // reviewed revision after refreshing pixels, including any later edit.
+            self.review_generation = self
+                .review
+                .as_ref()
+                .filter(|review| {
+                    review.report["inspected_revision"].as_u64() == Some(self.revision)
+                })
+                .map(|_| self.generation);
         }
     }
     fn update_sprite(&mut self, sprite: Sprite) {
@@ -326,6 +402,24 @@ impl Application {
         self.refresh_document();
         Ok(())
     }
+    pub fn edit_structure(&mut self, generation: u64, operation: StructureOperation) -> Result<()> {
+        ensure!(!self.managed, "managed preview is read-only");
+        self.refresh_document();
+        ensure!(
+            generation == self.generation,
+            "artwork changed; retry the edit"
+        );
+        ensure!(
+            !self.alternate_view,
+            "switch to the original artwork before editing"
+        );
+        self.desktop
+            .as_ref()
+            .context("no document")?
+            .edit_structure(self.revision, operation)?;
+        self.refresh_document();
+        Ok(())
+    }
     pub fn history(&mut self, redo: bool) -> Result<()> {
         ensure!(!self.managed, "managed preview is read-only");
         self.refresh_document();
@@ -336,29 +430,64 @@ impl Application {
         self.refresh_document();
         Ok(())
     }
-    pub fn save(&mut self, path: Option<&Path>) -> Result<()> {
-        ensure!(!self.managed, "managed preview is read-only");
-        let desktop = self.desktop.as_ref().context("no document")?;
-        if let Some(path) = path {
-            desktop.save_as(path)?;
-            self.destination = Some(crate::output::resolved(path)?);
-        } else {
-            ensure!(self.destination.is_some(), "choose a destination first");
-            desktop.save()?;
+    pub fn configure_recovery(&self, seconds: u64) -> Result<()> {
+        if let Some(desktop) = &self.desktop {
+            desktop.configure_recovery(seconds)?;
         }
-        self.source = self.destination.clone();
-        self.stamp = self
-            .source
-            .as_ref()
-            .map(|p| Self::file_stamp(p))
-            .transpose()?;
-        self.saved_revision = self.revision;
         Ok(())
+    }
+    pub fn recovery_status(&self) -> Option<crate::recovery::RecoveryStatus> {
+        self.desktop
+            .as_ref()
+            .and_then(|desktop| desktop.recovery_status())
+    }
+    pub fn recover_now(&self) -> Result<bool> {
+        self.desktop.as_ref().context("no document")?.recover_now()
+    }
+    pub fn prepare_save(&mut self, path: Option<&Path>) -> Result<crate::session::SaveSnapshot> {
+        ensure!(!self.managed, "managed preview is read-only");
+        ensure!(
+            path.is_some() || self.destination.is_some(),
+            "choose a destination first"
+        );
+        ensure!(!self.saving, "a project save is already running");
+        let snapshot = self
+            .desktop
+            .as_ref()
+            .context("no document")?
+            .prepare_save(path.or(self.destination.as_deref()))?;
+        self.saving = true;
+        Ok(snapshot)
+    }
+    pub fn abort_save(&mut self) {
+        self.saving = false;
+    }
+    pub fn finish_save(&mut self, saved: &crate::session::SavedSnapshot) -> Result<()> {
+        self.saving = false;
+        self.desktop
+            .as_ref()
+            .context("no document")?
+            .finish_save(saved)?;
+        self.destination = Some(saved.destination.clone());
+        self.source = self.destination.clone();
+        self.stamp = Some(Self::file_stamp(&saved.destination)?);
+        self.saved_revision = saved.revision;
+        Ok(())
+    }
+    pub fn save(&mut self, path: Option<&Path>) -> Result<()> {
+        let result = self.prepare_save(path)?.write();
+        match result {
+            Ok(saved) => self.finish_save(&saved),
+            Err(error) => {
+                self.abort_save();
+                Err(error)
+            }
+        }
     }
     pub fn snapshot(&mut self) -> Result<Snapshot> {
         if let Some(path) = self.source.clone() {
             let stamp = Self::file_stamp(&path)?;
-            if Some(stamp) != self.stamp {
+            if !self.saving && Some(stamp) != self.stamp {
                 ensure!(
                     self.managed || self.saved_revision == self.revision,
                     "file changed on disk while there are unsaved edits; save a copy before reopening"
@@ -394,6 +523,12 @@ impl Application {
                 .zip(&s.frames)
                 .map(|(id, f)| FrameInfo {
                     id,
+                    name: f
+                        .annotations
+                        .metadata
+                        .get("pixen.frame_name")
+                        .and_then(|v| v.as_str())
+                        .map(str::to_owned),
                     duration_ms: f.duration_ms,
                 })
                 .collect(),
@@ -405,12 +540,22 @@ impl Application {
                     name: l.name.clone(),
                     visible: l.visible,
                     opacity: l.opacity,
+                    locked: l.locked,
+                    cells: l
+                        .timeline
+                        .iter()
+                        .map(|e| CellInfo {
+                            cel: e.cel.clone(),
+                            link: e.link.clone(),
+                        })
+                        .collect(),
                 })
                 .collect(),
             path: self.source.clone(),
             dirty: self.saved_revision != self.revision,
             source_width: self.sprite.as_ref().unwrap().width,
             source_height: self.sprite.as_ref().unwrap().height,
+            source_frame_count: self.sprite.as_ref().unwrap().frames.len(),
             alternate_view: self.alternate_view,
             can_toggle_view: self.alternate_sprite.is_some()
                 || self.sprite.as_ref().unwrap().frames.len() > 1,
@@ -418,6 +563,10 @@ impl Application {
         Ok(Snapshot {
             document,
             managed: self.managed,
+            recovery: self
+                .desktop
+                .as_ref()
+                .and_then(|desktop| desktop.recovery_status()),
             activity: self.activity.clone(),
             inspection: self.inspection.clone(),
             review: self.review.clone(),
@@ -604,6 +753,7 @@ impl Drop for Application {
 
 /// Owns independent document sessions for one desktop window.
 pub struct DocumentWorkspace {
+    recovery_interval: u64,
     current: Application,
     current_id: Option<String>,
     parked: Vec<(String, Application)>,
@@ -623,6 +773,17 @@ pub struct WorkspaceSnapshot {
     pub documents: Vec<OpenDocument>,
 }
 impl DocumentWorkspace {
+    pub fn ai_desktop(&self, id: &str) -> Result<crate::mcp::desktop::Desktop> {
+        if self.current_id.as_deref() == Some(id) {
+            return self.current.ai_desktop();
+        }
+        self.parked
+            .iter()
+            .find(|(key, _)| key == id)
+            .context("Artwork document is closed")?
+            .1
+            .ai_desktop()
+    }
     pub fn new(application: Application) -> Self {
         let current_id = application
             .sprite
@@ -630,16 +791,41 @@ impl DocumentWorkspace {
             .then(|| "document-1".to_owned());
         let next_id = if current_id.is_some() { 2 } else { 1 };
         Self {
+            recovery_interval: 30,
             current: application,
             current_id,
             parked: Vec::new(),
             next_id,
         }
     }
+    pub fn configure_recovery(&mut self, seconds: u64) -> Result<()> {
+        ensure!(
+            (1..=3600).contains(&seconds),
+            "recovery interval must be 1–3600 seconds"
+        );
+        self.recovery_interval = seconds;
+        self.current.configure_recovery(seconds)?;
+        for (_, app) in &self.parked {
+            app.configure_recovery(seconds)?;
+        }
+        Ok(())
+    }
+    pub fn document_mut(&mut self, id: &str) -> Result<&mut Application> {
+        if self.current_id.as_deref() == Some(id) {
+            return Ok(&mut self.current);
+        }
+        Ok(&mut self
+            .parked
+            .iter_mut()
+            .find(|(key, _)| key == id)
+            .context("document is closed")?
+            .1)
+    }
     pub fn active(&mut self) -> &mut Application {
         &mut self.current
     }
     fn install(&mut self, app: Application) {
+        let _ = app.configure_recovery(self.recovery_interval);
         let previous = std::mem::replace(&mut self.current, app);
         if let Some(id) = self.current_id.take() {
             self.parked.push((id, previous));

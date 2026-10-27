@@ -12,18 +12,14 @@ use std::{
     time::Duration,
 };
 fn viewer_executable(current: &Path) -> Result<PathBuf> {
-    let name = if cfg!(windows) {
-        "pixloom.exe"
-    } else {
-        "pixloom"
-    };
+    let name = if cfg!(windows) { "pixen.exe" } else { "pixen" };
     let path = current
         .parent()
         .context("executable has no parent directory")?
         .join(name);
     ensure!(
         path.is_file(),
-        "Pixloom app missing: {}; install pixloom and pixloom-cli together",
+        "Pixen app missing: {}; install pixen and pixen-cli together",
         path.display()
     );
     Ok(path)

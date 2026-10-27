@@ -107,10 +107,7 @@ impl Workspace {
         if let Some(desktop) = &*active {
             return Ok(desktop.clone());
         }
-        let root = tempfile::Builder::new()
-            .prefix("pixloom-art-")
-            .tempdir()?
-            .keep();
+        let root = crate::storage::temporary_dir("pixen-art-")?.keep();
         let desktop = if saving {
             Desktop::for_save(root, source)?
         } else {
@@ -319,7 +316,7 @@ fn thread_params(
                 .collect()
         })
         .unwrap_or_default();
-    let server_name = format!("pixloom_desktop_{}", &bridge.token[..12]);
+    let server_name = format!("pixen_desktop_{}", &bridge.token[..12]);
     servers.insert(server_name, json!({
         "command":executable,"args":["--bridge",bridge.address.to_string(),"--bridge-token",bridge.token],
         "enabled":true,"required":true,"startup_timeout_sec":15,"tool_timeout_sec":120,
@@ -352,8 +349,8 @@ fn thread_params(
     overrides.insert("apps".into(), Value::Object(apps));
     json!({"cwd":root,"sandbox":"read-only","approvalPolicy":"on-request","config":overrides,
     "developerInstructions": concat!(
-        "You are the pixel artist inside Pixloom. Respond conversationally and refine the current artwork through successive messages. ",
-        "Use only the connected pixloom_desktop_* MCP server's tools for artwork. Do not write files, run commands, or use other integrations. ",
+        "You are the pixel artist inside Pixen. Respond conversationally and refine the current artwork through successive messages. ",
+        "Use only the connected pixen_desktop_* MCP server's tools for artwork. Do not write files, run commands, or use other integrations. ",
         "The app owns project saving and the live canvas. Never finish, replace, export, or open another viewer. ",
         "Use get_project_info and explicit revision checks. New artwork uses create_project with an output_path of artwork.pixloom (the app manages its actual location). ",
         "Use transparent #RRGGBBAA palette entries, intentional pixel clusters, clear silhouettes, controlled shading, and editable layers. ",
@@ -396,9 +393,9 @@ fn run(
     }
     let bridge = Bridge::start(desktop.clone())?;
     let mut executable = std::env::current_exe()?.with_file_name(if cfg!(windows) {
-        "pixloom-mcp.exe"
+        "pixen-mcp.exe"
     } else {
-        "pixloom-mcp"
+        "pixen-mcp"
     });
     if cfg!(test) && !executable.is_file() {
         executable = executable
@@ -407,14 +404,14 @@ fn run(
             .parent()
             .unwrap()
             .join(if cfg!(windows) {
-                "pixloom-mcp.exe"
+                "pixen-mcp.exe"
             } else {
-                "pixloom-mcp"
+                "pixen-mcp"
             });
     }
     ensure!(
         executable.is_file(),
-        "Install pixloom-mcp beside Pixloom, then retry AI assistance."
+        "Install pixen-mcp beside Pixen, then retry AI assistance."
     );
     let mut command = process::app_server_command();
     command
@@ -471,7 +468,7 @@ fn run(
         &mut pending,
         &mut id,
         "initialize",
-        json!({"clientInfo":{"name":"pixloom","title":"Pixloom","version":env!("CARGO_PKG_VERSION")}}),
+        json!({"clientInfo":{"name":"pixen","title":"Pixen","version":env!("CARGO_PKG_VERSION")}}),
     )?;
     loop {
         while let Ok(action) = commands.try_recv() {
@@ -512,7 +509,7 @@ fn run(
                             request(&mut process.0, &mut pending, &mut id, "turn/start", {
                                 let mut params = selection.turn(
                                     &protocol.thread,
-                                    format!("{text}\n\n[Pixloom active project context: {info}]"),
+                                    format!("{text}\n\n[Pixen active project context: {info}]"),
                                 );
                                 params["input"].as_array_mut().unwrap().extend(
                                     active_references.iter().map(attachments::Attachment::input),
@@ -633,7 +630,7 @@ fn run(
                         } else {
                             send(
                                 &mut process.0,
-                                json!({"id":message["id"],"error":{"code":-32601,"message":"This request is not supported by Pixloom. Ask the user in the conversation instead."}}),
+                                json!({"id":message["id"],"error":{"code":-32601,"message":"This request is not supported by Pixen. Ask the user in the conversation instead."}}),
                             )?;
                         }
                         continue;
@@ -862,16 +859,16 @@ fn run(
                             let servers = result["data"]
                                 .as_array()
                                 .context("Codex returned no MCP inventory")?;
-                            let name = format!("pixloom_desktop_{}", &bridge.token[..12]);
+                            let name = format!("pixen_desktop_{}", &bridge.token[..12]);
                             let art = servers
                                 .iter()
                                 .find(|server| server["name"] == name)
-                                .context("Codex did not connect to the active Pixloom canvas")?;
+                                .context("Codex did not connect to the active Pixen canvas")?;
                             ensure!(
                                 art["tools"].get("create_project").is_some()
                                     && art["tools"].get("apply_edits").is_some()
                                     && art["tools"].get("inspect_project").is_some(),
-                                "Pixloom art tools did not load. Install matching pixloom and pixloom-mcp binaries, then reconnect."
+                                "Pixen art tools did not load. Install matching pixen and pixen-mcp binaries, then reconnect."
                             );
                             ensure!(
                                 servers.iter().all(|server| server["name"] == name
@@ -1021,7 +1018,7 @@ mod tests {
             }),
             root.path(),
             &bridge,
-            std::path::Path::new("pixloom-mcp"),
+            std::path::Path::new("pixen-mcp"),
         );
         assert_eq!(
             params["config"]["mcp_servers"]["external.server"]["enabled"],
@@ -1037,7 +1034,7 @@ mod tests {
                 .as_object()
                 .unwrap()
                 .iter()
-                .any(|(name, value)| name.starts_with("pixloom_desktop_")
+                .any(|(name, value)| name.starts_with("pixen_desktop_")
                     && value["enabled"] == true)
         );
         assert_eq!(
@@ -1103,7 +1100,7 @@ mod tests {
                         subscription,
                         "This smoke test only uses subscription authentication"
                     );
-                    agent.actions.send(Action::Send("Create exactly a 4x4 sprite, palette [#00000000,#FFFFFFFF], with a single white pixel at (0,0) on the first layer/frame and everything else transparent. Use the Pixloom tools and inspect the result. Reply briefly.".into())).unwrap();
+                    agent.actions.send(Action::Send("Create exactly a 4x4 sprite, palette [#00000000,#FFFFFFFF], with a single white pixel at (0,0) on the first layer/frame and everything else transparent. Use the Pixen tools and inspect the result. Reply briefly.".into())).unwrap();
                 }
                 Ok(Event::Finished) => {
                     let desktop = workspace.0.lock().unwrap().clone().unwrap();

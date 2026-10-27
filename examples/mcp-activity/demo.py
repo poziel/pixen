@@ -21,7 +21,7 @@ project = out / "ranger-weapons.pixloom.json"
 if project.exists():
     raise SystemExit(f"Refusing to replace {project}")
 log = (out / "mcp-stderr.log").open("w")
-server = subprocess.Popen([str(ROOT / "target/debug/pixloom-mcp.exe")],
+server = subprocess.Popen([str(ROOT / "target/debug/pixen-mcp.exe")],
     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=log, text=True,
     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
 replies = queue.Queue()
@@ -60,7 +60,7 @@ def pause():
         time.sleep(max(0, args.delay))
 try:
     request("initialize", {"protocolVersion":"2025-11-25", "capabilities":{},
-        "clientInfo":{"name":"pixloom-activity-example", "version":"1"}})
+        "clientInfo":{"name":"pixen-activity-example", "version":"1"}})
     server.stdin.write('{"jsonrpc":"2.0","method":"notifications/initialized"}\n')
     server.stdin.flush()
     tools = request("tools/list", {})

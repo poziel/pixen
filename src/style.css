@@ -292,8 +292,8 @@ small,
 .timeline-playback-tools { display: flex; align-items: center; justify-content: center; gap: 8px; }
 
 .selection-overlay { pointer-events: none; background: transparent; box-shadow: none !important; }
-.tool-cursor, .pixel-tools { --drawing-left: #28a9f4; --drawing-right: #ff8b36; }
-.tool-cursor { pointer-events: none; background: transparent; box-shadow: none !important; overflow: hidden; }
+.tool-cursor, .pixel-tools, .drawing-toolbar { --drawing-left: #28a9f4; --drawing-right: #ff8b36; }
+.tool-cursor { pointer-events: none; background: transparent; box-shadow: none !important; overflow: visible; }
 .tool-slot-left { color: var(--drawing-left); }
 .tool-slot-right { color: var(--drawing-right); }
 .pixel-tools { padding: 12px; overflow: auto; height: 100%; box-sizing: border-box; }
@@ -301,18 +301,21 @@ small,
 .pixel-tools .tool-heading strong { margin-right: auto; }
 .pixel-tools .hint { font-size: 11px; line-height: 1.5; }
 .tool-grid { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 4px; margin: 12px 0; }
-.pixel-tools button { color: var(--frame-text); background: var(--frame-canvas); border: 1px solid var(--frame-line); border-radius: 4px; min-height: 28px; cursor: pointer; }
-.pixel-tools button:disabled { opacity: .45; cursor: default; }
-.pixel-tools button:focus-visible, .pixel-tools input:focus-visible, .pixel-tools select:focus-visible { outline: 2px solid var(--frame-focus-border, #55aaff); outline-offset: 2px; }
-.tool-grid button { position: relative; height: 36px; font-size: 20px; }
+.pixel-tools button, .drawing-toolbar button { color: var(--frame-text); background: var(--frame-canvas); border: 1px solid var(--frame-line); border-radius: 4px; min-height: 28px; cursor: pointer; }
+.pixel-tools button:disabled, .drawing-toolbar button:disabled { opacity: .45; cursor: default; }
+.pixel-tools button:focus-visible:not(.frame-control-button), .pixel-tools input:focus-visible:not(.frame-form-input):not(.frame-text-input), .pixel-tools select:focus-visible { outline: 2px solid var(--frame-accent); outline-offset: 2px; }
+.tool-grid button { position: relative; height: 36px; }
 .tool-grid button { overflow: hidden; isolation: isolate; }
 .tool-grid button::before, .tool-grid button::after { content: ''; position: absolute; inset-block: 0; width: 50%; z-index: -1; pointer-events: none; }
 .tool-grid button.assigned-left::before { left: 0; background: var(--drawing-left); }
 .tool-grid button.assigned-right::after { right: 0; background: var(--drawing-right); }
-.tool-grid button span, .tool-grid button small { text-shadow: 0 1px 2px #000; }
+.tool-grid button svg { flex: 0 0 auto; }
+.tool-grid button small { text-shadow: 0 1px 2px #000; }
 .tool-grid button[aria-pressed=true] { background-color: var(--frame-canvas); border-color: var(--frame-line); }
-.tool-grid button small { position: absolute; right: 2px; bottom: 0; font-size: 8px; color: var(--frame-text); }
-.pixel-tools button[aria-pressed=true] { border-color: var(--frame-focus-border, #55aaff); background-color: var(--frame-selection-background, #28466a); }
+.tool-grid button small { position: absolute; bottom: 0; font-size: 8px; color: var(--frame-text); }
+.tool-grid button .tool-assignment-left { left: 2px; }
+.tool-grid button .tool-assignment-right { right: 2px; }
+.pixel-tools button[aria-pressed=true] { border-color: var(--frame-accent); background-color: var(--frame-selection-background, #28466a); }
 .pixel-tools label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; margin: 8px 0; }
 .pixel-tools input, .pixel-tools select { min-width: 0; box-sizing: border-box; max-width: 65%; background: var(--frame-canvas); color: var(--frame-text); border: 1px solid var(--frame-line); padding: 4px; border-radius: 3px; }
 .pixel-tools input[type=number] { width: 80px; }
@@ -322,10 +325,92 @@ small,
 .tool-settings h3 { font-size: 12px; text-transform: capitalize; margin: 0 0 12px; }
 .swatches { display: flex; align-items: center; gap: 5px; }
 .swatches button { min-width: 30px; height: 32px; }
-.swatches button span { background: #222b; color: white; font-size: 10px; padding: 1px 3px; }
 .swatches input { flex: 1; font-family: monospace; }
 .color-surface { display: block; width: 100%; aspect-ratio: 1; touch-action: none; cursor: crosshair; }
 .hsv-fields { display: flex; gap: 8px; }
 .hsv-fields label { flex: 1; display: block; }
 .hsv-fields input[type=number] { width: 100%; max-width: 100%; margin-top: 4px; }
 .hue-slider { appearance: none; height: 16px; background: linear-gradient(to right,red,#ff0,#0f0,#0ff,#00f,#f0f,red) !important; }
+
+.drawing-toolbar { min-width: 0; max-width: 100%; width: fit-content; margin: 0 auto; }
+.drawing-toolbar .tool-grid { display: flex; flex-wrap: nowrap; justify-content: safe center; gap: var(--frame-spacing-small, 4px); margin: 0; padding: 2px; overflow: hidden; }
+.drawing-toolbar .tool-grid button { flex: 0 0 36px; width: 36px; }
+.drawing-toolbar .tool-grid button.frame-icon-button { background: color-mix(in srgb, var(--frame-canvas) 90%, var(--frame-text) 10%); border: 0; box-shadow: none; }
+.drawing-toolbar .tool-grid button.frame-icon-button:not([aria-pressed=true]):hover { background: color-mix(in srgb, var(--frame-canvas) 85%, var(--frame-text) 15%); }
+.drawing-toolbar .tool-grid button svg { filter: drop-shadow(0 1px 1px #000c) drop-shadow(0 0 1px #0008); }
+.drawing-toolbar button:focus-visible { outline: 2px solid var(--frame-accent); outline-offset: -2px; }
+
+.pixel-tools.tool-parameters, .color-picker.pixel-tools { height: auto; padding: var(--frame-spacing-normal, 10px); margin: 0; border: 0; overflow: visible; }
+.tool-parameters .tool-settings { margin: 0; padding: 0; border: 0; }
+.color-picker .color-surface { aspect-ratio: 1.3; }
+.color-picker .swatches { gap: 3px; margin-top: 4px; }
+.color-picker .swatches button { min-width: 24px; width: 24px; padding: 2px; height: 28px; }
+.color-picker .swatches input { min-width: 0; width: 0; max-width: none; }
+.picker-mode { position: relative; }
+.picker-mode summary { cursor: pointer; list-style: none; padding: 4px; }
+.picker-mode label { position: absolute; right: 0; top: 100%; width: 160px; z-index: 5; background: var(--frame-canvas); }
+.picker-mode select { width: 150px; max-width: none; }
+.recent-colors { display: flex; gap: 3px; overflow: hidden; height: 22px; margin-top: 6px; }
+.pixel-tools .recent-colors button { flex: 0 0 20px; min-height: 20px; height: 20px; padding: 0; }
+.color-options { margin-top: 6px; }
+.pixel-tools .color-options input[type=number] { width: 54px; }
+.document-history { display: flex; gap: 4px; padding: 4px 8px; border-bottom: 1px solid var(--frame-line); }
+.document-history button { color: var(--frame-text); background: var(--frame-canvas); border: 1px solid var(--frame-line); border-radius: 4px; width: 28px; height: 26px; cursor: pointer; }
+.document-history button:disabled { opacity: .4; }
+
+.color-picker .picker-mode { flex: 0 0 24px; height: 28px; display: grid; place-items: center; }
+.color-picker .picker-mode select { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; opacity: 0; cursor: pointer; }
+.color-picker .picker-mode:focus-within { outline: 2px solid var(--frame-focus-border); }
+
+.color-picker .recent-colors { align-items:center; gap:3px; height:22px; }
+.color-picker .recent-colors > * { flex:0 0 20px; width:20px; height:20px; box-sizing:border-box; }
+.color-picker .recent-colors button { border:0; background:none; padding:0; min-height:20px; }
+.color-picker .recent-colors .frame-color-swatch { display:block; width:20px; height:20px; box-sizing:border-box; }
+.color-picker .empty-recent-color { background:repeating-conic-gradient(var(--frame-line) 0% 25%,transparent 0% 50%) 50% / 8px 8px; opacity:.5; }
+.color-picker .frame-hsv-area { margin-bottom:4px; }
+
+.pixel-tools .swatches .color-action { background:transparent; border:0; box-shadow:none; }
+.color-picker .frame-tabs-list { display:flex; width:100%; }
+.color-picker .frame-tabs-trigger { flex:0 0 auto; min-width:0; }
+.color-picker .frame-tabs-content { padding:0; }
+.drawing-toolbar .tool-grid .tooltip-trigger { flex:0 0 36px; }
+.color-picker .recent-colors .tooltip-trigger { flex:0 0 20px; }
+
+.advanced-color-options .color-channel-row { display:grid; grid-template-columns:12px minmax(40px,1fr) 76px; align-items:center; gap:5px; margin-top:5px; min-height:26px; }
+.color-channel-label { font-size:12px; color:var(--frame-text); }
+.advanced-color-options .frame-color-slider, .advanced-color-options .frame-slider { width:100%; min-width:0; }
+.advanced-color-options .frame-color-track { height:14px; border-radius:1px; }
+.advanced-color-options .frame-color-thumb { box-sizing:border-box; width:10px; height:10px; border-width:1px; }
+.advanced-color-options .custom-gradient .frame-color-track { background:var(--channel-gradient) !important; }
+.advanced-color-options .frame-number-field { width:76px; min-width:0; gap:0; }
+.advanced-color-options .frame-number-field { font-size:11px; }
+
+.advanced-color-options .frame-slider-root { min-width:0; height:22px; }
+.advanced-color-options .frame-tabs-content { padding:4px 0 0; }
+
+.advanced-color-options [data-channel=I] .frame-slider-range { background:transparent; }
+
+/* Center the channel marker on the track instead of its inline top edge. */
+.advanced-color-options .frame-color-slider[data-orientation=horizontal] .frame-color-thumb { top:50%; transform:translate(-50%,-50%) !important; }
+
+/* Retain tool controls without accepting input when there is no artboard. */
+.tool-control-group { border: 0; margin: 0; min-width: 0; }
+.drawing-toolbar.tool-control-group { padding: 0; }
+.tool-control-group:disabled { opacity: .45; }
+
+
+.color-picker .swatches .frame-text-input { flex:1; width:0; min-width:0; max-width:none; height:28px; min-height:0; padding:4px; font-family:monospace; }
+
+.color-picker .frame-tabs { --frame-tabs-trigger-padding:8px 0; }
+
+.tool-parameters .frame-scrub-field { margin:6px 0; }
+
+/* Tooltips keep their name first, followed by concise shortcuts and interaction details. */
+.frame-tooltip > span { white-space: pre-line; max-width: 340px; line-height: 1.4; }
+
+.drawing-toolbar .tool-grid button.frame-icon-button.assigned-left { background:var(--drawing-left); }
+.drawing-toolbar .tool-grid button.frame-icon-button.assigned-right { background:var(--drawing-right); }
+.drawing-toolbar .tool-grid button.frame-icon-button.assigned-left.assigned-right { background:linear-gradient(to right,var(--drawing-left) 50%,var(--drawing-right) 50%); }
+
+/* Custom drawing-menu content fills the complete menu button, including padding. */
+.frame-menu.drawing-tools-menu .menu-row > button.frame-button { padding:0;grid-template-columns:minmax(0,1fr); }

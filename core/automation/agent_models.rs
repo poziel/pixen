@@ -23,16 +23,28 @@ pub struct Model {
     pub default_effort: String,
 }
 fn preferences_path() -> Option<PathBuf> {
-    std::env::var_os("APPDATA")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from))
-        .or_else(|| std::env::var_os("HOME").map(|p| PathBuf::from(p).join(".config")))
-        .map(|p| p.join("Pixloom").join("artist.json"))
+    crate::storage::layout().ok().map(|layout| layout.config.join("artist.json"))
 }
+
 impl Selection {
     pub fn load() -> Self {
         preferences_path()
-            .and_then(|p| std::fs::read(p).ok())
+            .and_then(|p| {
+                std::fs::read(&p)
+                    .or_else(|error| {
+                        if error.kind() != std::io::ErrorKind::NotFound {
+                            return Err(error);
+                        }
+                        let legacy = p
+                            .parent()
+                            .and_then(|dir| dir.parent())
+                            .map(|root| root.join("Pixloom").join("artist.json"));
+                        let previous = p.parent().and_then(|dir| dir.parent()).map(|root| root.join("Pixen/artist.json"));
+                        previous.and_then(|path| std::fs::read(path).ok()).map(Ok)
+                            .unwrap_or_else(|| legacy.map_or(Err(error), std::fs::read))
+                    })
+                    .ok()
+            })
             .and_then(|bytes| serde_json::from_slice::<Self>(&bytes).ok())
             .filter(|s| !s.model.is_empty() && !s.effort.is_empty())
             .unwrap_or_default()

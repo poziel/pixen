@@ -1,6 +1,6 @@
 # Art review APIs
 
-Pixloom exposes six read-only review tools through `pixloom-mcp`. They provide
+Pixen exposes six read-only review tools through `pixen-mcp`. They provide
 reproducible evidence for an AI or a person; they do not rate artistic quality,
 call another model, run a critic agent, or repair artwork automatically.
 

@@ -545,7 +545,7 @@ fn parse(path: &Path, pixels: bool) -> Result<Parsed> {
                         .or_else(|| text.strip_prefix("spritex-aseprite-v1:"))
                     {
                         serde_json::from_str::<Envelope>(text)
-                            .context("invalid Pixloom Aseprite user-data envelope")?
+                            .context("invalid Pixen Aseprite user-data envelope")?
                     } else {
                         Envelope {
                             annotations: Annotations {

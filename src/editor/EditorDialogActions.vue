@@ -6,7 +6,7 @@ const frame = useFrame();
 const { state } = useEditor();
 </script>
 <template>
-  <FrameButton label="Cancel" @click="frame.closeModal('pixloom.dialog')" />
+  <FrameButton label="Cancel" @click="frame.closeModal('pixen.dialog')" />
   <FrameButton :label="kind === 'new' ? 'Create' : 'Resize canvas'" type="submit"
-    form="pixloom-dimensions" variant="primary" :disabled="state.working" />
+    form="pixen-dimensions" variant="primary" :disabled="state.working" />
 </template>

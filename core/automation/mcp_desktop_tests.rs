@@ -229,6 +229,48 @@ fn bridge_rejects_an_incorrect_token() {
 }
 
 #[test]
+fn bridge_accepts_pixel_payload_above_256_kib() {
+    let dir = tempfile::tempdir().unwrap();
+    let desktop = Desktop::new(dir.path().to_owned(), None).unwrap();
+    desktop.create_artwork(128, 128).unwrap();
+    let bridge = Bridge::start(desktop.clone()).unwrap();
+    let mut socket = std::net::TcpStream::connect(bridge.address).unwrap();
+    socket
+        .set_read_timeout(Some(std::time::Duration::from_secs(15)))
+        .unwrap();
+    writeln!(socket, "{}", bridge.token).unwrap();
+    let mut socket = BufReader::new(socket);
+    request(
+        &mut socket,
+        1,
+        "initialize",
+        serde_json::json!({"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test","version":"1"}}),
+    );
+    writeln!(
+        socket.get_mut(),
+        "{}",
+        serde_json::json!({"jsonrpc":"2.0","method":"notifications/initialized"})
+    )
+    .unwrap();
+    let pixels: Vec<_> = (0..16384)
+        .map(|i| serde_json::json!({"x":i%128,"y":i/128,"palette_index":1}))
+        .collect();
+    let params = serde_json::json!({"name":"apply_edits","arguments":{"project_id":"project-1","expected_revision":0,"operations":[{"type":"set_pixels","frame_id":"frame-1","layer_id":"layer-1","pixels":pixels}]}});
+    assert!(serde_json::to_vec(&params).unwrap().len() > 256 * 1024);
+    let result = request(&mut socket, 2, "tools/call", params);
+    assert_ne!(result["result"]["isError"], true, "{result}");
+    assert!(result.get("error").is_none(), "{result}");
+    assert!(
+        desktop
+            .read_cel("frame-1", "layer-1")
+            .unwrap()
+            .pixels
+            .chunks_exact(4)
+            .all(|p| p == [255, 255, 255, 255])
+    );
+}
+
+#[test]
 fn message_checkpoints_restore_artwork_and_discard_later_checkpoints() {
     let root = tempfile::tempdir().unwrap();
     let desktop = Desktop::new(root.path().to_owned(), None).unwrap();

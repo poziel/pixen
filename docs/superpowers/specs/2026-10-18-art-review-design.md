@@ -1,4 +1,4 @@
-# Pixloom evidence-based art review
+# Pixen evidence-based art review
 
 Date: 2026-10-18
 Status: Implemented and verified locally; see the implementation plan for evidence.
@@ -20,7 +20,7 @@ The server does not assign a universal artistic-quality score or infer improveme
 from a lower color count, fewer isolated pixels, symmetry, or smaller differences.
 
 This design extends the current shared Rust editing/rendering library and the
-existing dedicated pixloom-mcp executable. Preserve desktop/CLI/MCP separation,
+existing dedicated pixen-mcp executable. Preserve desktop/CLI/MCP separation,
 all existing tools, exact palette-index semantics, native compatibility, and the
 current user work in progress. No external model calls, hosted services, automatic
 sub-agent spawning, paid API dependencies, or automatic corrective edits are added.
@@ -29,7 +29,7 @@ sub-agent spawning, paid API dependencies, or automatic corrective edits are add
 
 Recommended: deterministic review primitives in the shared library, typed MCP
 wrappers, matching desktop views where meaningful, and a documented critic loop
-in the Pixloom skill. Callers supply task-specific rules and interpretation.
+in the Pixen skill. Callers supply task-specific rules and interpretation.
 
 An all-in-one assess-art endpoint would be simpler to call, but would mix opinions
 with measurements and conceal which check matters. Hosting a critic model inside
@@ -44,7 +44,7 @@ belong to the client/skill orchestration. Neither alternative is selected.
 - src/mcp.rs wraps Session and forwards inspection state to the managed viewer.
 - src/viewer.rs provides manual view controls and Follow AI synchronization.
 - src/preview.rs provides bounded nearest-neighbor image/contact-sheet rendering.
-- skills/pixloom/SKILL.md describes tool usage. Pixel-art craft guidance remains
+- skills/pixen/SKILL.md describes tool usage. Pixel-art craft guidance remains
   tool-independent and is not rewritten or copied into the server.
 
 New review rendering, measurement, comparison, rule and animation logic should be
@@ -244,7 +244,7 @@ It must preserve real frame timing and saved document data.
 
 ## Skill and independent critic workflow
 
-Document this workflow in the repository Pixloom skill without modifying the
+Document this workflow in the repository Pixen skill without modifying the
 user's external pixel-art skill:
 
 1. Define intent, display size, permitted palette/alpha, protected areas, and

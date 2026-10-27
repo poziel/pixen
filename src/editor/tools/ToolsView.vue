@@ -1,38 +1,79 @@
 <script setup lang="ts">
+import {computed,ref,watch,nextTick} from 'vue';
+import {FrameScrubField,FrameCheckbox,FrameButton,FrameTextArea} from '@frame/core';
 import { useEditor } from '../editor';
-import { tools } from './raster';
-import ColorPicker from './ColorPicker.vue';
-import { computed } from 'vue';
-const editor = useEditor(), s = editor.state, t = s.tools;
-const activeLeft = computed(() => t.temporaryPan ? 'pan' : t.left);
-function history(redo: boolean) { editor.action('edit_history', { documentId: s.snapshot?.active_document, redo }); }
+import ToolFieldPair from './ToolFieldPair.vue';
+import ToolSelect from './ToolSelect.vue';
+import BrushToolOptions from './BrushToolOptions.vue';
+import type {FieldPair} from './fieldPair';
+import type {SelectionMode} from './selection';
+import type {Brush} from './raster';
+import {isShape} from './shapes';
+import {isSelectionTool} from './toolInfo';
+const props=defineProps<{slot:'left'|'right'}>();
+const s=useEditor().state,t=s.tools,tool=computed(()=>t[props.slot]),options=computed(()=>t.options[props.slot]);
+const settings=ref<HTMLElement>();
+watch(tool,async()=>{await nextTick();if(settings.value?.getClientRects().length)settings.value.scrollIntoView({block:'start',inline:'nearest'});});
+const currentBrush=computed<Brush>({get:()=>isShape(tool.value)?options.value.shapes[tool.value]:t.brushes[props.slot][tool.value==='eraser'?'eraser':'pencil'],set:value=>{if(isShape(tool.value))options.value.shapes[tool.value]=value;else t.brushes[props.slot][tool.value==='eraser'?'eraser':'pencil']=value;}});
+const colorOptions=computed(()=>tool.value==='wand'?options.value.wand:options.value.color);
+const selectionModes=[{value:'replace',label:'Replace selection'},{value:'add',label:'Add to selection'},{value:'subtract',label:'Subtract from selection'},{value:'intersect',label:'Intersect selections'}];
+function editBounds(keys:['x','y']|['width','height'],value:FieldPair){if(!s.selectionView.bounds||!value.every(Number.isFinite))return;s.selectionEdit.bounds={...s.selectionView.bounds,[keys[0]]:value[0],[keys[1]]:value[1]};s.selectionEdit.serial++;}
 </script>
 <template>
-  <div class="pixel-tools sidebar-content">
-    <div class="tool-heading"><strong>Tools</strong><button :disabled="s.working||!s.snapshot?.document||s.snapshot?.managed" @click="history(false)">Undo</button><button :disabled="s.working||!s.snapshot?.document||s.snapshot?.managed" @click="history(true)">Redo</button></div>
-    <p class="hint">Click to assign left · Right-click to assign right</p>
-    <div class="tool-grid" role="group" aria-label="Drawing tools">
-      <button v-for="tool in tools" :key="tool.id" :title="tool.label" :class="{'assigned-left':activeLeft===tool.id,'assigned-right':t.right===tool.id}" :aria-label="`${tool.label}${activeLeft===tool.id?' (left button)':''}${t.right===tool.id?' (right button)':''}`" :aria-pressed="activeLeft===tool.id||t.right===tool.id" @click="t.left=tool.id" @contextmenu.prevent="t.right=tool.id"><span aria-hidden="true">{{tool.glyph}}</span><small v-if="activeLeft===tool.id||t.right===tool.id">{{ activeLeft===tool.id?'L':'' }}{{ t.right===tool.id?'R':'' }}</small></button>
-    </div>
-    <label>Left button<select v-model="t.left" aria-label="Left button"><option v-for="tool in tools" :key="tool.id" :value="tool.id">{{tool.label}}</option></select></label>
-    <label>Right button<select v-model="t.right" aria-label="Right button"><option v-for="tool in tools" :key="tool.id" :value="tool.id">{{tool.label}}</option></select></label>
-    <ColorPicker />
-    <section v-for="slot in (['left','right'] as const)" :key="slot" class="tool-settings" :aria-label="`${slot} tool settings`">
-      <h3 :class="`tool-slot-${slot}`">{{slot==='left'?'Left':'Right'}} · {{tools.find(tool=>tool.id===t[slot])?.label}}</h3>
-      <template v-if="t[slot]==='pencil'||t[slot]==='eraser'">
-        <label v-for="setting in (['size','density','opacity'] as const)" :key="setting">{{setting==='size'?'Size (px)':setting==='density'?'Density (%)':'Opacity (%)'}}<input v-model.number="t.brushes[slot][t[slot] as 'pencil'|'eraser'][setting]" type="number" :min="setting==='size'?1:0" :max="setting==='size'?256:100" /></label>
-      </template>
-      <template v-if="['rectangle','ellipse','polygon','lasso','color'].includes(t[slot])"><label>Selection mode<select v-model="t.selectionMode"><option value="replace">Replace</option><option value="add">Add</option><option value="subtract">Subtract</option></select></label><button @click="s.selectionClear++">Deselect</button><p class="hint">Polygon: click vertices, double-click to finish. Escape cancels.</p></template>
-      <template v-if="t[slot]==='bucket'||t[slot]==='color'"><label>Tolerance<input v-model.number="t.tolerance" type="number" min="0" max="255" /></label><label><input v-model="t.contiguous" type="checkbox" /> Contiguous pixels</label></template>
-      <label v-if="t[slot]==='move'"><input v-model="t.moveCopy" type="checkbox" /> Copy when moving</label>
-      <template v-if="t[slot]==='text'"><label>Text<input v-model="t.text" maxlength="512" /></label><label>Size (px)<input v-model.number="t.textSize" type="number" min="1" max="128" /></label></template>
-      <p v-if="t[slot]==='paper'" class="hint">Fill the active layer with this button’s color, inside the selection.</p>
-      <template v-if="t[slot]==='zoom'"><button @click="s.zoomReset++">Fit artwork</button><button @click="s.zoomOne++">100%</button><p class="hint">Click to zoom in. Right-click or Alt-click to zoom out.</p></template>
-    </section>
-    <p class="hint">Blue: left · Orange: right · X swaps colors · Hold Space or Enter to pan · Ctrl+wheel sizes left · Ctrl+Shift+wheel sizes right · Ctrl+Z undoes · Escape deselects</p>
-    <p v-if="s.snapshot?.managed" class="hint">Managed preview is read-only.</p>
-  </div>
+ <fieldset ref="settings" class="pixel-tools tool-parameters tool-control-group" :disabled="!s.snapshot?.document" :inert="!s.snapshot?.document" :aria-disabled="!s.snapshot?.document">
+  <section class="tool-settings" v-bind="{'aria-label':slot+' tool settings'}">
+   <BrushToolOptions v-if="tool==='pencil'||tool==='eraser'||isShape(tool)" v-model="currentBrush" :eraser="tool==='eraser'" :stroke="isShape(tool)" />
+   <template v-if="tool==='paint-select'">
+    <ToolSelect v-model="options.selectionBrush.action" :options="[{value:'select',label:'Select pixels'},{value:'deselect',label:'Deselect pixels'}]" label="Selection brush action" />
+    <ToolSelect v-model="options.selectionBrush.shape" :options="[{value:'square',label:'Square brush'},{value:'circle',label:'Round brush'}]" label="Brush shape" />
+    <FrameScrubField v-model="options.selectionBrush.size" label="Brush size" suffix=" px" :min="1" :max="256" :step="1" />
+   </template>
+   <template v-if="isSelectionTool(tool)">
+    <ToolSelect :model-value="t.selectionMode" :options="selectionModes" label="Selection mode" @update:model-value="t.selectionMode=$event as SelectionMode" />
+    <template v-if="tool==='color'||tool==='wand'">
+     <FrameScrubField v-model="colorOptions.tolerance" label="Tolerance" :min="0" :max="255" :step="1" />
+     <FrameCheckbox v-model="colorOptions.merged" label="Sample merged visible layers" />
+    </template>
+    <ToolFieldPair label="Position" :labels="['X','Y']" :model-value="[s.selectionView.bounds?.x??0,s.selectionView.bounds?.y??0]" :disabled="!s.selectionView.bounds" @update:model-value="editBounds(['x','y'],$event)" />
+    <ToolFieldPair label="Size" :labels="['Width','Height']" :model-value="[s.selectionView.bounds?.width??0,s.selectionView.bounds?.height??0]" :min="s.selectionView.bounds?1:0" :disabled="!s.selectionView.bounds" linkable @update:model-value="editBounds(['width','height'],$event)" />
+   </template>
+   <template v-if="tool==='bucket'">
+    <ToolSelect v-model="options.bucket.area" :options="[{value:'contiguous',label:'Similar connected area'},{value:'matching',label:'All matching colors'},{value:'selection',label:'Entire selection'}]" label="Fill area" />
+    <FrameCheckbox v-model="options.bucket.merged" label="Sample merged visible layers" :disabled="options.bucket.area==='selection'" />
+    <FrameScrubField v-model="options.bucket.tolerance" label="Tolerance" :min="0" :max="255" :step="1" :disabled="options.bucket.area==='selection'" />
+    <ToolSelect v-model="options.bucket.fill" :options="[{value:'color',label:'Selected color'},{value:'transparent',label:'Transparent'}]" label="Fill with" />
+   </template>
+   <FrameCheckbox v-if="tool==='move'" v-model="options.move.copy" label="Copy when moving" />
+   <template v-if="tool==='text'">
+    <FrameTextArea v-model="options.text.content" label="Text" aria-label="Text" :maxlength="512" />
+    <FrameScrubField v-model="options.text.size" label="Size (px)" suffix=" px" :min="1" :max="128" :step="1" />
+    <ToolSelect v-model="options.text.font" :options="[{value:'monospace',label:'Monospace'},{value:'sans-serif',label:'Sans serif'},{value:'serif',label:'Serif'},{value:'Arial',label:'Arial'},{value:'Verdana',label:'Verdana'},{value:'Georgia',label:'Georgia'},{value:'Courier New',label:'Courier New'}]" label="Font" />
+    <FrameCheckbox v-model="options.text.bold" label="Bold" /><FrameCheckbox v-model="options.text.italic" label="Italic" />
+    <ToolSelect v-model="options.text.align" :options="[{value:'left',label:'Left'},{value:'center',label:'Center'},{value:'right',label:'Right'},{value:'justify',label:'Justified'}]" label="Text alignment" />
+    <FrameCheckbox v-model="options.text.antialias" label="Antialias text" />
+   </template>
+   <template v-if="tool==='eyedropper'">
+    <ToolSelect v-model="options.picker.target" :options="[{value:'button',label:'Clicked mouse button'},{value:'primary',label:'Left color'},{value:'secondary',label:'Right color'}]" label="Pick for" />
+    <ToolSelect v-model="options.picker.source" :options="[{value:'layer',label:'Current layer'},{value:'composite',label:'Merged visible layers'}]" label="Pick source" />
+    <ToolSelect v-model="options.picker.channels" :options="[{value:'rgba',label:'Color and alpha'},{value:'rgb',label:'Color only'},{value:'alpha',label:'Alpha only'}]" label="Pick mode" />
+   </template>
+   <template v-if="tool==='zoom'">
+    <ToolSelect v-model="options.zoom" :options="[{value:'in',label:'Zoom in'},{value:'out',label:'Zoom out'}]" label="Zoom mode" />
+    <FrameButton label="Fit artwork" @click="s.zoomReset++" /><FrameButton label="100%" @click="s.zoomOne++" />
+   </template>
+   <FrameButton v-if="tool==='pan'" label="Center artboard" @click="s.canvasView.pan={x:0,y:0}" />
+   <FrameScrubField v-if="tool==='paper'" v-model="options.paper.opacity" label="Opacity" suffix="%" :min="0" :max="100" :step="1" />
+  </section>
+ </fieldset>
 </template>
-
-
-
+<style>
+.tool-settings { display:flex;flex-direction:column;gap:8px; }
+.tool-settings .frame-select,.tool-settings .frame-textarea { width:100%;min-width:0; }
+.tool-settings .frame-scrub-field { min-width:0;margin:0; }
+.tool-settings .frame-checkbox { justify-content:flex-start;margin:0; }
+.tool-settings .frame-check-control { min-height:0; }
+.tool-option-controls { display:flex;flex-direction:column;gap:8px; }
+.tool-selection-mode { display:grid;gap:5px;margin-top:4px; }
+.tool-selection-mode > span { font-size:12px;color:var(--frame-muted); }
+.tool-settings .frame-text-area,.tool-settings textarea { max-width:none; }
+</style>

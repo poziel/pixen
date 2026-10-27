@@ -81,27 +81,13 @@ pub fn validate(s: &Sprite, format: ImageFormat, options: &ExportOptions) -> Res
         if format == ImageFormat::Svg {
             svg::validate(s.width, &rgba(s, frame, options)?)?;
         } else if options.background.is_none()
-            && matches!(
-                format,
-                ImageFormat::Jpeg | ImageFormat::Bmp | ImageFormat::Gif
-            )
+            && matches!(format, ImageFormat::Jpeg | ImageFormat::Bmp)
         {
             let pixels = raster::render(s, frame)?;
-            if format == ImageFormat::Gif {
-                ensure!(
-                    pixels
-                        .as_chunks::<4>()
-                        .0
-                        .iter()
-                        .all(|p| p[3] == 0 || p[3] == 255),
-                    "GIF cannot preserve partial alpha; supply an explicit opaque --background"
-                );
-            } else {
-                ensure!(
-                    pixels.as_chunks::<4>().0.iter().all(|p| p[3] == 255),
-                    "{format:?} cannot preserve transparency; supply an explicit opaque --background"
-                );
-            }
+            ensure!(
+                pixels.as_chunks::<4>().0.iter().all(|p| p[3] == 255),
+                "{format:?} cannot preserve transparency; supply an explicit opaque --background"
+            );
         }
     }
     Ok(())

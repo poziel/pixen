@@ -13,14 +13,14 @@ const fs = require('node:fs');
       await page.route('**/src/services/backend.ts', route => route.fulfill({ contentType: 'text/javascript', body: backend }));
       await page.route('**/@tauri-apps_api_window.js*', route => route.fulfill({ contentType: 'text/javascript', body: 'export function getCurrentWindow(){return {onDragDropEvent:async()=>()=>{},onCloseRequested:async()=>()=>{},close:async()=>{}}}' }));
       await page.route('**/@tauri-apps_api_event.js*', route => route.fulfill({ contentType: 'text/javascript', body: 'export async function listen(){return ()=>{}}' }));
-      await page.goto(process.env.PIXLOOM_TEST_URL || 'http://127.0.0.1:1459');
+      await page.goto(process.env.PIXEN_TEST_URL || 'http://127.0.0.1:1459');
       await page.waitForFunction(() => window.testCalls?.some(call => call.command === 'desktop_ready'));
       const toggle = page.locator('.status-left').getByRole('button', { name: 'Toggle primary sidebar', exact: true });
       await toggle.waitFor();
       assert.equal(await page.locator('.titlebar').getByRole('button', { name: 'Toggle primary sidebar', exact: true }).count(), 0);
       assert.equal(await toggle.getAttribute('aria-expanded'), String(initiallyLoaded));
       const beforeResolution = await toggle.evaluate(element => {
-        const resolution = document.querySelector('[data-status-id="pixloom.document"]');
+        const resolution = document.querySelector('[data-status-id="pixen.document"]');
         return element.getBoundingClientRect().right <= resolution.getBoundingClientRect().left;
       });
       assert.equal(beforeResolution, true);

@@ -1,2 +1,6 @@
 [build]
 target-dir = "target"
+
+[env]
+# Frame Native uses the user's installed Copilot CLI, not the SDK's bundled copy.
+COPILOT_SKIP_CLI_DOWNLOAD = { value = "1", force = false }

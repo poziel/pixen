@@ -36,7 +36,7 @@ tooltips, and small native Windows corners complete the chrome. New artwork and
 Canvas size are non-AI document actions; resizing crops/pads from the top left.
 
 The desktop owns one shared MCP Session after explicit activation. A token-protected
-loopback bridge lets a small stdio proxy in pixloom-mcp connect Codex to that session.
+loopback bridge lets a small stdio proxy in pixen-mcp connect Codex to that session.
 The external standalone MCP path stays unchanged. Embedded tools exclude document
 replacement, export, finish, and opening additional viewers. New projects are created
 in persistent temporary directories; recovery files survive shutdown. Existing files

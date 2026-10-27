@@ -1,4 +1,4 @@
-"""Create the animation through stdio MCP; export with Pixloom's existing CLI.
+"""Create the animation through stdio MCP; export with Pixen's existing CLI.
 
 No dependencies beyond Python 3. --preview keeps the MCP connection alive until
 Ctrl+C so its read-only windows remain available. Existing artwork is never replaced.
@@ -11,13 +11,13 @@ import subprocess
 import time
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--pixloom", type=Path, required=True)
+parser.add_argument("--pixen", type=Path, required=True)
 parser.add_argument("--output", type=Path, required=True)
 parser.add_argument("--preview", action="store_true")
 parser.add_argument("--bridge", type=Path, help=argparse.SUPPRESS)
 args = parser.parse_args()
 exe = args.pixloom.resolve()
-mcp = exe.with_name("pixloom-mcp" + exe.suffix)
+mcp = exe.with_name("pixen-mcp" + exe.suffix)
 out = args.output.resolve()
 out.mkdir(parents=True, exist_ok=True)
 project = out / "bounce.pixloom.json"
@@ -60,7 +60,7 @@ def call(name, arguments, image_path=None):
 
 try:
     request("initialize", dict(protocolVersion="2025-11-25", capabilities={},
-                               clientInfo=dict(name="pixloom-animation-example", version="1")))
+                               clientInfo=dict(name="pixen-animation-example", version="1")))
     server.stdin.write('{"jsonrpc":"2.0","method":"notifications/initialized"}\n')
     server.stdin.flush()
     created = call("create_project", dict(width=24, height=24,

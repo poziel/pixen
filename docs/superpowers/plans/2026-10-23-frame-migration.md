@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use superpowers:executing-plans to implement this plan task-by-task in this session.
 
-**Goal:** Replace the Pixloom egui desktop with a Frame/Vue/Tauri application while retaining the Rust engine, headless interfaces, and AI backend.
+**Goal:** Replace the Pixen egui desktop with a Frame/Vue/Tauri application while retaining the Rust engine, headless interfaces, and AI backend.
 
 **Architecture:** Shared Rust desktop state and protocols are toolkit-independent. A thin Tauri host calls that state; Vue uses one Frame shell and renders the canvas and primary sidebar views.
 
@@ -40,7 +40,7 @@ Interfaces: `desktop::Application` owns document state; serializable snapshot/re
 
 ### Task 2: Integrate Tauri and Frame/Vue host
 
-Files: package.json, bun.lock, vite.config.ts, tsconfig.json, index.html, ui/*, src-tauri/*, Cargo.toml, src/bin/pixloom.rs, .gitignore.
+Files: package.json, bun.lock, vite.config.ts, tsconfig.json, index.html, ui/*, src-tauri/*, Cargo.toml, src/bin/pixen.rs, .gitignore.
 
 Interfaces: Tauri `snapshot`, `open`, `create`, `resize`, `save`, `render`, `review` commands delegate to Application. Managed stdio messages feed the same state and emit notifications to Vue.
 

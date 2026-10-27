@@ -1,4 +1,4 @@
-import themeText from '/assets/themes/pixloom.yaml?raw';
+import themeText from '/assets/themes/pixen.yaml?raw';
 let opened=false,generation=1,revision=0;
 const width=16,height=16,frames=[{id:'first',duration_ms:100}],layers=[{id:'layer',name:'Layer',visible:true,opacity:1}];
 let pixels=new Uint8ClampedArray(width*height*4),undo=[],redo=[];

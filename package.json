@@ -1,5 +1,5 @@
 {
-  "name": "pixloom-desktop",
+  "name": "pixen-desktop",
   "version": "0.2.0",
   "private": true,
   "type": "module",
@@ -8,19 +8,22 @@
     "dev:frontend": "vite --host 127.0.0.1 --port 1420 --strictPort",
     "check": "vue-tsc --noEmit",
     "build": "tauri build --no-bundle",
+    "release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1",
     "build:debug": "tauri build --debug --no-bundle",
     "build:frontend": "bun run check && vite build",
-    "build:cli": "cargo build --release --locked --bin pixloom-cli",
-    "build:mcp": "cargo build --release --locked --bin pixloom-mcp",
-    "build:tools": "cargo build --release --locked --bin pixloom-cli --bin pixloom-mcp",
+    "build:cli": "cargo build --release --locked --bin pixen-cli",
+    "build:mcp": "cargo build --release --locked --bin pixen-mcp",
+    "build:tools": "cargo build --release --locked --bin pixen-cli --bin pixen-mcp",
     "test": "bun test tests/frontend",
     "tauri": "tauri"
   },
   "dependencies": {
     "@frame/core": "file:../../1-codes/frame/packages/core",
+    "@frame/tauri": "file:../../1-codes/frame/packages/tauri",
+    "@lucide/vue": "^1.61.0",
     "@tauri-apps/api": "^2",
-    "vue": "^3.5.13",
-    "@frame/tauri": "file:../../1-codes/frame/packages/tauri"
+    "monaco-editor": "0.57.0",
+    "vue": "^3.5.13"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",

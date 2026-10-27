@@ -1,4 +1,4 @@
-use pixloom::session::{CreateProject, Session};
+use pixen::session::{CreateProject, Session};
 use serde_json::json;
 
 #[test]
@@ -80,6 +80,6 @@ fn save_as_collision_preserves_destination_and_current_save_path() {
     assert_eq!(std::fs::read(existing).unwrap(), b"unrelated content");
     assert_eq!(
         session.info(id).unwrap()["output_path"],
-        json!(pixloom::output::resolved(&output).unwrap())
+        json!(pixen::output::resolved(&output).unwrap())
     );
 }

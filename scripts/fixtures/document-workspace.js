@@ -1,4 +1,4 @@
-import themeText from '/assets/themes/pixloom.yaml?raw';
+import themeText from '/assets/themes/pixen.yaml?raw';
 
 const documents=[];let active=null,next=0;
 const png='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
@@ -6,6 +6,8 @@ function create(path,width=32,height=32){const id='document-'+(++next);documents
 export async function call(command,args={}){
  window.testCalls??=[];window.testCalls.push({command,args});
  if(command==='snapshot'){const current=documents.find(doc=>doc.id===active);return structuredClone({managed:false,event_serial:0,review:null,review_stale:false,activity:null,inspection:null,active_document:active,documents:documents.map(({id,path,dirty})=>({id,path,dirty})),document:current?{...current,source_width:current.width,source_height:current.height,alternate_view:false,can_toggle_view:false}:null});}
+ if(command==='read_keybindings_file')return sessionStorage.getItem('fixture.keybindings');
+ if(command==='write_keybindings_file'){sessionStorage.setItem('fixture.keybindings',args.json);return;}
  if(command==='desktop_ready')return;
  if(command==='theme_config')return {text:themeText,format:'yaml'};
  if(command==='open_document'){const path=args.path??'a.pixloom';const found=documents.find(doc=>doc.path===path);if(found)active=found.id;else create(path,path.includes('b.')?16:32);return true;}

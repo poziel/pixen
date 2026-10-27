@@ -9,3 +9,15 @@
 /.superpowers/
 /.playwright-cli/
 **/.pixloom-recovery-*.pixloom.json
+
+# Local verification artifacts and archived design assets
+/output/
+/.ai-workspace/
+/assets/*archive*.zip
+/assets/*archive*.rar
+
+# Local verification artifacts and archived design assets
+/output/
+/.ai-workspace/
+/assets/*archive*.zip
+/assets/*archive*.rar

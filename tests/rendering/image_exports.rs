@@ -1,5 +1,5 @@
 use image::AnimationDecoder;
-use pixloom::{
+use pixen::{
     export::{self, ExportOptions, ImageFormat},
     model::Sprite,
     schema,
@@ -68,7 +68,7 @@ fn lossless_still_images_preserve_rgba_and_default_to_first_frame() {
 #[test]
 fn alpha_incompatible_formats_require_and_apply_explicit_background() {
     let s = sprite(&["#FF000080", "#00000000"], &[vec![0, 1]], &[100.0]);
-    for format in [ImageFormat::Jpeg, ImageFormat::Bmp, ImageFormat::Gif] {
+    for format in [ImageFormat::Jpeg, ImageFormat::Bmp] {
         assert!(export::validate(&s, format, &ExportOptions::default()).is_err());
         let mut untouched = Cursor::new(Vec::new());
         assert!(export::write(&mut untouched, &s, format, &ExportOptions::default()).is_err());
@@ -429,7 +429,7 @@ fn looping_exports_keep_all_frames_and_timing_and_set_format_loop_metadata() {
             assert_eq!(f64::from(n) / f64::from(d), s.frames[i].duration_ms);
             assert_eq!(
                 frame.buffer().as_raw(),
-                &pixloom::raster::render(&s, i).unwrap()
+                &pixen::raster::render(&s, i).unwrap()
             );
         }
     }
@@ -445,4 +445,40 @@ fn looping_exports_keep_all_frames_and_timing_and_set_format_loop_metadata() {
         )
         .is_err()
     );
+}
+
+#[test]
+fn gif_thresholds_partial_alpha_for_still_and_animated_exports() {
+    let s = sprite(
+        &["#FF000000", "#FF00007F", "#FF000080", "#FF0000FF"],
+        &[vec![0, 1, 2, 3], vec![3, 2, 1, 0]],
+        &[100.0, 100.0],
+    );
+    for frame in [Some(1), None] {
+        let bytes = encoded(
+            &s,
+            ImageFormat::Gif,
+            ExportOptions {
+                frame,
+                loop_animation: frame.is_none(),
+                background: None,
+            },
+        );
+        let decoded = animated_frames(bytes, ImageFormat::Gif);
+        assert_eq!(decoded.len(), if frame.is_some() { 1 } else { 2 });
+        for (i, image) in decoded.iter().enumerate() {
+            let alpha = image.buffer().pixels().map(|p| p[3]).collect::<Vec<_>>();
+            assert_eq!(
+                alpha,
+                if i == 0 {
+                    vec![0, 0, 255, 255]
+                } else {
+                    vec![255, 255, 0, 0]
+                }
+            );
+            for pixel in image.buffer().pixels().filter(|p| p[3] == 255) {
+                assert_eq!(pixel.0, [255, 0, 0, 255]);
+            }
+        }
+    }
 }

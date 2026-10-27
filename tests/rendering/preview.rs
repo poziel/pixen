@@ -1,11 +1,11 @@
-use pixloom::preview::{Crop, Playback, load, png};
+use pixen::preview::{Crop, Playback, load, png};
 use std::time::Duration;
 
 #[test]
 fn supported_project_preview_is_read_only_and_crops_match_renderer() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("sample.pixloom.json");
-    let original = include_bytes!("../../skills/pixloom/examples/animated.pixloom.json");
+    let path = dir.path().join("sample.pixen.json");
+    let original = include_bytes!("../../skills/pixen/examples/animated.pixloom.json");
     std::fs::write(&path, original).unwrap();
     let before = std::fs::metadata(&path).unwrap().modified().unwrap();
     let sprite = load(&path).unwrap();
@@ -19,7 +19,7 @@ fn supported_project_preview_is_read_only_and_crops_match_renderer() {
     assert_eq!(source, crop);
     let image = image::load_from_memory(&bytes).unwrap().to_rgba8();
     assert_eq!(image.dimensions(), (4, 4));
-    let composite = pixloom::raster::render(&sprite, 1).unwrap();
+    let composite = pixen::raster::render(&sprite, 1).unwrap();
     for y in 0..4 {
         for x in 0..4 {
             let index = (((y / 2 + 1) * sprite.width + x / 2 + 1) * 4) as usize;
@@ -36,7 +36,7 @@ fn supported_project_preview_is_read_only_and_crops_match_renderer() {
     assert!(png(&sprite, 0, Some(Crop { x: 3, ..crop }), 1).is_err());
     assert!(png(&sprite, 999, None, 1).is_err());
     assert!(png(&sprite, 0, None, 0).is_err());
-    assert!(load(&dir.path().join("missing.pixloom.json")).is_err());
+    assert!(load(&dir.path().join("missing.pixen.json")).is_err());
     std::fs::write(dir.path().join("unsupported.txt"), b"hello").unwrap();
     assert!(load(&dir.path().join("unsupported.txt")).is_err());
 }
@@ -93,7 +93,7 @@ fn native_and_container_projects_use_the_same_composite_without_writes() {
         let original = std::fs::read(&source).unwrap();
         std::fs::write(&copy, &original).unwrap();
         let sprite = load(&copy).unwrap();
-        let expected = pixloom::raster::render(&sprite, 0).unwrap();
+        let expected = pixen::raster::render(&sprite, 0).unwrap();
         let (bytes, _) = png(&sprite, 0, None, 1).unwrap();
         assert_eq!(
             image::load_from_memory(&bytes).unwrap().to_rgba8().as_raw(),
@@ -101,20 +101,20 @@ fn native_and_container_projects_use_the_same_composite_without_writes() {
         );
         assert_eq!(std::fs::read(&copy).unwrap(), original);
     }
-    let source = dir.path().join("container.pixloom.json");
+    let source = dir.path().join("container.pixen.json");
     std::fs::write(
         &source,
-        include_bytes!("../../skills/pixloom/examples/animated.pixloom.json"),
+        include_bytes!("../../skills/pixen/examples/animated.pixloom.json"),
     )
     .unwrap();
     let packed = dir.path().join("container.pixloom");
-    pixloom::container::pack(&source, &packed, false, false).unwrap();
+    pixen::container::pack(&source, &packed, false, false).unwrap();
     let original = std::fs::read(&packed).unwrap();
     let sprite = load(&packed).unwrap();
     assert_eq!(sprite.frames.len(), 4);
     assert_eq!(
-        pixloom::raster::render(&sprite, 2).unwrap(),
-        pixloom::raster::render(&load(&source).unwrap(), 2).unwrap()
+        pixen::raster::render(&sprite, 2).unwrap(),
+        pixen::raster::render(&load(&source).unwrap(), 2).unwrap()
     );
     assert_eq!(std::fs::read(&packed).unwrap(), original);
 }
@@ -130,7 +130,7 @@ fn raster_previews_share_the_bounded_importer_and_preserve_source_files() {
         let sprite = load(&path).unwrap();
         assert_eq!((sprite.width, sprite.height), (3, 2));
         assert_eq!(
-            pixloom::raster::render(&sprite, 0).unwrap(),
+            pixen::raster::render(&sprite, 0).unwrap(),
             image.as_raw().clone()
         );
         assert_eq!(std::fs::read(path).unwrap(), before);

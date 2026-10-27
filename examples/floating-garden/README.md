@@ -1,6 +1,6 @@
 # Floating garden
 
-Original pixel art authored with the pixel-art and pixloom skills.
+Original pixel art authored with the pixel-art and pixen skills.
 
 ![Floating garden](floating-garden.gif)
 
@@ -12,8 +12,8 @@ Original pixel art authored with the pixel-art and pixloom skills.
 - `preview.html`: animated light/dark README theme preview at 2× nearest-neighbor scale.
 - `theme-review.png`: light/dark review at 1×, 2×, and enlarged 4× (enlarged sample is cropped vertically).
 
-Validation: pixloom schema validation and Aseprite inspection passed. Still, contact sheet and light/dark theme review visually inspected. Export loop fields verified; animation playback has not been visually inspected.
+Validation: pixen schema validation and Aseprite inspection passed. Still, contact sheet and light/dark theme review visually inspected. Export loop fields verified; animation playback has not been visually inspected.
 
-Rebuild: run `python generate.py`, then pixloom-cli build/export/render using the paths above. Run `python set-infinite-loop.py` after exporting: pixloom 0.2.0 exports one playback by default. The script changes only GIF/APNG/WebP repeat metadata (and APNG CRC). Run `python verify.py` before optimizing with `pixloom-cli optimize floating-garden.pixloom.json --in-place`.
+Rebuild: run `python generate.py`, then pixen-cli build/export/render using the paths above. Run `python set-infinite-loop.py` after exporting: pixen 0.2.0 exports one playback by default. The script changes only GIF/APNG/WebP repeat metadata (and APNG CRC). Run `python verify.py` before optimizing with `pixen-cli optimize floating-garden.pixloom.json --in-place`.
 
 PNG spritesheets cannot animate themselves; use the GIF, APNG or WebP for a README.

@@ -23,7 +23,7 @@ pub fn load(path: &Path) -> Result<Sprite> {
         "json" | "pixloom" | "spritex" => crate::input::compile(path),
         "pxo" | "ase" | "aseprite" => crate::native::read(path),
         "png" | "jpg" | "jpeg" | "gif" | "apng" | "webp" | "bmp" | "tif" | "tiff" => crate::schema::compile(crate::import::document(crate::import::decode(path)?)?),
-        _ => anyhow::bail!("unsupported project input; use Pixloom JSON/.pixloom, Pixelorama .pxo, RGBA .ase/.aseprite, or PNG/JPEG/GIF/APNG/WebP/BMP/TIFF"),
+        _ => anyhow::bail!("unsupported project input; use Pixen JSON/.pixloom, Pixelorama .pxo, RGBA .ase/.aseprite, or PNG/JPEG/GIF/APNG/WebP/BMP/TIFF"),
     }.with_context(|| format!("read preview project {}", path.display()))
 }
 

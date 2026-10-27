@@ -1,4 +1,4 @@
-use pixloom::{edit, preview, raster};
+use pixen::{edit, preview, raster};
 use std::{collections::HashSet, io::Cursor};
 
 #[test]

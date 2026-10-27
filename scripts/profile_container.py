@@ -63,8 +63,8 @@ pub fn snapshot(iterations: u32) -> serde_json::Value {
     edit("core/document/schema.rs", "    Ok(sprite)\n}", '    crate::profile::record("compile.total_inclusive",compile_start);\n    Ok(sprite)\n}')
     time_statement("core/formats/container.rs", "schema::validate_structure(&doc)?;", "document.structure_validation")
     edit("examples/container_bench.rs", '            "full" => {', '            "full" | "profile" => {')
-    edit("examples/container_bench.rs", "    let start = Instant::now();", "    pixloom::profile::reset();\n    let start = Instant::now();")
-    edit("examples/container_bench.rs", 'json!({"ms":ms,"peak_working_set_bytes":peak()})', 'json!({"ms":ms,"peak_working_set_bytes":peak(),"stages":pixloom::profile::snapshot(5)})')
+    edit("examples/container_bench.rs", "    let start = Instant::now();", "    pixen::profile::reset();\n    let start = Instant::now();")
+    edit("examples/container_bench.rs", 'json!({"ms":ms,"peak_working_set_bytes":peak()})', 'json!({"ms":ms,"peak_working_set_bytes":peak(),"stages":pixen::profile::snapshot(5)})')
     edit("examples/container_bench.rs", '"container_full":measure("full",&packed)?', '"container_full":measure("profile",&packed)?')
     command = ["cargo", "run", "--release", "--locked", "--manifest-path", str(work / "Cargo.toml"), "--target-dir", str(root / "target/container-profile-build"), "--example", "container_bench"]
     result = subprocess.run(command, cwd=root, check=True, capture_output=True)

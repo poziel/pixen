@@ -1,4 +1,4 @@
-use pixloom::{archive::Archive, pxo, raster, schema};
+use pixen::{archive::Archive, pxo, raster, schema};
 use serde_json::{Value, json};
 use std::{
     io::{Read, Write},

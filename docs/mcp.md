@@ -4,9 +4,9 @@ Build and run from this repository (Rust 1.89 or newer):
 
 ```powershell
 cargo build --locked --release
-.\target\release\pixloom-mcp.exe --viewer
+.\target\release\pixen-mcp.exe --viewer
 # Headless:
-.\target\release\pixloom-mcp.exe
+.\target\release\pixen-mcp.exe
 ```
 
 If a running MCP client has locked the existing Windows executable, build a
@@ -14,7 +14,7 @@ separate copy without stopping that client:
 
 ```powershell
 cargo build --release --locked --target-dir target/mcp-editing
-.\target\mcp-editing\release\pixloom-mcp.exe --viewer
+.\target\mcp-editing\release\pixen-mcp.exe --viewer
 ```
 
 Point the client configuration below at that executable to use the new copy.
@@ -27,15 +27,15 @@ executable may remain locked by existing clients, so leave those clients intact
 and select the separate build explicitly. For that build use:
 
 ```toml
-[mcp_servers.pixloom]
-command = 'D:\Dev\5-tools\pixloom\target\mcp-editing\release\pixloom-mcp.exe'
+[mcp_servers.pixen]
+command = 'D:\Dev\5-tools\pixen\target\mcp-editing\release\pixen-mcp.exe'
 args = ["--viewer"]
 ```
 
 
-On Linux/macOS use `./target/release/pixloom-mcp`. Linux needs the normal egui/eframe
+On Linux/macOS use `./target/release/pixen-mcp`. Linux needs the normal egui/eframe
 X11/Wayland build and runtime libraries and a working OpenGL desktop. The optional viewer is a separate
-process of the sibling `pixloom` desktop executable; document edits always run inside the server.
+process of the sibling `pixen` desktop executable; document edits always run inside the server.
 The server uses the [official Rust MCP SDK](https://github.com/modelcontextprotocol/rust-sdk)'s stdio transport. Stdout is reserved
 for protocol messages; diagnostics go to stderr.
 
@@ -44,8 +44,8 @@ Example MCP client configuration (replace the executable path):
 ```json
 {
   "mcpServers": {
-    "pixloom": {
-      "command": "D:\\Dev\\5-tools\\pixloom\\target\\release\\pixloom-mcp.exe",
+    "pixen": {
+      "command": "D:\\Dev\\5-tools\\pixen\\target\\release\\pixen-mcp.exe",
       "args": ["--viewer"]
     }
   }
@@ -55,8 +55,8 @@ Example MCP client configuration (replace the executable path):
 For Codex `config.toml`:
 
 ```toml
-[mcp_servers.pixloom]
-command = 'D:\Dev\5-tools\pixloom\target\release\pixloom-mcp.exe'
+[mcp_servers.pixen]
+command = 'D:\Dev\5-tools\pixen\target\release\pixen-mcp.exe'
 args = ["--viewer"]
 ```
 
@@ -71,7 +71,7 @@ to avoid depending on the client's working directory.
 1. `create_project`:
 
    ```json
-   {"width":16,"height":16,"palette":["#00000000","#2048A0FF","#70C8FFFF"],"output_path":"D:/Dev/5-tools/pixloom/out/sprite.pixloom"}
+   {"width":16,"height":16,"palette":["#00000000","#2048A0FF","#70C8FFFF"],"output_path":"D:/Dev/5-tools/pixen/out/sprite.pixloom"}
    ```
 
    The parent directory must exist and the destination must be new. The response
@@ -116,10 +116,10 @@ to avoid depending on the client's working directory.
    To preview an existing file instead, supply `path` and omit `project_id`:
 
    ```json
-   {"path":"D:/Dev/5-tools/pixloom/skills/pixloom/examples/animated.pixloom.json"}
+   {"path":"D:/Dev/5-tools/pixen/skills/pixen/examples/animated.pixloom.json"}
    ```
 
-   Supported inputs use Pixloom's existing loaders: authoring JSON, `.pixloom`
+   Supported inputs use Pixen's existing loaders: authoring JSON, `.pixloom`
    (and legacy Spritex inputs), `.pxo`, `.ase`, and `.aseprite`, with the same
    supported-feature restrictions as native import. Files are never written.
    Canonical paths identify previews; repeated calls reuse the same process.
@@ -135,7 +135,7 @@ to avoid depending on the client's working directory.
    replaced; a timeout leaves an actionable error for retry.
 
 5. Edit again using `expected_revision: 1`, then call `finish_project` with
-   `{"project_id":"project-1"}`. Successful finish saves validated Pixloom
+   `{"project_id":"project-1"}`. Successful finish saves validated Pixen
    authoring JSON, closes the viewer, and allows another project on the same
    connection. Existing files are never overwritten. Save failure keeps the
    project and viewer available for retry.
@@ -189,7 +189,7 @@ zero-based ordered `index` values, stable `id` fields, exact `#RRGGBBAA` palette
 entries, layers with visibility/opacity/lock state and cel/link timelines, frames
 with durations, and history availability. Frame IDs are persisted in each
 frame's `annotations.metadata.pixloom_frame_id`. Reorder never changes an ID.
-Caller-supplied new frame/layer IDs must satisfy Pixloom's identifier rules and
+Caller-supplied new frame/layer IDs must satisfy Pixen's identifier rules and
 must never have been used in that project, including IDs removed or undone.
 Failed transactions do not reserve IDs.
 
@@ -248,6 +248,7 @@ Drawing operations:
 | `type` | Fields beyond explicit targets |
 | --- | --- |
 | `set_pixels` | `pixels: [{x,y,palette_index}, ...]`; later entries win at repeated coordinates |
+| `set_pixel_rows` | `x, y, rows: [[palette_index, ...], ...]`; dense rectangular patch with equal-width non-empty rows, strict bounds; every entry overwrites, including transparent indices |
 | `line` | `x1,y1,x2,y2,palette_index`; Bresenham, including both endpoints |
 | `rectangle` | `x,y,width,height,palette_index,filled` |
 | `ellipse` | `x,y,width,height,palette_index,filled` |
@@ -377,7 +378,7 @@ publication but before cleanup may leave both files; the saved final file is
 valid. Recovery contains the document, not protocol IDs or revision history.
 
 Editing supports one active project with multiple frames and layers, within
-Pixloom's document limits. File viewing supports the existing formats' static
+Pixen's document limits. File viewing supports the existing formats' static
 and animated projects. Preview images are limited to 16 million pixels; batches
 to 10,000 operations. There is
 no human drawing editor, freeform selection masks, automatic tweening, or collaboration. Retaining a manual-inspection window after the MCP
@@ -486,7 +487,7 @@ The existing exporter renders every ordered frame for GIF/WebP/APNG unless
 default. Animated exports play once by default; opt into indefinite looping:
 
 ```powershell
-pixloom-cli export bounce.pixloom.json --output bounce --formats gif --loop
+pixen-cli export bounce.pixloom.json --output bounce --formats gif --loop
 ```
 
 `--loop` requires at least two frames and a GIF/WebP/APNG output; it conflicts
@@ -511,16 +512,16 @@ the editable project, labelled sheet, individual frames, GIF and tool transcript
 
 ## Desktop, CLI and MCP executable names
 
-`pixloom` is the desktop app, `pixloom-cli` runs file commands, and `pixloom-mcp`
+`pixen` is the desktop app, `pixen-cli` runs file commands, and `pixen-mcp`
 runs the stdio MCP server. Keep all three executables in the same directory and
-ship them at matching versions. `open_preview` launches the sibling `pixloom`
+ship them at matching versions. `open_preview` launches the sibling `pixen`
 app with its managed stdio lifecycle. MCP diagnostics go to stderr; stdout is
 reserved for protocol traffic.
 
-Point new MCP configurations at `pixloom-mcp.exe` with `args = ["--viewer"]`
+Point new MCP configurations at `pixen-mcp.exe` with `args = ["--viewer"]`
 (or no arguments for headless editing). The CLI has no MCP subcommand;
-`pixloom-mcp` is the dedicated server entry point.
-Launching `pixloom` without arguments opens an empty viewer; a project argument,
+`pixen-mcp` is the dedicated server entry point.
+Launching `pixen` without arguments opens an empty viewer; a project argument,
 Open, or drag-and-drop loads a file through the shared library.
 
 
@@ -557,7 +558,7 @@ direct authoring and debugging. Recovery snapshots remain internal authoring JSO
 `create_project.output_path` accepts `.pixloom` or explicit `.pixloom.json`.
 
 `open_project` takes `path` and optional `output_path`. It accepts all inspector
-inputs: Pixloom JSON/containers (including legacy inputs), `.ase`/`.aseprite`,
+inputs: Pixen JSON/containers (including legacy inputs), `.ase`/`.aseprite`,
 `.pxo`, PNG/JPEG/GIF/APNG/WebP/BMP/TIFF. Existing supported-feature restrictions
 apply; unsupported native features are rejected rather than silently discarded.
 Authoring inputs retain exact palette indices and persisted frame IDs. Native
@@ -662,3 +663,29 @@ stale revisions and invalid dimensions leave the project unchanged.
 ```json
 {"name":"resize_canvas","arguments":{"project_id":"project-1","expected_revision":3,"width":64,"height":48}}
 ```
+
+## Large AI drawing calls
+
+Keep complete JSON tool calls below **200 KiB in UTF-8**, including the tool name,
+arguments and protocol envelope. Some AI clients reject calls around 256 KiB
+before they reach Pixen. This is a compatibility budget, not a Pixen transport
+limit. Instructions guide the model; they cannot enforce a provider's output size.
+
+Prefer `rectangle`, `line`, `ellipse` and `fill` for geometry. For dense arbitrary
+pixels, use `set_pixel_rows` through `draw` or `apply_edits`:
+
+```json
+{"type":"set_pixel_rows","x":4,"y":6,"rows":[[1,2,1],[2,0,2]]}
+```
+
+This writes a 3 × 2 patch at (4,6), preserving everything outside it. All entries
+are palette indices; zero has whatever color palette entry zero defines. Empty,
+ragged, out-of-bounds patches and invalid indices reject the whole transaction.
+A 128 × 128 patch using single-digit indices takes about 33 KiB, compared with
+about 549 KiB for individual pixel objects. Multi-digit indices cost more.
+
+Split larger patches into row strips within the budget. Wait for each response,
+then use its returned revision as the next `expected_revision`. Each batch is one
+undo step; a later failure leaves earlier successful batches intact. Never retry
+an oversized call unchanged. Crop pixel/image inspections and select relevant
+contact-sheet frames to avoid excessive response/context sizes.
