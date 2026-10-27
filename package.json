@@ -4,22 +4,25 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tauri dev",
+    "dev": "bun scripts/dependencies.ts dev",
     "dev:frontend": "vite --host 127.0.0.1 --port 1420 --strictPort",
     "check": "vue-tsc --noEmit",
-    "build": "tauri build --no-bundle",
+    "build": "bun scripts/dependencies.ts build",
     "release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1",
-    "build:debug": "tauri build --debug --no-bundle",
+    "build:debug": "bun scripts/dependencies.ts debug",
     "build:frontend": "bun run check && vite build",
     "build:cli": "cargo build --release --locked --bin pixen-cli",
     "build:mcp": "cargo build --release --locked --bin pixen-mcp",
     "build:tools": "cargo build --release --locked --bin pixen-cli --bin pixen-mcp",
     "test": "bun test tests/frontend",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "deps:local": "bun scripts/dependencies.ts local",
+    "deps:released": "bun scripts/dependencies.ts released",
+    "build:released": "bun scripts/dependencies.ts released-build"
   },
   "dependencies": {
-    "@frame/core": "file:../../1-codes/frame/packages/core",
-    "@frame/tauri": "file:../../1-codes/frame/packages/tauri",
+    "@frame/core": "npm:@poziel/frame-core@0.1.0-dev.4.1",
+    "@frame/tauri": "npm:@poziel/frame-tauri@0.1.0-dev.4.1",
     "@lucide/vue": "^1.61.0",
     "@tauri-apps/api": "^2",
     "monaco-editor": "0.57.0",
@@ -34,6 +37,6 @@
     "vue-tsc": "^3.3.5"
   },
   "overrides": {
-    "@frame/core": "file:../../1-codes/frame/packages/core"
+    "@frame/core": "npm:@poziel/frame-core@0.1.0-dev.4.1"
   }
 }

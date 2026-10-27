@@ -7,14 +7,8 @@ Push-Location $projectRoot
 try {
     $manifest = Get-Content -LiteralPath (Join-Path $projectRoot 'package.json') -Raw | ConvertFrom-Json
     if (-not $PackageOnly) {
-        # Bun's local file dependencies copy package metadata and declarations.
-        # Build Frame first, then refresh that copy before checking Pixen.
-        $framePackage = $manifest.dependencies.'@frame/core' -replace '^file:', ''
-        $frameRoot = [IO.Path]::GetFullPath((Join-Path $projectRoot (Join-Path $framePackage '../..')))
-        & bun run --cwd $frameRoot build:library
-        if ($LASTEXITCODE -ne 0) { throw 'Frame library build failed.' }
-        & bun install --frozen-lockfile
-        if ($LASTEXITCODE -ne 0) { throw 'Installing Pixen dependencies failed.' }
+        # Local packaging uses sibling sources, like bun run dev/build.
+        # GitHub builds published dependencies and calls -PackageOnly.
         & bun run build
         if ($LASTEXITCODE -ne 0) { throw 'Pixen desktop build failed.' }
         & bun run build:tools

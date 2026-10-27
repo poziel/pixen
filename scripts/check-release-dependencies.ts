@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-// Fail before starting expensive native jobs until published dependencies exist.
+// Ensure CI uses published dependencies rather than sibling developer checkouts.
 const manifest = JSON.parse(readFileSync('package.json', 'utf8'));
 const local = Object.entries({
   ...manifest.dependencies,
@@ -10,11 +10,19 @@ const local = Object.entries({
 const nativeManifest = readFileSync('src-tauri/Cargo.toml', 'utf8');
 const native = nativeManifest.match(/^frame-agent-connectors\s*=.*$/m)?.[0];
 if (local.length || !native || /\bpath\s*=/.test(native)) {
-  console.error('Desktop releases require published Frame and Frame Native dependencies.');
+  console.error('Desktop releases require published Frame and Frame Server dependencies.');
   for (const [name] of local) console.error(`Replace the local dependency: ${name}`);
   if (!native || /\bpath\s*=/.test(native)) console.error('Replace frame-agent-connectors with a pinned Cargo registry or Git dependency.');
   console.error('Update and commit bun.lock and src-tauri/Cargo.lock. See docs/releases.md.');
   process.exit(1);
+}
+const lock = Bun.JSON5.parse(readFileSync('bun.lock', 'utf8')) as {
+  workspaces: Record<string, { dependencies: Record<string, string> }>;
+};
+for (const name of ['@frame/core', '@frame/tauri']) {
+  if (lock.workspaces[''].dependencies[name] !== manifest.dependencies[name]) {
+    throw new Error(`bun.lock is stale for ${name}; authenticate to GitHub Packages and run bun install.`);
+  }
 }
 const version = manifest.version;
 const tauri = JSON.parse(readFileSync('src-tauri/tauri.conf.json', 'utf8'));

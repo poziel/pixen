@@ -62,18 +62,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf
-      - name: Configure optional GitHub npm registry
+      - name: Configure GitHub npm registry authentication
         shell: pwsh
-        env:
-          FRAME_NPM_SCOPE: ${{ vars.FRAME_NPM_SCOPE }}
         run: |
-          if ($env:FRAME_NPM_SCOPE) {
-            if ($env:FRAME_NPM_SCOPE -notmatch '^@[a-z0-9][a-z0-9-]*$') { throw 'Invalid FRAME_NPM_SCOPE' }
-            @(
-              "$($env:FRAME_NPM_SCOPE):registry=https://npm.pkg.github.com",
-              '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}'
-            ) | Set-Content -LiteralPath .npmrc -Encoding utf8
-          }
+          '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}' | Add-Content -LiteralPath .npmrc -Encoding utf8
       - name: Install locked frontend dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.FRAME_PACKAGES_TOKEN || github.token }}

@@ -23,37 +23,27 @@ Screen color capture is Windows-only. Windows packages are unsigned; macOS
 packages are ad-hoc signed and not notarized. Configure production signing
 before promoting packages for general distribution.
 
-## Required dependency publication
+## Dependency and package access setup
 
-Desktop builds are deliberately blocked while Pixen references local Frame
-folders. The prerequisites job explains what remains to configure; it does not
-substitute an older public Frame commit for the unpublished local work.
+Published dependencies are pinned in the manifests and lockfiles. See
+[dependency modes](dependencies.md) for the exact Frame package versions,
+Frame Server release commit, and the local development workflow.
 
-Once Frame packages are ready:
+In each GitHub package's **Package settings > Manage Actions access**, add the
+`poziel/pixen` repository with **Read** access. Do this for `frame-core` and
+`frame-tauri`. The desktop workflow supplies its built-in `GITHUB_TOKEN` with
+`packages: read`. No registry token belongs in source control.
 
-1. Replace `@frame/core` and `@frame/tauri` local dependencies and the core override
-   in `package.json` with the published packages at pinned versions. npm aliases
-   can preserve the current import names when publishing under an owner scope.
-2. Replace the `frame-agent-connectors` path in `src-tauri/Cargo.toml` with a
-   registry dependency or a Git dependency pinned to a full commit. GitHub's npm
-   registry distributes JavaScript packages; Cargo needs its own source.
-3. Regenerate and commit `bun.lock` and `src-tauri/Cargo.lock`. Check that a clean
-   checkout builds without the sibling Frame folders.
-4. For GitHub npm packages, set repository Actions variable `FRAME_NPM_SCOPE`
-   to the published scope, such as `@poziel`. Grant Pixen Actions read access to
-   the packages. The workflow uses its `GITHUB_TOKEN`; if cross-repository access
-   requires another credential, set secret `FRAME_PACKAGES_TOKEN` with read access.
-   For public npm packages, leave the scope variable unset.
-5. If Frame Native uses a private Git repository or private Cargo registry,
-   configure the corresponding Cargo authentication before running desktop jobs.
-   The current workflow does not provision that authentication.
-6. Update `scripts/release.ps1` to install published packages without rebuilding
-   a sibling Frame checkout. That source-mode step remains in local builds;
-   GitHub uses the script's `-PackageOnly` option after building.
+If your package settings require a separate token instead, repository secret
+`FRAME_PACKAGES_TOKEN` can supply a classic token with `read:packages` access.
+Frame Server's pinned Git source is public and does not require package-registry
+authentication. No `FRAME_NPM_SCOPE` variable is needed: `.npmrc` configures the
+actual `@poziel` scope.
 
-Never commit registry credentials. Run `bun scripts/check-release-dependencies.ts`
-to check dependency prerequisites locally. A successful preflight checks manifest
-configuration; actual install/build jobs verify package availability and compatibility.
+The prerequisites job checks manifests and versions; package access is verified
+by the install step. Release jobs always use published dependencies and never
+invoke local development overrides. Manual runs test the full package build
+without publishing a release.
 
 ## Publish a version
 
@@ -67,8 +57,7 @@ git push origin v0.2.0
 ```
 
 Choose a new unused version for each release. The workflow verifies tag/version
-agreement and does not overwrite an existing release. Do not tag while the
-dependency-publication prerequisite is pending.
+agreement and does not overwrite an existing release. Verify package access and all platform builds before tagging.
 
 See [Tauri's GitHub pipeline guide](https://tauri.app/distribute/pipelines/github/)
 and [signing documentation](https://tauri.app/distribute/) for subsequent signing

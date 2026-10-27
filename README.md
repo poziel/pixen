@@ -42,8 +42,8 @@ provider tools; video export requires FFmpeg. See [manual editing](docs/manual-e
 [AI chat](docs/ai-chat.md), and [storage modes](docs/portable.md).
 
 Windows is the current locally developed desktop target. GitHub workflows target
-Windows, macOS, and Linux; desktop releases await published Frame dependencies
-and platform verification. Application screen-color capture is Windows-only.
+Windows, macOS, and Linux; desktop packages still require platform verification.
+Application screen-color capture is Windows-only.
 See [GitHub builds and release setup](docs/releases.md).
 
 ## Get started
@@ -62,26 +62,18 @@ Cargo installs the headless `pixen-cli` and `pixen-mcp` executables in its bin d
 
 Build the desktop separately with **Bun**, Rust, and the
 [Tauri native prerequisites](https://tauri.app/start/prerequisites/).
-The current checkout also requires sibling [Frame](https://github.com/poziel/frame)
-and Frame Native sources:
-
-```text
-1-codes/
-  pixen/
-  frame/          # packages/core and packages/tauri
-  frame-native/   # agents Rust crate
-```
-
-From Frame, run `bun install --frozen-lockfile`, `bun run build:library`, and
-`bun run --cwd packages/tauri build`. Then run the commands below from Pixen.
-Versioned package dependencies are planned; manifests currently use local paths,
-so cloning Pixen alone is sufficient only for the headless tools.
+Published builds use pinned Frame packages from GitHub Packages and the Frame
+Server Git release. Local development uses sibling `frame/` and `frame-server/`
+checkouts instead. See [dependency modes and setup](docs/dependencies.md) for
+registry authentication, checkout locations, and local package builds.
 
 ```sh
-bun install --frozen-lockfile
+bun run deps:local
 bun run dev
-# Production desktop, without creating an installer:
+# Production desktop using local dependencies, without an installer:
 bun run build
+# Verify the published dependencies instead:
+bun run build:released
 ```
 
 Build the headless tools with `bun run build:tools` (or `cargo build --release --locked`) as well. Use `bun run build:cli` or `bun run build:mcp` to build either tool individually, without Tauri. The shared
@@ -96,8 +88,8 @@ To create a Windows ZIP containing the desktop, CLI, and MCP server, run:
 bun run release
 ```
 
-This rebuilds Frame's library, refreshes Pixen's locked local dependencies, then
-builds all three release executables. The folder and ZIP are written under
+This refreshes local Frame dependencies and builds all three release executables.
+The folder and ZIP are written under
 `target/portable/Pixen-<version>-<Rust-host-target>`. Keep the executables together
 for MCP live previews. The destination computer needs WebView2; preferences still
 use its application data folders by default. Create an extensionless `portable` file

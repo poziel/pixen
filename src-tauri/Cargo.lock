@@ -1316,6 +1316,7 @@ dependencies = [
 [[package]]
 name = "frame-agent-connectors"
 version = "0.1.0"
+source = "git+https://github.com/poziel/frame-server.git?rev=7bb94c48812713429bda58316d0299d4487709d8#7bb94c48812713429bda58316d0299d4487709d8"
 dependencies = [
  "async-trait",
  "futures-util",
