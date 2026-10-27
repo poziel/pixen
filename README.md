@@ -41,9 +41,10 @@ run headlessly. AI features require separately installed and authenticated
 provider tools; video export requires FFmpeg. See [manual editing](docs/manual-editing.md),
 [AI chat](docs/ai-chat.md), and [storage modes](docs/portable.md).
 
-Windows is the current locally developed desktop target. macOS and Linux builds
-are planned; they are not yet verified releases. Application screen-color capture
-is currently Windows-only.
+Windows is the current locally developed desktop target. GitHub workflows target
+Windows, macOS, and Linux; desktop releases await published Frame dependencies
+and platform verification. Application screen-color capture is Windows-only.
+See [GitHub builds and release setup](docs/releases.md).
 
 ## Get started
 

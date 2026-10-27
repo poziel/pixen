@@ -1,0 +1,51 @@
+name: Build tools
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tools-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tools:
+    name: Tools (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - os: macos-15
+            target: aarch64-apple-darwin
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test Rust engine and tools
+        run: cargo test --locked
+      - name: Build tools
+        run: cargo build --release --locked --bin pixen-cli --bin pixen-mcp
+      - name: Package tools
+        shell: pwsh
+        run: ./scripts/package-tools.ps1 -Target '${{ matrix.target }}'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tools-${{ matrix.target }}
+          path: target/packages/*
+          if-no-files-found: error
+          retention-days: 14
