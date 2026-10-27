@@ -1,5 +1,5 @@
-use pixloom::preview::Crop;
-use pixloom::review::{measure, render::ScopedRgba};
+use pixen::preview::Crop;
+use pixen::review::{measure, render::ScopedRgba};
 #[test]
 fn geometry_components_thresholds_and_truncation_are_exact() {
     let scope = ScopedRgba {

@@ -7,17 +7,42 @@ import {
   type Review,
 } from "../services/backend";
 import { advancePlayback } from "./timeline/playback";
+import type { Tool } from './tools/raster';
+import { createBrushSettings } from './tools/interaction';
+import type { SelectionBounds, SelectionMode } from './tools/selection';
+import { createToolOptions } from './tools/toolOptions';
 
 export function createEditor(transport: typeof call = call) {
   const state = reactive({
+    tools: {
+      temporaryPan: false, globalPicker: false, temporaryPicker: false, shapeDrawing:false,
+      recentColors: [] as string[],
+      left: 'pencil' as Tool, right: 'eraser' as Tool,
+      primary: '#ffffff', secondary: '#000000', colorTarget: 'primary' as 'primary'|'secondary',
+      picker: 'rectangle' as 'rectangle'|'wheel'|'circle',
+      brushes: {left:createBrushSettings(),right:createBrushSettings()},
+      options: {left:createToolOptions('left'),right:createToolOptions('right')},
+      selectionMode: 'replace' as SelectionMode,
+    },
     snapshot: null as Snapshot | null,
     error: "",
     working: false,
+    saving: false,
+    saveNotice: 0,
+    exportValid: false,
+    recoveryInterval: 30,
+    defaults: { background: "checkerboard", fps: 0 },
+    selectionClear: 0,
+    canvasFocus: 0,
+    shapeGuide: '',
+    shapeAnchors: [] as {x:number;y:number}[],
+    selectionView: { bounds: null as SelectionBounds | null, outline: '', polygon: '', polygonStart: null as {x:number;y:number}|null, polygonClosable:false, guides: false },
+    selectionEdit: { serial: 0, bounds: null as SelectionBounds | null },
     frame: 0,
     layer: null as string | null,
     hidden: [] as string[],
     playing: false,
-    fps: 5,
+    fps: 0,
     direction: 1 as 1 | -1,
     elapsed: 0,
     isolatedLayer: null as string | null,
@@ -31,7 +56,7 @@ export function createEditor(transport: typeof call = call) {
     review: null as Review | null,
     showReview: false,
     annotations: false,
-    dialog: "" as "" | "new" | "resize" | "settings",
+    dialog: "" as "" | "new" | "resize" | "settings" | "export",
     zoomReset: 0,
     zoomOne: 0,
     zoomRequest: { serial: 0 } as { serial: number; scale?: number; factor?: number },
@@ -45,6 +70,7 @@ export function createEditor(transport: typeof call = call) {
   const defaultView = captureView();
   const documentViews = new Map<string, ReturnType<typeof captureView>>();
   let operationQueue: Promise<unknown> = Promise.resolve();
+  let savePromise: Promise<unknown> | undefined;
   let lastGeneration = -1,
     lastEvent = -1;
   let refreshError = "";
@@ -68,7 +94,11 @@ export function createEditor(transport: typeof call = call) {
       const changedDocument = next.active_document !== oldId;
       if (changedDocument) {
         if (oldId) documentViews.set(oldId, captureView());
-        Object.assign(state, JSON.parse(JSON.stringify((next.active_document && documentViews.get(next.active_document)) || defaultView)));
+        // Newly opened artwork starts with predictable tools; tab activation and refresh do not reset them.
+        if (next.active_document && !documentViews.has(next.active_document)) {
+          Object.assign(state.tools, {left:'pencil',right:'eraser',primary:'#ffffff',secondary:'#000000',colorTarget:'primary'});
+        }
+        Object.assign(state, JSON.parse(JSON.stringify((next.active_document && documentViews.get(next.active_document)) || { ...defaultView, background: state.defaults.background, fps: state.defaults.fps })));
         lastGeneration = -1; lastEvent = -1; images.clear();
         state.previewSize = null; state.review = null; state.showReview = false;
       }
@@ -174,9 +204,27 @@ export function createEditor(transport: typeof call = call) {
     return !!state.snapshot?.managed && state.follow;
   }
   function action(command: string, args?: Record<string, unknown>) {
+    if (command === "save_document") return save(args);
     const next = operationQueue.then(() => performAction(command, args));
     operationQueue = next.catch(() => {});
     return next;
+  }
+  function save(args?: Record<string, unknown>): Promise<unknown> {
+    if (savePromise) return savePromise;
+    state.error = "";
+    state.saving = true;
+    savePromise = (async () => {
+      await operationQueue;
+      const documentId = state.snapshot?.active_document;
+      try {
+        const result = await transport('save_document', { ...args, documentId });
+        await refresh();
+        if (result !== false) state.saveNotice++;
+        return result;
+      } catch (error) { state.error = String(error); }
+      finally { state.saving = false; savePromise = undefined; }
+    })();
+    return savePromise;
   }
   async function performAction(command: string, args?: Record<string, unknown>) {
     const previousIds = state.snapshot?.documents?.map(doc => doc.id) ?? [];
@@ -242,7 +290,7 @@ export function createEditor(transport: typeof call = call) {
       state.frame,
       state.elapsed,
       delta,
-      doc.frames.map(() => 1000 / state.fps),
+      doc.frames.map(frame => state.fps>0?1000/state.fps:frame.duration_ms),
       state.direction,
     );
     state.frame = next.frame;
@@ -299,9 +347,10 @@ export function createEditor(transport: typeof call = call) {
   }
   return {
     state,
-    idle: () => operationQueue,
+    idle: () => Promise.all([operationQueue, savePromise]),
     refresh,
     action,
+    readCel: (args: Record<string, unknown>) => transport<{pixels:number[];opacity:number;cel_opacity?:number}>('read_cel', args),
     select,
     step,
     play,
@@ -313,9 +362,9 @@ export function createEditor(transport: typeof call = call) {
   };
 }
 export type Editor = ReturnType<typeof createEditor>;
-export const EditorKey: InjectionKey<Editor> = Symbol("Pixloom");
+export const EditorKey: InjectionKey<Editor> = Symbol("Pixen");
 export function useEditor() {
   const editor = inject(EditorKey);
-  if (!editor) throw new Error("Missing Pixloom editor");
+  if (!editor) throw new Error("Missing Pixen editor");
   return editor;
 }

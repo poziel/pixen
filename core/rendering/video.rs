@@ -164,10 +164,10 @@ pub fn write(
     let durations = durations(s)?;
     let frame_budget = frame_budget(s)?;
     let mut builder = tempfile::Builder::new();
-    builder.prefix("pixloom-video-");
+    builder.prefix("pixen-video-");
     let temp = match &options.temp_parent {
         Some(parent) => builder.tempdir_in(parent),
-        None => builder.tempdir(),
+        None => crate::storage::temporary_dir("pixen-video-"),
     }
     .context("create video temporary directory")?;
     let mut concat = BoundedWriter::new(

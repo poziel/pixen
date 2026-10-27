@@ -7,13 +7,13 @@ blending and disposal. Detection uses file contents. No layer reconstruction,
 AI interpretation, resizing, stretching or video import is performed.
 
 ```powershell
-pixloom-cli import sprite.png --output "D:\Art\my-sprite.pixloom.json"
-pixloom-cli import sprite.png --output "D:\Art\my-sprite.pixloom"
-pixloom-cli import sprite.jpg --output "D:\Art\trimmed.pixloom" --transparent-color "#FFFFFF" --color-tolerance 20 --transparent-mode border --trim
-pixloom-cli validate "D:\Art\my-sprite.pixloom"
-pixloom-cli build "D:\Art\my-sprite.pixloom" --output "D:\Art\editable" --formats pxo
-pixloom-cli export "D:\Art\my-sprite.pixloom.json" --output "D:\Art\preview" --formats png
-pixloom-cli pack "D:\Art\my-sprite.pixloom.json" --output "D:\Art\packed.pixloom"
+pixen-cli import sprite.png --output "D:\Art\my-sprite.pixloom.json"
+pixen-cli import sprite.png --output "D:\Art\my-sprite.pixloom"
+pixen-cli import sprite.jpg --output "D:\Art\trimmed.pixloom" --transparent-color "#FFFFFF" --color-tolerance 20 --transparent-mode border --trim
+pixen-cli validate "D:\Art\my-sprite.pixloom"
+pixen-cli build "D:\Art\my-sprite.pixloom" --output "D:\Art\editable" --formats pxo
+pixen-cli export "D:\Art\my-sprite.pixloom.json" --output "D:\Art\preview" --formats png
+pixen-cli pack "D:\Art\my-sprite.pixloom.json" --output "D:\Art\packed.pixloom"
 ```
 
 `--output` is the complete destination filename, including an arbitrary filename
@@ -22,7 +22,7 @@ readable authoring JSON, using the existing compact JSON writer) or `.pixloom`
 (the existing compressed container). Both contain the same document. Existing
 files require `--force`. Input aliases, including symbolic links and hard links,
 are rejected even with `--force`. Output is staged, validated, and atomically
-committed using the normal Pixloom output helpers.
+committed using the normal Pixen output helpers.
 
 Processing order is decode/composite, apply EXIF orientation to every displayed
 frame, remove matching colours, then trim. Palette construction and document

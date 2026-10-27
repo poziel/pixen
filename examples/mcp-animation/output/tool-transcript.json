@@ -12,7 +12,7 @@
         "#F6E6A6FF",
         "#42536CFF"
       ],
-      "output_path": "D:\\Dev\\5-tools\\pixloom\\examples\\mcp-animation\\output\\bounce.pixloom.json"
+      "output_path": "D:\\Dev\\5-tools\\pixen\\examples\\mcp-animation\\output\\bounce.pixloom.json"
     },
     "result": {
       "frame_id": "frame-1",
@@ -1276,7 +1276,7 @@
     },
     "result": {
       "revision": 13,
-      "saved_path": "\\\\?\\D:\\Dev\\5-tools\\pixloom\\examples\\mcp-animation\\output\\bounce.pixloom.json"
+      "saved_path": "\\\\?\\D:\\Dev\\5-tools\\pixen\\examples\\mcp-animation\\output\\bounce.pixloom.json"
     }
   }
 ]

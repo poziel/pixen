@@ -11,7 +11,7 @@ const fs = require('node:fs');
     await page.route('**/src/services/backend.ts', route => route.fulfill({ contentType: 'text/javascript', body: fs.readFileSync('scripts/fixtures/document-workspace.js', 'utf8') }));
     await page.route('**/@tauri-apps_api_window.js*', route => route.fulfill({ contentType: 'text/javascript', body: 'export function getCurrentWindow(){return {onDragDropEvent:async()=>()=>{},onCloseRequested:async()=>()=>{},close:async()=>{}}}' }));
     await page.route('**/@tauri-apps_api_event.js*', route => route.fulfill({ contentType: 'text/javascript', body: 'export async function listen(){return ()=>{}}' }));
-    await page.goto(process.env.PIXLOOM_TEST_URL || 'http://127.0.0.1:1459');
+    await page.goto(process.env.PIXEN_TEST_URL || 'http://127.0.0.1:1459');
     await page.waitForFunction(() => window.testCalls?.some(call => call.command === 'theme_config'));
     const tokens = await page.locator('.workbench').evaluate(element => {
       const style = getComputedStyle(element);
@@ -26,7 +26,7 @@ const fs = require('node:fs');
     const colors = await primary.evaluate(element => ({ background: getComputedStyle(element).backgroundColor, foreground: getComputedStyle(element).color }));
     assert.deepEqual(colors, { background: 'rgb(254, 114, 94)', foreground: 'rgb(36, 23, 19)' });
     fs.mkdirSync('target/ui-verification', { recursive: true });
-    await page.screenshot({ path: 'target/ui-verification/pixloom-theme-dialog.png' });
+    await page.screenshot({ path: 'target/ui-verification/pixen-theme-dialog.png' });
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.keyboard.press('Control+Shift+p');
     const input = page.getByPlaceholder(/Type a Frame command/);
@@ -34,7 +34,7 @@ const fs = require('node:fs');
     const outline = await input.evaluate(element => ({ width: getComputedStyle(element).outlineWidth, offset: getComputedStyle(element).outlineOffset, color: getComputedStyle(element).outlineColor }));
     assert.deepEqual(outline, { width: '1px', offset: '-2px', color: 'rgb(254, 114, 94)' });
     assert.equal(await page.locator('.command-result.active').evaluate(element => getComputedStyle(element).color), 'rgb(36, 23, 19)');
-    await page.screenshot({ path: 'target/ui-verification/pixloom-theme-palette.png' });
+    await page.screenshot({ path: 'target/ui-verification/pixen-theme-palette.png' });
     assert.deepEqual(errors, []);
     console.log('Verified native YAML import, warm palette, logo accent, dialog controls, and inset focus ring.');
   } finally { await browser.close(); }

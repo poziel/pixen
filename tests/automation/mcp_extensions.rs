@@ -1,4 +1,4 @@
-use pixloom::{
+use pixen::{
     preview::Crop,
     session::{CreateProject, Session},
 };
@@ -103,7 +103,7 @@ fn project_checkpoint_reopen_and_external_conflicts_preserve_files_and_session()
     assert!(s.recovery_path().unwrap().is_file());
 }
 #[test]
-fn native_raster_and_json_open_as_editable_projects_with_pixloom_default_destination() {
+fn native_raster_and_json_open_as_editable_projects_with_pixen_default_destination() {
     let d = tempfile::tempdir().unwrap();
     let mut source = create(&d.path().join("original.pixloom"));
     apply(
@@ -111,7 +111,7 @@ fn native_raster_and_json_open_as_editable_projects_with_pixloom_default_destina
         0,
         json!([{"type":"rectangle","frame_id":"frame-1","layer_id":"layer-1","x":1,"y":1,"width":2,"height":2,"palette_index":3,"filled":true}]),
     );
-    for extension in ["aseprite", "pxo", "png", "pixloom.json"] {
+    for extension in ["aseprite", "pxo", "png", "pixen.json"] {
         let path = d.path().join(format!("import-{extension}.{extension}"));
         source
             .export("project-1", &path, false, None, false)
@@ -127,7 +127,7 @@ fn native_raster_and_json_open_as_editable_projects_with_pixloom_default_destina
         s.apply(id,0,serde_json::from_value(json!([{"type":"set_pixels","frame_id":info["frames"][0]["id"],"layer_id":info["layers"][0]["id"],"pixels":[{"x":0,"y":0,"palette_index":0}]}])).unwrap()).unwrap();
         s.finish(id).unwrap();
         assert!(
-            pixloom::container::Reader::open(&dest)
+            pixen::container::Reader::open(&dest)
                 .unwrap()
                 .load()
                 .is_ok()
@@ -154,7 +154,7 @@ fn read_only_analysis_counts_disappearing_pixels_and_isolates_hidden_layers() {
             "project-1",
             "next",
             Some("frame-1"),
-            pixloom::inspection::Mode::FrameComparison,
+            pixen::inspection::Mode::FrameComparison,
             2,
             Some("detail"),
         )
@@ -168,7 +168,7 @@ fn read_only_analysis_counts_disappearing_pixels_and_isolates_hidden_layers() {
             "project-1",
             "next",
             None,
-            pixloom::inspection::Mode::FrameComparison,
+            pixen::inspection::Mode::FrameComparison,
             1,
             None,
         )
@@ -179,7 +179,7 @@ fn read_only_analysis_counts_disappearing_pixels_and_isolates_hidden_layers() {
             "project-1",
             "next",
             None,
-            pixloom::inspection::Mode::OnionSkin,
+            pixen::inspection::Mode::OnionSkin,
             0,
             None
         )
@@ -209,7 +209,7 @@ fn onion_skin_shows_neighbor_ghosts_keeps_current_pixels_and_does_not_wrap() {
             "project-1",
             "middle",
             None,
-            pixloom::inspection::Mode::OnionSkin,
+            pixen::inspection::Mode::OnionSkin,
             1,
             None,
         )
@@ -223,7 +223,7 @@ fn onion_skin_shows_neighbor_ghosts_keeps_current_pixels_and_does_not_wrap() {
             "project-1",
             "frame-1",
             None,
-            pixloom::inspection::Mode::OnionSkin,
+            pixen::inspection::Mode::OnionSkin,
             1,
             None,
         )
@@ -236,7 +236,7 @@ fn onion_skin_shows_neighbor_ghosts_keeps_current_pixels_and_does_not_wrap() {
             "project-1",
             "middle",
             Some("last"),
-            pixloom::inspection::Mode::OnionSkin,
+            pixen::inspection::Mode::OnionSkin,
             1,
             None,
         )

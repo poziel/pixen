@@ -411,8 +411,8 @@ pub fn run(
         .to_string_lossy();
     let container = name.ends_with(".pixloom");
     ensure!(
-        container || name.ends_with(".pixloom.json"),
-        "import output must end in .pixloom.json or .pixloom"
+        container || name.ends_with(".pixen.json"),
+        "import output must end in .pixen.json or .pixloom"
     );
     output::preflight(input, &[destination], force)?;
     if destination.exists() {

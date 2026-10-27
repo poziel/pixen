@@ -17,11 +17,7 @@ impl Attachment {
             "Reference file exceeds 16 MiB"
         );
         let bytes = std::fs::read(path)?;
-        let directory = Arc::new(
-            tempfile::Builder::new()
-                .prefix("pixloom-reference-")
-                .tempdir()?,
-        );
+        let directory = Arc::new(crate::storage::temporary_dir("pixen-reference-")?);
         let name = path
             .file_name()
             .context("Reference needs a filename")?

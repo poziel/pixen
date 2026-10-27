@@ -1,4 +1,4 @@
-use pixloom::{
+use pixen::{
     model::Sprite,
     raster, schema,
     video::{self, VideoFormat, VideoOptions},
@@ -149,7 +149,7 @@ fn fake_ffmpeg(directory: &Path) -> PathBuf {
     let rustc = std::env::var_os("RUSTC").unwrap_or_else(|| "rustc".into());
     let output = Command::new(rustc)
         .arg("--crate-name")
-        .arg("pixloom_video_test_helper")
+        .arg("pixen_video_test_helper")
         .arg(&source)
         .arg("-o")
         .arg(&executable)

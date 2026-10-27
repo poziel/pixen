@@ -1,12 +1,12 @@
 # Future critic workflow
 
 Status: design guidance only. No critic agent, skill, model call or automatic
-review loop is implemented by Pixloom. Those integrations will be a later task.
+review loop is implemented by Pixen. Those integrations will be a later task.
 
 ## Purpose
 
 A critic would supply an independent account of what the artwork communicates.
-Pixloom supplies inspectable images, measurements, constraints and before/after
+Pixen supplies inspectable images, measurements, constraints and before/after
 comparisons. The creating agent would combine that evidence with the user's brief.
 This can reveal a recognizable-shape failure before spending time on details.
 
@@ -59,7 +59,7 @@ any disagreement between subjective preference and objective rule results.
 The future skill/client would choose whether a critic runs, its model, access,
 time/cost budget and acceptance criteria. Recommended initial correction budget:
 at most three rounds, then report unresolved issues or request human direction.
-Pixloom itself never starts a critic because a review endpoint was called.
+Pixen itself never starts a critic because a review endpoint was called.
 
 The user remains the authority on acceptance. Save/export an immutable .pixloom
 copy for a durable baseline: MCP checkpoints are session-local and end when the

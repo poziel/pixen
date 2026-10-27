@@ -1,6 +1,6 @@
 //! Reproducible local benchmark: cargo run --release --example container_bench
 use anyhow::Result;
-use pixloom::{
+use pixen::{
     container,
     encoding::{self, Kind, Placement},
     schema,
@@ -30,7 +30,7 @@ fn worker(mode: &str, path: &Path) -> Result<()> {
     for _ in 0..5 {
         match mode {
             "full" => {
-                std::hint::black_box(pixloom::input::compile(path)?);
+                std::hint::black_box(pixen::input::compile(path)?);
             }
             "frame" => {
                 let mut r = container::Reader::open(path)?;

@@ -1,8 +1,8 @@
-# Pixloom: Frame and Tauri migration
+# Pixen: Frame and Tauri migration
 
 ## Intent and agreed scope
 
-Replace the egui desktop with a Bun-managed Vue/TypeScript application hosted by Tauri. Frame is the complete application container. Preserve existing Pixloom functionality, file compatibility, CLI and MCP workflows. The AI conversation frontend is the sole accepted feature omission; its Rust backend must remain usable and independent of any UI toolkit.
+Replace the egui desktop with a Bun-managed Vue/TypeScript application hosted by Tauri. Frame is the complete application container. Preserve existing Pixen functionality, file compatibility, CLI and MCP workflows. The AI conversation frontend is the sole accepted feature omission; its Rust backend must remain usable and independent of any UI toolkit.
 
 Before migration, the existing viewer/theme work was committed and pushed to `origin/feature/art-conversation-panel` at `aff2986ae030319ad03db8ce1b56a74e7d8ad145`. Local and remote-tracking commits matched and the working tree was clean after pushing. This is the recovery baseline, not a claim that baseline tests pass.
 
@@ -30,7 +30,7 @@ Tauri commands translate inputs into service calls and return serializable resul
 
 The transport carries revisioned state and explicit document/frame/layer IDs. Late responses must not replace a newer document or revision. Vue owns transient interactions such as pointer pan/zoom and animation scheduling; it uses Rust frame data and durations. Cached render data should avoid rerasterizing or transferring the entire sprite on every animation tick. Rust validates persistent mutations and retains existing safe-output behavior.
 
-Preserve `pixloom` as the GUI executable and `pixloom-cli`/`pixloom-mcp` as headless entry points. Preserve file arguments and the managed viewer lifecycle: open acknowledgment, activate/focus, activity, inspection, review, stdin EOF and close. Review startup timeout/error handling for webview startup rather than silently retaining OpenGL-specific assumptions. GUI availability must not become a prerequisite for headless engine operations.
+Preserve `pixen` as the GUI executable and `pixen-cli`/`pixen-mcp` as headless entry points. Preserve file arguments and the managed viewer lifecycle: open acknowledgment, activate/focus, activity, inspection, review, stdin EOF and close. Review startup timeout/error handling for webview startup rather than silently retaining OpenGL-specific assumptions. GUI availability must not become a prerequisite for headless engine operations.
 
 ## Feature parity contract
 
@@ -50,7 +50,7 @@ Existing exports and other headless capabilities remain available through their 
 
 ## Dependencies and local integration
 
-Use Vue 3, TypeScript, Vite, Bun and Tauri 2 with Frame's public packages. Prefer project-local package references to already-built Frame libraries while developing; keep Vue deduplicated. Do not modify Frame or global Bun link registration as part of Pixloom setup. If Frame packages require rebuilding, determine the narrow required build and filesystem permission before writing outside Pixloom. Optional themes may be consumed where useful; optional Features are not required to build a custom pixel canvas.
+Use Vue 3, TypeScript, Vite, Bun and Tauri 2 with Frame's public packages. Prefer project-local package references to already-built Frame libraries while developing; keep Vue deduplicated. Do not modify Frame or global Bun link registration as part of Pixen setup. If Frame packages require rebuilding, determine the narrow required build and filesystem permission before writing outside Pixen. Optional themes may be consumed where useful; optional Features are not required to build a custom pixel canvas.
 
 Keep build artifacts ignored and document the new Bun/native build commands and executable distribution requirements. Exact folder layout, IPC schemas, caching and test tooling are implementation choices. Preserve the repository's existing Rust library and headless entry points.
 

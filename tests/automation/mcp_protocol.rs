@@ -15,6 +15,39 @@ struct Client {
 }
 
 #[test]
+fn stdio_accepts_pixel_calls_above_256_kib_and_compact_rows() {
+    let root = tempfile::tempdir().unwrap();
+    let mut c = Client::new(false);
+    let listed = c.request("tools/list", json!({}));
+    for name in ["draw", "apply_edits"] {
+        let tool = listed["result"]["tools"].as_array().unwrap().iter().find(|t| t["name"] == name).unwrap();
+        assert!(tool["inputSchema"].to_string().contains("set_pixel_rows"), "{tool}");
+    }
+    for (name, variants) in [
+        ("edit_layer", vec!["paste_cells", "clear_cells", "link_cells", "unlink_cells"]),
+        ("edit_frame", vec!["rename_frame", "set_frame_duration"]),
+        ("apply_edits", vec!["paste_cells", "link_cells", "rename_frame", "set_pixel_rows"]),
+    ] {
+        let tool = listed["result"]["tools"].as_array().unwrap().iter().find(|t| t["name"] == name).unwrap();
+        let schema = tool["inputSchema"].to_string();
+        for variant in variants { assert!(schema.contains(variant), "{name} missing {variant}"); }
+    }
+    let created = c.call("create_project", json!({"width":128,"height":128,"palette":["#00000000","#FFFFFFFF"],"output_path":root.path().join("large.pixloom")}));
+    let id = text(&created)["project_id"].clone();
+    let pixels: Vec<_> = (0..16384).map(|i| json!({"x":i%128,"y":i/128,"palette_index":1})).collect();
+    let args = json!({"project_id":id,"expected_revision":0,"operations":[{"type":"set_pixels","frame_id":"frame-1","layer_id":"layer-1","pixels":pixels}]});
+    assert!(serde_json::to_vec(&args).unwrap().len() > 256 * 1024);
+    let result = c.call("apply_edits", args);
+    assert_ne!(result["isError"], true, "{result}");
+    assert_eq!(text(&result)["revision"], 1);
+    let args = json!({"project_id":id,"expected_revision":1,"frame_id":"frame-1","layer_id":"layer-1","operation":{"type":"set_pixel_rows","x":0,"y":0,"rows":vec![vec![0;128];128]}});
+    assert!(serde_json::to_vec(&args).unwrap().len() < 64 * 1024);
+    let result = c.call("draw", args);
+    assert_ne!(result["isError"], true, "{result}");
+    assert_eq!(text(&result)["revision"], 2);
+}
+
+#[test]
 #[ignore = "requires the built Tauri desktop and an interactive desktop session"]
 fn tauri_managed_preview_acknowledges_updates_focus_and_shutdown() {
     let root = tempfile::tempdir().unwrap();
@@ -51,7 +84,7 @@ fn tauri_managed_preview_acknowledges_updates_focus_and_shutdown() {
 }
 impl Client {
     fn new(viewer: bool) -> Self {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_pixloom-mcp"));
+        let mut command = Command::new(env!("CARGO_BIN_EXE_pixen-mcp"));
         if viewer {
             command.arg("--viewer");
         }
@@ -91,7 +124,7 @@ impl Client {
             id: 0,
             diagnostics,
         };
-        let init=c.request("initialize",json!({"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"pixloom-test","version":"1"}}));
+        let init=c.request("initialize",json!({"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"pixen-test","version":"1"}}));
         assert!(init.get("error").is_none(), "{init}");
         c.send(json!({"jsonrpc":"2.0","method":"notifications/initialized"}));
         c
@@ -189,7 +222,7 @@ mod graphical {
             let mut title = [0u16; 256];
             let len = unsafe { GetWindowTextW(hwnd, title.as_mut_ptr(), 256) };
             let title = String::from_utf16_lossy(&title[..len as usize]);
-            if title != "Pixloom" {
+            if title != "Pixen" {
                 return 1;
             }
             search.hwnd = hwnd;
@@ -205,7 +238,7 @@ mod graphical {
                 .recv_timeout(deadline.saturating_duration_since(std::time::Instant::now()))
                 .expect("viewer failed to open");
             if let Some(pid) = line
-                .strip_prefix("pixloom: viewer opened (pid ")
+                .strip_prefix("pixen: viewer opened (pid ")
                 .and_then(|s| s.strip_suffix(')'))
             {
                 break pid.parse().unwrap();
@@ -251,7 +284,7 @@ mod graphical {
     fn viewer_updates_resizes_closes_and_survives_save_failure() {
         let dir = tempfile::tempdir().unwrap();
         let mut c = Client::new(true);
-        let path = dir.path().join("view.pixloom.json");
+        let path = dir.path().join("view.pixen.json");
         let created = c.call(
             "create_project",
             json!({"width":8,"height":8,"palette":["#FF0000FF","#00FF00FF"],"output_path":path}),
@@ -300,7 +333,7 @@ mod graphical {
             true
         );
         assert_eq!(unsafe { IsWindow(hwnd) }, 0);
-        let second=c.call("create_project",json!({"width":8,"height":8,"palette":["#FFFFFFFF"],"output_path":dir.path().join("manual.pixloom.json")}));
+        let second=c.call("create_project",json!({"width":8,"height":8,"palette":["#FFFFFFFF"],"output_path":dir.path().join("manual.pixen.json")}));
         let hwnd = window(&c);
         unsafe {
             PostMessageW(hwnd, 0x0010, 0, 0);
@@ -315,13 +348,13 @@ mod graphical {
             c.call("finish_project", json!({"project_id":id}))["isError"],
             true
         );
-        let third=c.call("create_project",json!({"width":8,"height":8,"palette":["#FFFFFFFF"],"output_path":dir.path().join("crash.pixloom.json")}));
+        let third=c.call("create_project",json!({"width":8,"height":8,"palette":["#FFFFFFFF"],"output_path":dir.path().join("crash.pixen.json")}));
         assert_ne!(third["isError"], true);
         let hwnd = window(&c);
         c.child.kill().unwrap();
         c.child.wait().unwrap();
         wait_for(|| unsafe { IsWindow(hwnd) == 0 });
-        assert!(!dir.path().join("crash.pixloom.json").exists());
+        assert!(!dir.path().join("crash.pixen.json").exists());
         assert!(
             std::fs::read_dir(dir.path())
                 .unwrap()
@@ -336,12 +369,12 @@ mod graphical {
     #[ignore = "requires interactive Windows desktop; opens existing-file and live previews"]
     fn file_preview_reuses_does_not_mutate_and_live_updates_do_not_activate() {
         let dir = tempfile::tempdir().unwrap();
-        let source = dir.path().join("animated.pixloom.json");
-        let original = include_bytes!("../../skills/pixloom/examples/animated.pixloom.json");
+        let source = dir.path().join("animated.pixen.json");
+        let original = include_bytes!("../../skills/pixen/examples/animated.pixloom.json");
         std::fs::write(&source, original).unwrap();
         let modified = std::fs::metadata(&source).unwrap().modified().unwrap();
         let mut c = Client::new(false);
-        let created=c.call("create_project",json!({"width":8,"height":8,"palette":["#FFFFFFFF"],"output_path":dir.path().join("live.pixloom.json")}));
+        let created=c.call("create_project",json!({"width":8,"height":8,"palette":["#FFFFFFFF"],"output_path":dir.path().join("live.pixen.json")}));
         let id = text(&created)["project_id"].clone();
         assert_eq!(
             text(&c.call("open_preview", json!({"project_id":id})))["opened"],
@@ -366,7 +399,7 @@ mod graphical {
         );
         let again = c.call(
             "open_preview",
-            json!({"path":source.parent().unwrap().join(".").join("animated.pixloom.json")}),
+            json!({"path":source.parent().unwrap().join(".").join("animated.pixen.json")}),
         );
         assert_eq!(text(&again)["pid"], text(&opened)["pid"]);
         assert_eq!(text(&again)["reused"], true);
@@ -421,8 +454,8 @@ fn inspection_returns_bounded_png_and_preview_tools_validate_contracts() {
     let mut c = Client::new(false);
     for args in [
         json!({}),
-        json!({"project_id":"missing","path":"missing.pixloom.json"}),
-        json!({"path":dir.path().join("missing.pixloom.json")}),
+        json!({"project_id":"missing","path":"missing.pixen.json"}),
+        json!({"path":dir.path().join("missing.pixen.json")}),
         json!({"project_id":"missing"}),
     ] {
         let failure = c.call("open_preview", args);
@@ -436,7 +469,7 @@ fn inspection_returns_bounded_png_and_preview_tools_validate_contracts() {
         true
     );
     assert_eq!(std::fs::read(&unsupported).unwrap(), b"unchanged");
-    let created=c.call("create_project",json!({"width":4,"height":3,"palette":["#FF0000FF"],"output_path":dir.path().join("crop.pixloom.json")}));
+    let created=c.call("create_project",json!({"width":4,"height":3,"palette":["#FF0000FF"],"output_path":dir.path().join("crop.pixen.json")}));
     let id = text(&created)["project_id"].clone();
     let edit=c.call("apply_edits",json!({"project_id":id,"expected_revision":0,"operations":[{"type":"set_pixels","frame_id":"frame-1","layer_id":"layer-1","pixels":[{"x":1,"y":1,"palette_index":0}]}]}));
     assert_eq!(text(&edit)["revision"], 1);
@@ -565,7 +598,7 @@ fn stdio_create_draw_preview_edit_finish_and_reuse() {
             "validate_artwork"
         ]
     );
-    let path = dir.path().join("sprite.pixloom.json");
+    let path = dir.path().join("sprite.pixen.json");
     let created=c.call("create_project",json!({"width":8,"height":8,"palette":["#FF0000FF","#00FF00FF","#0000FFFF"],"output_path":path}));
     assert_ne!(created["isError"], true, "{created}");
     let project = text(&created);
@@ -597,9 +630,9 @@ fn stdio_create_draw_preview_edit_finish_and_reuse() {
     assert_eq!(text(&edit)["revision"], 2);
     let finished = c.call("finish_project", json!({"project_id":id}));
     assert_eq!(text(&finished)["revision"], 2);
-    pixloom::schema::parse(&std::fs::read(&path).unwrap()).unwrap();
+    pixen::schema::parse(&std::fs::read(&path).unwrap()).unwrap();
     assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
-    let second=c.call("create_project",json!({"width":1,"height":1,"palette":["#FFFFFFFF"],"output_path":dir.path().join("second.pixloom.json")}));
+    let second=c.call("create_project",json!({"width":1,"height":1,"palette":["#FFFFFFFF"],"output_path":dir.path().join("second.pixen.json")}));
     assert_ne!(second["isError"], true);
     c.child.kill().unwrap();
     c.child.wait().unwrap();
@@ -612,15 +645,15 @@ fn stdio_create_draw_preview_edit_finish_and_reuse() {
                 .starts_with(".pixloom-recovery-")
         })
         .unwrap();
-    pixloom::schema::read_document(&std::fs::read(recovery.path()).unwrap()).unwrap();
-    assert!(!dir.path().join("second.pixloom.json").exists());
+    pixen::schema::read_document(&std::fs::read(recovery.path()).unwrap()).unwrap();
+    assert!(!dir.path().join("second.pixen.json").exists());
 }
 
 #[test]
 fn focused_tools_and_mixed_apply_share_one_revision_and_history_path() {
     let dir = tempfile::tempdir().unwrap();
     let mut c = Client::new(false);
-    let created=c.call("create_project",json!({"width":5,"height":5,"palette":["#00000000","#FF0000FF"],"output_path":dir.path().join("tools.pixloom.json")}));
+    let created=c.call("create_project",json!({"width":5,"height":5,"palette":["#00000000","#FF0000FF"],"output_path":dir.path().join("tools.pixen.json")}));
     let id = text(&created)["project_id"].clone();
     let info = c.call("get_project_info", json!({"project_id":id}));
     assert_eq!(text(&info)["frames"][0]["id"], "frame-1");
@@ -682,12 +715,12 @@ fn focused_tools_and_mixed_apply_share_one_revision_and_history_path() {
 
 #[test]
 fn animation_review_save_reopen_and_looping_export_preserve_the_timeline() {
-    use pixloom::{
+    use pixen::{
         export::{self, ExportOptions, ImageFormat},
         preview, raster,
     };
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("motion.pixloom.json");
+    let path = dir.path().join("motion.pixen.json");
     let mut c = Client::new(false);
     let created = text(&c.call("create_project", json!({"width":4,"height":3,"palette":["#00000000","#FF0000FF","#00FF00FF"],"output_path":path})));
     let id = created["project_id"].clone();
@@ -822,7 +855,7 @@ fn activity_reporting_is_validated_and_does_not_edit_the_project() {
         "create_project",
         json!({
             "width":4,"height":4,"palette":["#00000000"],
-            "output_path":dir.path().join("activity.pixloom.json")
+            "output_path":dir.path().join("activity.pixen.json")
         }),
     ));
     let id = &created["project_id"];
@@ -904,7 +937,7 @@ fn project_container_palette_regions_and_animation_analysis_work_through_mcp() {
     );
     let saved = c.call("save_project", json!({"project_id":id}));
     assert_ne!(saved["isError"], true, "{saved}");
-    assert!(pixloom::container::Reader::open(&path).is_ok());
+    assert!(pixen::container::Reader::open(&path).is_ok());
     let r = c.call("finish_project", json!({"project_id":id}));
     assert_ne!(r["isError"], true, "{r}");
     let reopened = c.call("open_project", json!({"path":path}));
@@ -918,7 +951,7 @@ fn project_container_palette_regions_and_animation_analysis_work_through_mcp() {
         json!({"project_id":reopened_id,"output_path":dir.path().join("art.aseprite")}),
     );
     assert_ne!(export["isError"], true, "{export}");
-    assert!(pixloom::native::read(&dir.path().join("art.aseprite")).is_ok());
+    assert!(pixen::native::read(&dir.path().join("art.aseprite")).is_ok());
 }
 
 #[test]

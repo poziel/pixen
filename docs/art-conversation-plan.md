@@ -81,7 +81,7 @@ Execution: native in-session implementation, as directly requested by the user.
   afterward. Final library run: 64 passed, 2 ignored.
 - Clippy, formatting, whitespace checks, and all executable builds passed.
 - Executables are in `target/ui-polish/debug` because the running application locks
-  `target/debug/pixloom.exe`. Native corner appearance still needs visual review.
+  `target/debug/pixen.exe`. Native corner appearance still needs visual review.
 
 ## Panel, menu, and playback refinement verification (2026-10-20)
 
@@ -161,7 +161,7 @@ Execution: native in-session implementation, as directly requested by the user.
   and executable builds passed. Parallel full runs encountered intermittent
   Access denied in the existing recovery-history test; isolated and serial runs
   passed. Recovery implementation was unchanged in this refinement.
-- Native visual review remains manual. Build: target/debug/pixloom.exe; the older
+- Native visual review remains manual. Build: target/debug/pixen.exe; the older
   running ui-polish executable was left untouched. Local and uncommitted.
 
 ## Message tools, reasoning summaries, and native resizing (2026-10-20)
@@ -184,5 +184,5 @@ Execution: native in-session implementation, as directly requested by the user.
   MCP, then revert the Codex thread and artwork to the original single blank frame.
 - Final serial offline suite: 248 passed, 11 ignored. Clippy with warnings denied,
   formatting, whitespace checks, and executable builds passed. Native visual review
-  remains manual. Updated executable: target/debug/pixloom.exe.
+  remains manual. Updated executable: target/debug/pixen.exe.
 - Changes remain local and uncommitted on feature/art-conversation-panel.

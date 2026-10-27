@@ -1,4 +1,4 @@
-use pixloom::{
+use pixen::{
     review::rules::ValidateArtworkRequest,
     session::{CreateProject, Session},
 };

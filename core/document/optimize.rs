@@ -182,11 +182,11 @@ pub fn optimize(bytes: &[u8]) -> Result<(Vec<u8>, Report)> {
 }
 
 pub fn destination(path: &Path) -> PathBuf {
-    if path.to_string_lossy().ends_with(".pixloom.json") {
+    if path.to_string_lossy().ends_with(".pixen.json") {
         path.to_owned()
     } else {
         let mut name = path.as_os_str().to_os_string();
-        name.push(".pixloom.json");
+        name.push(".pixen.json");
         name.into()
     }
 }
@@ -259,8 +259,8 @@ mod tests {
     #[test]
     fn concurrent_edit_and_failed_temp_verification_leave_source_intact() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("art.pixloom.json");
-        let original = include_bytes!("../../skills/pixloom/examples/encodings.pixloom.json");
+        let path = dir.path().join("art.pixen.json");
+        let original = include_bytes!("../../skills/pixen/examples/encodings.pixloom.json");
         fs::write(&path, original).unwrap();
         let snapshot = fs::metadata(&path).unwrap();
         let temp = output::Prepared::new(&path, |file| {

@@ -1,47 +1,45 @@
 # Desktop themes and views
 
-Layers, Timeline and the AI placeholder are separate primary sidebar views in
-Frame. Hiding Timeline does not stop playback. The canvas is a central Vue
-workspace with its own background, pan and zoom.
+Pixen's default theme is compiled from `assets/themes/pixen.yaml` into the app.
+It is always available as **Pixen (built-in)** and cannot be replaced by an
+external file. Changing the developer source requires rebuilding the application.
 
-`assets/themes/pixloom.yaml` is the default **Pixloom** theme. It uses Frame's
-native token format directly: there is no TypeScript color mapper or separate
-Pixloom color registry. The accent is the logo's coral-orange `#FE725E`, with
-warm dark surfaces and subdued orange list selections. Fonts remain Segoe UI
-at 13px with a system sans-serif fallback.
+Custom themes belong in `themes/` beside the executable. On startup Pixen scans
+regular files with JSON, JSONC, JSON5, YAML (`.yaml`/`.yml`), TOML, or INI extensions.
+There is no manifest. Frame parses the contents and validates token names and
+values; malformed documents, unrelated files, empty themes, duplicate theme IDs,
+and reserved `pixen`/`pixloom` IDs are silently ignored. Files are limited to
+128 KiB each, with up to 128 candidates loaded in filename order.
 
-`assets/themes/manifest.json` selects the default theme ID and maps IDs to files.
-Set `PIXLOOM_THEME` to a registered ID or a theme file path before launch.
-Frame accepts JSON, JSONC, JSON5, YAML (`.yaml`/`.yml`), TOML and INI. Restart
-after changing selection. `core/desktop/theme.rs` only reads bounded file text
-and reports its format; Frame parses and validates it. Missing, unreadable,
-oversized or unsupported files use the embedded Pixloom YAML. If a selected
-file fails Frame validation, the UI keeps the bundled theme and logs a warning.
+Valid themes appear in **Settings > Appearance > Theme**. Discovery does not
+activate them automatically; selecting a theme applies it immediately and saves
+the choice on this computer. Restart to discover newly added or edited files.
+If a selected theme is removed or becomes invalid, Pixen uses its built-in theme.
+`PIXEN_THEME` (or legacy `PIXLOOM_THEME`) can select a discovered theme ID or
+filename at startup; arbitrary paths and registry aliases are no longer used.
 
-Colors and typography belong in `tokens`, using nested or dotted paths:
+The release includes `theme-examples/pixen-example.yaml`, an editable copy with
+its own ID. Copy it into `themes/`, customize it, restart, and select it. Editing
+the example cannot change the embedded Pixen default.
+
+A minimal custom YAML theme looks like this:
 
 ```yaml
+version: 1
+id: my-theme
+name: My theme
+appearance: dark
 tokens:
   frame:
     accent: "#FE725E"
-    canvas: "#151313"
-    font.size.body: "13px"
 ```
 
-Application views and dialogs inherit the same Frame tokens as shell chrome
-and overlays. Deliberate checkerboard/black/white canvas previews remain neutral
-so artwork colors can be judged independently. Sidebar width is application
-layout configuration in `src/App.vue`, rather than a theme metric.
+Token-only documents are also supported; their filename stem becomes their ID
+and display name. All application views use the same Frame tokens as the shell.
+The canvas's checkerboard/black/white previews remain neutral to judge artwork.
+Theme font-family values refer to installed fonts and do not load arbitrary files.
 
-The former `2026-dark.json` format (`colors`, `metrics`, `font_file`) is replaced
-by the Frame token document. Font-family tokens select installed fonts; they do
-not load arbitrary font files. Custom font assets need explicit host loading.
-
-Distributions can ship `themes/` beside the executable. The source checkout's
-`assets/themes/` is preferred when available; a default is embedded. The frontend
-and SVG icons are bundled into the desktop by Tauri/Vite. SVG changes require a
-frontend rebuild or development server; the old icon registry remains an asset
-reference rather than a runtime Vue feature.
-
-`assets/fonts/Hack-Regular.ttf` and its license keep contact-sheet and review
-labels deterministic without loading egui's default font definitions.
+Frame's Codicon icons and Pixen's Lucide/inline SVG icons are bundled into the
+frontend. No loose icon folder is read or shipped. Branding uses `assets/pixen.svg`
+in the frontend and `assets/pixen.ico` in Windows executable resources.
+`assets/fonts/Hack-Regular.ttf` is embedded for deterministic rendered labels.

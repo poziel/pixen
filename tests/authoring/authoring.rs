@@ -1,4 +1,4 @@
-use pixloom::{raster, schema};
+use pixen::{raster, schema};
 use serde_json::{Value, json};
 
 fn document() -> Value {
@@ -8,7 +8,7 @@ fn document() -> Value {
       "frames":[{"duration_ms":125}],
       "layers":[{"id":"base","name":"Base","opacity":1,"timeline":[{"cel":"base","opacity":1}]}]})
 }
-fn parse(v: Value) -> anyhow::Result<pixloom::model::Sprite> {
+fn parse(v: Value) -> anyhow::Result<pixen::model::Sprite> {
     schema::parse(&serde_json::to_vec(&v)?)
 }
 

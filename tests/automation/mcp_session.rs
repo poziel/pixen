@@ -1,4 +1,4 @@
-use pixloom::session::{CreateProject, Session};
+use pixen::session::{CreateProject, Session};
 use serde_json::json;
 
 #[test]
@@ -29,8 +29,8 @@ fn resizing_canvas_preserves_indices_and_is_atomic_and_undoable() {
         session.resize_canvas("project-1", 1, 3, 4).unwrap()["revision"],
         2
     );
-    let doc = pixloom::schema::read_document(&session.document_snapshot().unwrap()).unwrap();
-    let grids = pixloom::schema::decode_indices(&doc).unwrap();
+    let doc = pixen::schema::read_document(&session.document_snapshot().unwrap()).unwrap();
+    let grids = pixen::schema::decode_indices(&doc).unwrap();
     assert_eq!(grids["cel-1"][0][0], 0);
     assert_eq!(grids["cel-1"][1][1], 1);
     assert_eq!(grids["cel-1"][3][2], 2);
@@ -53,7 +53,7 @@ fn batches_are_atomic_and_revisions_and_coordinates_are_checked() {
             width: 4,
             height: 4,
             palette: vec!["#FF0000FF".into(), "#00FF00FF".into()],
-            output_path: dir.path().join("sprite.pixloom.json"),
+            output_path: dir.path().join("sprite.pixen.json"),
         })
         .unwrap();
     let id = p["project_id"].as_str().unwrap();
@@ -87,11 +87,11 @@ fn batches_are_atomic_and_revisions_and_coordinates_are_checked() {
     assert!(recovery.exists());
     s.finish(id).unwrap();
     assert!(!recovery.exists());
-    let doc = pixloom::schema::read_document(
-        &std::fs::read(dir.path().join("sprite.pixloom.json")).unwrap(),
+    let doc = pixen::schema::read_document(
+        &std::fs::read(dir.path().join("sprite.pixen.json")).unwrap(),
     )
     .unwrap();
-    let pixels = pixloom::schema::decode_indices(&doc).unwrap();
+    let pixels = pixen::schema::decode_indices(&doc).unwrap();
     assert_eq!(pixels["cel-1"][0][0], 0);
     assert_ne!(pixels["cel-1"][0][1], 0);
 }
@@ -99,7 +99,7 @@ fn batches_are_atomic_and_revisions_and_coordinates_are_checked() {
 #[test]
 fn fill_is_four_connected_and_save_failure_keeps_session() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("sprite.pixloom.json");
+    let path = dir.path().join("sprite.pixen.json");
     let mut s = Session::default();
     let args = CreateProject {
         width: 3,
@@ -115,8 +115,8 @@ fn fill_is_four_connected_and_save_failure_keeps_session() {
         {"type":"fill","frame_id":"frame-1","layer_id":"layer-1","x":0,"y":0,"palette_index":1}
     ])).unwrap()).unwrap();
     let recovery = s.recovery_path().unwrap();
-    let doc = pixloom::schema::read_document(&std::fs::read(recovery).unwrap()).unwrap();
-    let pixels = pixloom::schema::decode_indices(&doc).unwrap();
+    let doc = pixen::schema::read_document(&std::fs::read(recovery).unwrap()).unwrap();
+    let pixels = pixen::schema::decode_indices(&doc).unwrap();
     assert_eq!(pixels["cel-1"][0][0], 1);
     assert_ne!(pixels["cel-1"][1][1], 1);
     std::fs::write(&path, b"keep me").unwrap();
@@ -135,7 +135,7 @@ fn invalid_operations_leave_pixels_revision_and_recovery_unchanged() {
             width: 3,
             height: 3,
             palette: vec!["#FFFFFFFF".into()],
-            output_path: dir.path().join("a.pixloom.json"),
+            output_path: dir.path().join("a.pixen.json"),
         })
         .unwrap();
     let id = created["project_id"].as_str().unwrap();
@@ -176,7 +176,7 @@ fn drawing_edges_clear_and_noop_fill() {
             width: 3,
             height: 3,
             palette: vec!["#FFFFFFFF".into(), "#000000FF".into()],
-            output_path: dir.path().join("b.pixloom.json"),
+            output_path: dir.path().join("b.pixen.json"),
         })
         .unwrap();
     let id = p["project_id"].as_str().unwrap();
@@ -187,9 +187,9 @@ fn drawing_edges_clear_and_noop_fill() {
     ]);
     s.apply(id, 0, serde_json::from_value(ops).unwrap())
         .unwrap();
-    let doc = pixloom::schema::read_document(&std::fs::read(s.recovery_path().unwrap()).unwrap())
-        .unwrap();
-    let indices = pixloom::schema::decode_indices(&doc).unwrap();
+    let doc =
+        pixen::schema::read_document(&std::fs::read(s.recovery_path().unwrap()).unwrap()).unwrap();
+    let indices = pixen::schema::decode_indices(&doc).unwrap();
     assert_eq!(
         indices["cel-1"],
         vec![vec![1, 1, 0], vec![1, 0, 1], vec![0, 1, 1]]

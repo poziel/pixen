@@ -1,4 +1,4 @@
-use pixloom::{aseprite, pxo, raster, schema};
+use pixen::{aseprite, pxo, raster, schema};
 use serde_json::json;
 use std::{
     io::Write,
@@ -10,7 +10,7 @@ fn fixture(name: &str) -> PathBuf {
         .join("tests/fixtures/aseprite")
         .join(name)
 }
-fn model() -> pixloom::model::Sprite {
+fn model() -> pixen::model::Sprite {
     schema::parse(&serde_json::to_vec(&json!({"version":1,"canvas":{"width":2,"height":1},"palette":["#FA123480","#12345600"],"fps":8,
         "cels":[{"id":"paint","pixels":[[0,1]]}],
         "annotations":{"metadata":{"source":{"tool":"test"}},"user_data":"project note"},
@@ -23,7 +23,7 @@ fn model() -> pixloom::model::Sprite {
         "tags":[{"name":"cycle","from":1,"to":6,"color":"#11223344","user_data":"tag note"}]
     })).unwrap()).unwrap()
 }
-fn written(s: &pixloom::model::Sprite) -> tempfile::NamedTempFile {
+fn written(s: &pixen::model::Sprite) -> tempfile::NamedTempFile {
     let mut f = tempfile::NamedTempFile::new().unwrap();
     aseprite::write(&mut f, s).unwrap();
     f

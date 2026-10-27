@@ -51,6 +51,15 @@ pub(super) fn timings(s: &Sprite, format: ImageFormat) -> Result<Timing> {
 }
 
 fn gif_frame(width: u32, height: u32, mut pixels: Vec<u8>) -> gif::Frame<'static> {
+    // GIF has binary alpha. Quantize before palette generation so low-alpha RGB
+    // cannot contaminate opaque colours or claim the transparent palette index.
+    for pixel in pixels.as_chunks_mut::<4>().0 {
+        if pixel[3] < 128 {
+            *pixel = [0, 0, 0, 0];
+        } else {
+            pixel[3] = 255;
+        }
+    }
     let mut frame = gif::Frame::from_rgba_speed(width as u16, height as u16, &mut pixels, 10);
     // NeuQuant can map opaque pixels to its transparent palette entry. Reserve that
     // entry strictly for alpha=0 and remap collisions to the nearest opaque colour.

@@ -24,6 +24,8 @@ pub mod pxo;
 pub mod raster;
 #[path = "document/schema.rs"]
 pub mod schema;
+#[path = "io/storage.rs"]
+pub mod storage;
 #[path = "rendering/video.rs"]
 pub mod video;
 
@@ -60,3 +62,9 @@ pub mod viewer_protocol;
 
 #[path = "desktop/theme.rs"]
 pub mod theme;
+
+#[path = "automation/recovery.rs"]
+pub mod recovery;
+
+#[path = "rendering/desktop_export.rs"]
+pub mod desktop_export;

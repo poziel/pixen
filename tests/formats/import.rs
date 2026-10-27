@@ -1,8 +1,8 @@
 use image::{Rgba, RgbaImage};
-use pixloom::import::{self, Decoded, Options, TransparentMode};
+use pixen::import::{self, Decoded, Options, TransparentMode};
 use std::{path::Path, process::Command};
 fn cli(args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_pixloom-cli"))
+    Command::new(env!("CARGO_BIN_EXE_pixen-cli"))
         .args(args)
         .output()
         .unwrap()
@@ -19,8 +19,8 @@ fn decoded(images: Vec<RgbaImage>) -> Decoded {
         warnings: vec![],
     }
 }
-fn raw(doc: pixloom::schema::Document) -> Vec<Vec<u8>> {
-    let sprite = pixloom::schema::compile(doc).unwrap();
+fn raw(doc: pixen::schema::Document) -> Vec<Vec<u8>> {
+    let sprite = pixen::schema::compile(doc).unwrap();
     sprite.layers[0]
         .timeline
         .iter()
@@ -39,11 +39,11 @@ fn static_formats_exact_pixels_determinism_and_workflows() {
     let input = dir.path().join("source image.png");
     image.save(&input).unwrap();
     let mut docs = vec![];
-    for (i, ext) in ["pixloom.json", "pixloom"].into_iter().enumerate() {
+    for (i, ext) in ["pixen.json", "pixloom"].into_iter().enumerate() {
         let output = dir.path().join(format!("arbitrary name.{ext}"));
         let r = cli(&["import", s(&input), "--output", s(&output)]);
         assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
-        let doc = pixloom::input::read(&output).unwrap();
+        let doc = pixen::input::read(&output).unwrap();
         assert_eq!(raw(doc.clone()), vec![image.as_raw().clone()]);
         assert_eq!(doc.layers[0].name, "Artwork");
         assert_eq!(doc.palette.len(), 3);
@@ -79,7 +79,7 @@ fn static_formats_exact_pixels_determinism_and_workflows() {
         assert_eq!(bytes, std::fs::read(&output).unwrap());
     }
     assert_eq!(docs[0], docs[1]);
-    let json = dir.path().join("arbitrary name.pixloom.json");
+    let json = dir.path().join("arbitrary name.pixen.json");
     let packed = dir.path().join("packed.pixloom");
     assert!(
         cli(&["pack", s(&json), "--output", s(&packed)])
@@ -88,7 +88,7 @@ fn static_formats_exact_pixels_determinism_and_workflows() {
     );
     assert_eq!(
         docs[0],
-        serde_json::to_value(pixloom::input::read(&packed).unwrap()).unwrap()
+        serde_json::to_value(pixen::input::read(&packed).unwrap()).unwrap()
     );
 }
 #[test]
@@ -184,7 +184,7 @@ fn failures_preserve_input_destination_and_leave_no_temporary_files() {
     assert_eq!(bytes, std::fs::read(&input).unwrap());
     let bad = dir.path().join("bad.png");
     std::fs::write(&bad, b"\x89PNG\r\n\x1a\ntruncated").unwrap();
-    let dest = dir.path().join("result.pixloom.json");
+    let dest = dir.path().join("result.pixen.json");
     std::fs::write(&dest, b"retain me").unwrap();
     assert!(import::run(&bad, &dest, &Options::default(), true).is_err());
     assert_eq!(std::fs::read(&dest).unwrap(), b"retain me");
@@ -514,9 +514,9 @@ fn zero_duration_is_explicitly_rejected_and_atomic_staging_cleans_up() {
     );
     let destination = dir.path().join("preserved.pixloom");
     std::fs::write(&destination, b"preserve").unwrap();
-    let staged = pixloom::output::Prepared::new(&destination, |file| {
+    let staged = pixen::output::Prepared::new(&destination, |file| {
         use std::io::Write;
-        let mut writer = pixloom::output::LimitedFile::new(file, 4);
+        let mut writer = pixen::output::LimitedFile::new(file, 4);
         writer.write_all(b"partial write beyond limit")?;
         Ok(())
     });
@@ -554,7 +554,7 @@ fn apng_separate_thumbnail_is_excluded_and_animation_outputs_agree() {
     assert_eq!(d.images[1].get_pixel(0, 0).0, [0, 0, 0, 0]);
     let expected: Vec<_> = d.images.iter().map(|i| i.as_raw().clone()).collect();
     let mut documents = vec![];
-    for (n, ext) in ["pixloom.json", "pixloom"].iter().enumerate() {
+    for (n, ext) in ["pixen.json", "pixloom"].iter().enumerate() {
         let output = dir.path().join(format!("animation.{ext}"));
         import::run(
             &path,
@@ -566,7 +566,7 @@ fn apng_separate_thumbnail_is_excluded_and_animation_outputs_agree() {
             false,
         )
         .unwrap();
-        let doc = pixloom::input::read(&output).unwrap();
+        let doc = pixen::input::read(&output).unwrap();
         assert_eq!(raw(doc.clone()), expected);
         documents.push(serde_json::to_value(doc).unwrap());
         assert!(cli(&["validate", s(&output)]).status.success());
@@ -580,7 +580,7 @@ fn apng_separate_thumbnail_is_excluded_and_animation_outputs_agree() {
         }
     }
     assert_eq!(documents[0], documents[1]);
-    let json = dir.path().join("animation.pixloom.json");
+    let json = dir.path().join("animation.pixen.json");
     let packed = dir.path().join("packed.pixloom");
     assert!(
         cli(&["pack", s(&json), "--output", s(&packed)])

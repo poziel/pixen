@@ -31,9 +31,218 @@ pub struct Desktop {
     events: Arc<Mutex<std::sync::mpsc::Receiver<DesktopEvent>>>,
     turns: Arc<Mutex<Vec<TurnCheckpoint>>>,
     next_turn: Arc<Mutex<u64>>,
+    recovery: Arc<Mutex<Option<crate::recovery::RecoveryWorker>>>,
 }
 
 impl Desktop {
+    pub fn restore_checkpoint(&self, bytes: &[u8]) -> Result<()> {
+        self.server.state.lock().unwrap().session.restore_document(bytes)
+    }
+    pub fn save_baseline(&self) -> Result<Option<Vec<u8>>> {
+        self.server.state.lock().unwrap().session.save_baseline()
+    }
+    pub fn restore_save_baseline(&self, destination: Option<&Path>, expected: Option<Vec<u8>>) -> Result<()> {
+        self.server.state.lock().unwrap().session.restore_save_baseline(destination, expected)
+    }
+    pub fn export_document(&self) -> Result<crate::schema::Document> {
+        Ok(self
+            .server
+            .state
+            .lock()
+            .unwrap()
+            .session
+            .current_document()?
+            .clone())
+    }
+    pub fn enable_background_recovery(&self) {
+        let mut session_state = self.server.state.lock().unwrap();
+        let mut recovery = self.recovery.lock().unwrap();
+        if recovery.is_some() {
+            return;
+        }
+        session_state.session.defer_recovery();
+        let worker = crate::recovery::RecoveryWorker::default();
+        *recovery = Some(worker.clone());
+        drop(recovery);
+        drop(session_state);
+        let session = Arc::downgrade(&self.server.state);
+        // Recovery remains active even when the frontend is minimized or its timers are throttled.
+        std::thread::spawn(move || {
+            loop {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                if worker.cancelled() {
+                    break;
+                }
+                let Some(session) = session.upgrade() else {
+                    break;
+                };
+                let snapshot = session
+                    .try_lock()
+                    .ok()
+                    .and_then(|state| state.session.revision_snapshot().ok());
+                if let Some(snapshot) = snapshot {
+                    worker.schedule(snapshot, false);
+                }
+            }
+        });
+    }
+    pub fn configure_recovery(&self, seconds: u64) -> Result<()> {
+        if let Some(worker) = self.recovery.lock().unwrap().as_ref() {
+            worker.configure(seconds)?;
+        }
+        Ok(())
+    }
+    pub fn recovery_status(&self) -> Option<crate::recovery::RecoveryStatus> {
+        self.recovery.lock().unwrap().as_ref().map(|w| w.status())
+    }
+    pub fn cancel_recovery(&self) {
+        if let Some(worker) = self.recovery.lock().unwrap().as_ref() {
+            worker.cancel();
+        }
+    }
+    pub fn recover_now(&self) -> Result<bool> {
+        let snapshot = self
+            .server
+            .state
+            .lock()
+            .unwrap()
+            .session
+            .revision_snapshot()?;
+        Ok(self
+            .recovery
+            .lock()
+            .unwrap()
+            .as_ref()
+            .is_some_and(|worker| worker.schedule(snapshot, true)))
+    }
+    pub fn prepare_save(&self, path: Option<&Path>) -> Result<crate::session::SaveSnapshot> {
+        self.server.state.lock().unwrap().session.prepare_save(path)
+    }
+    pub fn finish_save(&self, saved: &crate::session::SavedSnapshot) -> Result<()> {
+        self.server.state.lock().unwrap().session.finish_save(saved)
+    }
+    pub fn read_cel(&self, frame: &str, layer: &str) -> Result<crate::desktop::CelPixels> {
+        let state = self.server.state.lock().unwrap();
+        let doc = state.session.current_document()?;
+        let f = crate::edit::frame_index(&doc, frame)?;
+        let l = doc
+            .layers
+            .iter()
+            .position(|l| l.id == layer)
+            .context("unknown layer")?;
+        let grid = crate::edit::grid(&doc, l, f)?;
+        let palette = doc
+            .palette
+            .iter()
+            .map(|c| crate::schema::decode_color(c))
+            .collect::<Result<Vec<_>>>()?;
+        Ok(crate::desktop::CelPixels {
+            cel_opacity: doc.layers[l].timeline[f].opacity,
+            pixels: grid
+                .into_iter()
+                .flatten()
+                .flat_map(|i| palette[i as usize])
+                .collect(),
+            opacity: doc.layers[l].opacity * doc.layers[l].timeline[f].opacity,
+        })
+    }
+    pub fn paint(
+        &self,
+        revision: u64,
+        frame: &str,
+        layer: &str,
+        pixels: Vec<crate::desktop::PaintPixel>,
+    ) -> Result<()> {
+        use crate::edit::{DrawOperation, Drawing, Operation, Pixel};
+        let mut state = self.server.state.lock().unwrap();
+        let id = state.session.active_id().context("no artwork")?.to_owned();
+        let doc = state.session.current_document()?;
+        anyhow::ensure!(
+            !pixels.is_empty()
+                && pixels.len() <= (doc.canvas.width as usize * doc.canvas.height as usize),
+            "invalid stroke size"
+        );
+        let mut palette = doc
+            .palette
+            .iter()
+            .map(|c| crate::schema::decode_color(c))
+            .collect::<Result<Vec<_>>>()?;
+        let mut indices = palette
+            .iter()
+            .enumerate()
+            .map(|(i, c)| (*c, i as u32))
+            .collect::<std::collections::HashMap<_, _>>();
+        let mut colors = Vec::new();
+        let mut drawing = Vec::with_capacity(pixels.len());
+        for p in pixels {
+            anyhow::ensure!(
+                p.x < doc.canvas.width && p.y < doc.canvas.height,
+                "pixel outside canvas"
+            );
+            let color = crate::schema::decode_color(&p.color)?;
+            let index = *indices.entry(color).or_insert_with(|| {
+                let i = palette.len() as u32;
+                palette.push(color);
+                colors.push(p.color);
+                i
+            });
+            drawing.push(Pixel {
+                x: p.x.into(),
+                y: p.y.into(),
+                palette_index: index,
+            });
+        }
+        let mut ops = Vec::new();
+        if !colors.is_empty() {
+            ops.push(Operation::Palette(
+                crate::edit_extra::PaletteOperation::AppendColors { colors },
+            ));
+        }
+        ops.push(Operation::Draw(DrawOperation {
+            frame_id: frame.into(),
+            layer_id: layer.into(),
+            drawing: Drawing::SetPixels { pixels: drawing },
+        }));
+        state.session.apply(&id, revision, ops)?;
+        Ok(())
+    }
+    pub fn edit_structure(
+        &self,
+        revision: u64,
+        operation: crate::desktop::StructureOperation,
+    ) -> Result<()> {
+        let mut state = self.server.state.lock().unwrap();
+        let id = state.session.active_id().context("no artwork")?.to_owned();
+        use crate::desktop::StructureOperation as S;
+        let operations = match operation {
+            S::Batch(ops) => ops,
+            op => vec![op],
+        };
+        anyhow::ensure!(
+            !operations.is_empty() && operations.len() <= 4096,
+            "invalid structure batch size"
+        );
+        let operations = operations
+            .into_iter()
+            .map(|op| match op {
+                S::Layer(op) => Ok(crate::edit::Operation::Layer(op)),
+                S::Frame(op) => Ok(crate::edit::Operation::Frame(op)),
+                S::Batch(_) => anyhow::bail!("nested structure batches are not supported"),
+            })
+            .collect::<Result<Vec<_>>>()?;
+        state.session.apply(&id, revision, operations)?;
+        Ok(())
+    }
+    pub fn history(&self, revision: u64, redo: bool) -> Result<()> {
+        let mut state = self.server.state.lock().unwrap();
+        let id = state.session.active_id().context("no artwork")?.to_owned();
+        if redo {
+            state.session.redo(&id, revision)?;
+        } else {
+            state.session.undo(&id, revision)?;
+        }
+        Ok(())
+    }
     pub fn drain_events(&self) -> Vec<DesktopEvent> {
         self.events.lock().unwrap().try_iter().collect()
     }
@@ -46,6 +255,9 @@ impl Desktop {
     }
 
     fn save_temporary(&self, state: &mut State) -> Result<()> {
+        if self.recovery.lock().unwrap().is_some() {
+            return Ok(());
+        }
         let id = state
             .session
             .active_id()
@@ -81,7 +293,7 @@ impl Desktop {
             let original = keep_original
                 && source.file_name().is_some_and(|name| {
                     let name = name.to_string_lossy().to_ascii_lowercase();
-                    name.ends_with(".pixloom") || name.ends_with(".pixloom.json")
+                    name.ends_with(".pixloom") || name.ends_with(".pixen.json")
                 });
             let temporary = root.join("artwork.pixloom");
             session.open(source, Some(if original { source } else { &temporary }))?;
@@ -108,6 +320,7 @@ impl Desktop {
             baseline: Default::default(),
             turns: Default::default(),
             next_turn: Default::default(),
+            recovery: Default::default(),
         })
     }
 
@@ -148,7 +361,7 @@ impl Desktop {
         match state.session.active_id() {
             Some(id) => state.session.info(id),
             None => Ok(
-                serde_json::json!({"project_id":null,"message":"No artwork yet. Use create_project; its destination is managed by Pixloom."}),
+                serde_json::json!({"project_id":null,"message":"No artwork yet. Use create_project; its destination is managed by Pixen."}),
             ),
         }
     }
@@ -227,57 +440,67 @@ impl Desktop {
         state.session.save_as(&id, path)
     }
 
-    /// The GUI never waits for a tool call that is writing recovery or rendering.
+    /// Render from immutable in-memory state; recovery I/O is independent.
     pub fn snapshot(&self, previous: Option<u64>) -> Option<(u64, crate::model::Sprite, PathBuf)> {
-        let state = self.server.state.try_lock().ok()?;
-        let id = state.session.active_id()?;
-        let revision = state.session.info(id).ok()?["revision"].as_u64()?;
-        if previous == Some(revision) {
+        let snapshot = self
+            .server
+            .state
+            .try_lock()
+            .ok()?
+            .session
+            .revision_snapshot()
+            .ok()?;
+        if let Some(worker) = self.recovery.lock().unwrap().as_ref() {
+            worker.schedule(snapshot.clone(), false);
+        }
+        if previous == Some(snapshot.revision) {
             return None;
         }
-        let path = state.session.recovery_path()?.to_owned();
-        let sprite = crate::preview::load(&path).ok()?;
-        Some((revision, sprite, path))
+        let sprite = crate::schema::compile((*snapshot.document).clone()).ok()?;
+        Some((snapshot.revision, sprite, snapshot.recovery))
     }
 }
 
+/// Tools exposed by the document-bound app bridge; also used for provider allowlists.
+pub fn artwork_tool_names() -> &'static [&'static str] {
+    &[
+        "create_project",
+        "get_project_info",
+        "get_pixels",
+        "get_preview",
+        "apply_edits",
+        "resize_canvas",
+        "draw",
+        "edit_layer",
+        "edit_frame",
+        "edit_palette",
+        "copy_region",
+        "transform_region",
+        "undo",
+        "redo",
+        "inspect_project",
+        "get_contact_sheet",
+        "get_onion_skin",
+        "compare_frames",
+        "inspect_layer",
+        "report_activity",
+        "get_review_sheet",
+        "manage_checkpoint",
+        "compare_checkpoint",
+        "analyze_sprite",
+        "validate_artwork",
+        "audit_animation",
+    ]
+}
 fn allowed(name: &str) -> bool {
-    matches!(
-        name,
-        "create_project"
-            | "get_project_info"
-            | "get_pixels"
-            | "get_preview"
-            | "apply_edits"
-            | "resize_canvas"
-            | "draw"
-            | "edit_layer"
-            | "edit_frame"
-            | "edit_palette"
-            | "copy_region"
-            | "transform_region"
-            | "undo"
-            | "redo"
-            | "inspect_project"
-            | "get_contact_sheet"
-            | "get_onion_skin"
-            | "compare_frames"
-            | "inspect_layer"
-            | "report_activity"
-            | "get_review_sheet"
-            | "manage_checkpoint"
-            | "compare_checkpoint"
-            | "analyze_sprite"
-            | "validate_artwork"
-            | "audit_animation"
-    )
+    artwork_tool_names().contains(&name)
 }
 
 impl ServerHandler for Desktop {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-            .with_server_info(Implementation::new("pixloom-desktop", env!("CARGO_PKG_VERSION")))
-            .with_instructions("Edit the active Pixloom canvas using explicit stable frame/layer IDs and revision-checked transactions. The desktop owns saving, project lifetime and the visible canvas. Do not finish, export, open another project or viewer. create_project creates a recoverable temporary project at the app-managed destination. Use get_project_info for current revision, inspect_project for actual PNG evidence, get_contact_sheet to inspect distinct animation poses, and report_activity for concise progress. Compose deliberate pixel clusters, editable layers and a controlled #RRGGBBAA palette; inspect and refine the result. Undo/redo and checkpoints are session-local. Review tools measure evidence, not artistic quality.")
+            .with_server_info(Implementation::new("pixen-desktop", env!("CARGO_PKG_VERSION")))
+            .with_instructions(authoring_instructions("Edit the active Pixen canvas using explicit stable frame/layer IDs and revision-checked transactions. The desktop owns saving, project lifetime and the visible canvas. Do not finish, export, open another project or viewer. create_project creates a recoverable temporary project at the app-managed destination. Use get_project_info for current revision, inspect_project for actual PNG evidence, get_contact_sheet to inspect distinct animation poses, and report_activity for concise progress. Compose deliberate pixel clusters, editable layers and a controlled #RRGGBBAA palette; inspect and refine the result. Undo/redo and checkpoints are session-local. Review tools measure evidence, not artistic quality."))
     }
 
     async fn list_tools(
@@ -297,7 +520,7 @@ impl ServerHandler for Desktop {
     ) -> Result<CallToolResponse, ErrorData> {
         if !allowed(&request.name) {
             return Ok(CallToolResult::error(vec![Content::text(
-                "This action is managed by the Pixloom application.",
+                "This action is managed by the Pixen application.",
             )])
             .into());
         }

@@ -1,8 +1,8 @@
-use pixloom::{container, schema};
+use pixen::{container, schema};
 #[test]
 fn roundtrip_and_determinism() {
     let doc = schema::read_document(include_bytes!(
-        "../../skills/pixloom/examples/encodings.pixloom.json"
+        "../../skills/pixen/examples/encodings.pixloom.json"
     ))
     .unwrap();
     let dir = tempfile::tempdir().unwrap();
@@ -49,7 +49,7 @@ fn archive(path: &std::path::Path, entries: &[(String, Vec<u8>)]) {
 }
 fn fixture() -> schema::Document {
     schema::read_document(include_bytes!(
-        "../../skills/pixloom/examples/encodings.pixloom.json"
+        "../../skills/pixen/examples/encodings.pixloom.json"
     ))
     .unwrap()
 }
@@ -145,7 +145,8 @@ fn pack_overwrite_and_input_safety_and_optimized_indices() {
 #[test]
 fn legacy_roundtrip_preserves_unused_cels_annotations_and_links() {
     let mut d: serde_json::Value =
-        serde_json::from_slice(include_bytes!("../../skills/pixloom/examples/animated.json")).unwrap();
+        serde_json::from_slice(include_bytes!("../../skills/pixen/examples/animated.json"))
+            .unwrap();
     let mut unused = d["cels"][0].clone();
     unused["id"] = "unused".into();
     d["cels"].as_array_mut().unwrap().push(unused);
@@ -176,15 +177,15 @@ fn single_cel_decode_checks_indices_without_other_payloads() {
 fn cli_json_and_container_export_and_native_build_are_equivalent() {
     use std::process::Command;
     let dir = tempfile::tempdir().unwrap();
-    let input = dir.path().join("a.pixloom.json");
+    let input = dir.path().join("a.pixen.json");
     let packed = dir.path().join("a.pixloom");
     std::fs::write(
         &input,
-        include_bytes!("../../skills/pixloom/examples/animated.pixloom.json"),
+        include_bytes!("../../skills/pixen/examples/animated.pixloom.json"),
     )
     .unwrap();
     let run = |args: Vec<String>| {
-        let o = Command::new(env!("CARGO_BIN_EXE_pixloom-cli"))
+        let o = Command::new(env!("CARGO_BIN_EXE_pixen-cli"))
             .args(args)
             .output()
             .unwrap();
@@ -199,7 +200,7 @@ fn cli_json_and_container_export_and_native_build_are_equivalent() {
     ]);
     run(vec!["validate".into(), s(&packed)]);
     run(vec!["inspect".into(), s(&packed)]);
-    let unpack = dir.path().join("back.pixloom.json");
+    let unpack = dir.path().join("back.pixen.json");
     run(vec![
         "unpack".into(),
         s(&packed),
@@ -207,8 +208,8 @@ fn cli_json_and_container_export_and_native_build_are_equivalent() {
         s(&unpack),
     ]);
     assert_eq!(
-        serde_json::to_value(pixloom::input::read(&input).unwrap()).unwrap(),
-        serde_json::to_value(pixloom::input::read(&unpack).unwrap()).unwrap()
+        serde_json::to_value(pixen::input::read(&input).unwrap()).unwrap(),
+        serde_json::to_value(pixen::input::read(&unpack).unwrap()).unwrap()
     );
     for (i, source) in [&input, &packed].iter().enumerate() {
         let base = dir.path().join(format!("export{i}"));
@@ -236,8 +237,8 @@ fn cli_json_and_container_export_and_native_build_are_equivalent() {
         );
     }
     for ext in ["pxo", "aseprite"] {
-        let a = pixloom::native::read(&dir.path().join(format!("export0.{ext}"))).unwrap();
-        let b = pixloom::native::read(&dir.path().join(format!("export1.{ext}"))).unwrap();
+        let a = pixen::native::read(&dir.path().join(format!("export0.{ext}"))).unwrap();
+        let b = pixen::native::read(&dir.path().join(format!("export1.{ext}"))).unwrap();
         assert_eq!(
             serde_json::to_value(schema::to_document(&a).unwrap()).unwrap(),
             serde_json::to_value(schema::to_document(&b).unwrap()).unwrap()
@@ -283,13 +284,13 @@ fn zip_security_and_declared_size_limits() {
         assert!(container::Reader::open(&p).is_err(), "case {case}");
         if case == 1 {
             assert!(
-                pixloom::archive::Archive::open(&p).is_err(),
+                pixen::archive::Archive::open(&p).is_err(),
                 "generic native archive reader must still reject unsupported compression"
             );
         }
     }
     let file = std::fs::File::create(&p).unwrap();
-    file.set_len(pixloom::archive::MAX_ARCHIVE + 1).unwrap();
+    file.set_len(pixen::archive::MAX_ARCHIVE + 1).unwrap();
     drop(file);
     assert!(container::Reader::open(&p).is_err());
 }
@@ -323,14 +324,14 @@ fn corrupt_unused_payload_preserves_unpack_destination_and_source() {
     use std::process::Command;
     let dir = tempfile::tempdir().unwrap();
     let p = dir.path().join("a.pixloom");
-    let destination = dir.path().join("a.pixloom.json");
+    let destination = dir.path().join("a.pixen.json");
     container::write(std::fs::File::create(&p).unwrap(), &fixture()).unwrap();
     let mut all = entries(&p);
     all.last_mut().unwrap().1 = b"{}".to_vec();
     archive(&p, &all);
     let before = std::fs::read(&p).unwrap();
     std::fs::write(&destination, b"manual content").unwrap();
-    let out = Command::new(env!("CARGO_BIN_EXE_pixloom-cli"))
+    let out = Command::new(env!("CARGO_BIN_EXE_pixen-cli"))
         .arg("unpack")
         .arg(&p)
         .arg("--output")
@@ -341,7 +342,7 @@ fn corrupt_unused_payload_preserves_unpack_destination_and_source() {
     assert!(!out.status.success());
     assert_eq!(std::fs::read(&destination).unwrap(), b"manual content");
     assert_eq!(std::fs::read(&p).unwrap(), before);
-    let out = Command::new(env!("CARGO_BIN_EXE_pixloom-cli"))
+    let out = Command::new(env!("CARGO_BIN_EXE_pixen-cli"))
         .arg("optimize")
         .arg(&p)
         .arg("--in-place")
@@ -420,9 +421,9 @@ fn legacy_spritex_extension_and_manifest_remain_readable() {
     value["format"] = serde_json::json!("spritex");
     manifest.1 = serde_json::to_vec(&value).unwrap();
     archive(&path, &all);
-    assert!(pixloom::input::is_container(&path));
+    assert!(pixen::input::is_container(&path));
     assert_eq!(
-        serde_json::to_value(pixloom::input::read(&path).unwrap()).unwrap(),
+        serde_json::to_value(pixen::input::read(&path).unwrap()).unwrap(),
         serde_json::to_value(doc).unwrap()
     );
 }

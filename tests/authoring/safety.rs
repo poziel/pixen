@@ -1,4 +1,4 @@
-use pixloom::{archive::Archive, pxo, schema};
+use pixen::{archive::Archive, pxo, schema};
 use std::{
     io::{Read, Write},
     path::Path,
@@ -76,7 +76,7 @@ fn actual_cel_data_is_required_and_indices_are_optional_for_rgba() {
 fn missing_cel_never_means_hold_and_invalid_numbers_fail() {
     let base = std::fs::read(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/skills/pixloom/examples/static.json"
+        "/skills/pixen/examples/static.json"
     ))
     .unwrap();
     let mut value: serde_json::Value = serde_json::from_slice(&base).unwrap();
@@ -93,7 +93,7 @@ fn native_palettes_and_annotations_survive_conversion() {
     let mut value: serde_json::Value = serde_json::from_slice(
         &std::fs::read(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/skills/pixloom/examples/static.json"
+            "/skills/pixen/examples/static.json"
         ))
         .unwrap(),
     )
@@ -126,7 +126,7 @@ fn native_independent_edits_split_grids_and_stale_metadata_never_creates_links()
     let source = schema::parse(
         &std::fs::read(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/skills/pixloom/examples/animated.json"
+            "/skills/pixen/examples/animated.json"
         ))
         .unwrap(),
     )

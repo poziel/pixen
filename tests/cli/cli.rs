@@ -3,7 +3,7 @@ use std::{
     process::{Command, Output},
 };
 fn run(args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_pixloom-cli"))
+    Command::new(env!("CARGO_BIN_EXE_pixen-cli"))
         .args(args)
         .output()
         .unwrap()
@@ -11,7 +11,7 @@ fn run(args: &[&str]) -> Output {
 fn input() -> &'static str {
     concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/skills/pixloom/examples/animated.json"
+        "/skills/pixen/examples/animated.json"
     )
 }
 fn s(p: &Path) -> &str {
@@ -135,7 +135,7 @@ fn overwrite_preflight_preserves_both_outputs_and_input() {
             .success()
     );
     assert_eq!(std::fs::read(&pxo).unwrap(), original);
-    assert!(pixloom::output::preflight(Path::new(input()), &[&pxo, &pxo], true).is_err());
+    assert!(pixen::output::preflight(Path::new(input()), &[&pxo, &pxo], true).is_err());
     assert_eq!(std::fs::read(&pxo).unwrap(), original);
 }
 #[test]
@@ -172,7 +172,7 @@ fn output_aliases_with_different_case_are_rejected_before_creation() {
     let dir = tempfile::tempdir().unwrap();
     let a = dir.path().join("alias.pxo");
     let b = dir.path().join("ALIAS.PXO");
-    assert!(pixloom::output::preflight(Path::new(input()), &[&a, &b], true).is_err());
+    assert!(pixen::output::preflight(Path::new(input()), &[&a, &b], true).is_err());
     assert!(!a.exists());
 }
 
@@ -184,7 +184,7 @@ fn ambiguous_windows_output_names_cannot_replace_the_other_output() {
         let a = dir.path().join("alias.pxo");
         let b = dir.path().join(name);
         assert!(
-            pixloom::output::preflight(Path::new(input()), &[&a, &b], true).is_err(),
+            pixen::output::preflight(Path::new(input()), &[&a, &b], true).is_err(),
             "{name}"
         );
         assert!(!a.exists());
@@ -195,24 +195,24 @@ fn ambiguous_windows_output_names_cannot_replace_the_other_output() {
 fn headless_cli_has_its_own_entry_point() {
     let help = run(&["--help"]);
     assert!(help.status.success());
-    assert!(String::from_utf8_lossy(&help.stdout).contains("pixloom-cli"));
+    assert!(String::from_utf8_lossy(&help.stdout).contains("pixen-cli"));
 }
 
 #[test]
 fn dedicated_mcp_entry_point_is_separate_and_cli_rejects_mcp() {
-    let executable = Path::new(env!("CARGO_BIN_EXE_pixloom-mcp"));
+    let executable = Path::new(env!("CARGO_BIN_EXE_pixen-mcp"));
     let help = Command::new(executable)
         .arg("--help")
         .output()
         .expect("dedicated MCP executable must be built");
     assert!(help.status.success());
     let text = String::from_utf8_lossy(&help.stdout);
-    assert!(text.contains("pixloom-mcp"));
+    assert!(text.contains("pixen-mcp"));
     assert!(text.contains("--viewer"));
     assert!(!text.contains("validate"));
     let version = Command::new(executable).arg("--version").output().unwrap();
     assert!(version.status.success());
-    assert!(String::from_utf8_lossy(&version.stdout).starts_with("pixloom-mcp "));
+    assert!(String::from_utf8_lossy(&version.stdout).starts_with("pixen-mcp "));
     let removed = run(&["mcp", "--help"]);
     assert!(!removed.status.success());
     assert!(String::from_utf8_lossy(&removed.stderr).contains("unrecognized subcommand"));

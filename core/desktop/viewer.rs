@@ -6,14 +6,11 @@ pub mod review_ui {
 use anyhow::{Context, Result, ensure};
 use std::{path::Path, process::Command};
 pub fn launch(path: Option<&Path>, managed: bool) -> Result<()> {
-    let executable = std::env::current_exe()?.with_file_name(if cfg!(windows) {
-        "pixloom.exe"
-    } else {
-        "pixloom"
-    });
+    let executable =
+        std::env::current_exe()?.with_file_name(if cfg!(windows) { "pixen.exe" } else { "pixen" });
     ensure!(
         executable.is_file(),
-        "Pixloom desktop missing; build it with bun run tauri build --no-bundle"
+        "Pixen desktop missing; build it with bun run tauri build --no-bundle"
     );
     let mut command = Command::new(executable);
     if let Some(path) = path {
@@ -22,8 +19,8 @@ pub fn launch(path: Option<&Path>, managed: bool) -> Result<()> {
     if managed {
         command.arg("--managed");
     }
-    let status = command.status().context("launch Pixloom desktop")?;
-    ensure!(status.success(), "Pixloom desktop exited with {status}");
+    let status = command.status().context("launch Pixen desktop")?;
+    ensure!(status.success(), "Pixen desktop exited with {status}");
     Ok(())
 }
 pub fn run(path: &Path) -> Result<()> {

@@ -2,7 +2,7 @@
 
 `src/main.ts`, `src/App.vue`, and `src/style.css` are the frontend entry point, application shell, and global stylesheet. Other frontend code is grouped by use:
 
-- `assets/themes/pixloom.yaml`: the application theme, parsed directly by Frame.
+- `assets/themes/pixen.yaml`: the application theme, parsed directly by Frame.
 - `src/services`: Tauri backend transport and shared response types.
 - `src/editor`: editor state and dialogs; canvas, layers, timeline, and shared preview components have their own folders.
 - `src/views`: AI and review views.

@@ -1,4 +1,25 @@
-use pixloom::desktop::{Application, DocumentWorkspace, RenderRequest};
+use pixen::desktop::{Application, DocumentWorkspace, RenderRequest};
+
+#[test]
+fn ai_connections_stay_bound_when_another_document_is_selected() {
+    let mut workspace = DocumentWorkspace::new(Application::new(false));
+    workspace.create(2, 2).unwrap();
+    let first = workspace.snapshot().unwrap().active_document.unwrap();
+    let info = workspace.active().snapshot().unwrap().document.unwrap();
+    let ai = workspace.ai_desktop(&first).unwrap();
+    workspace.create(2, 2).unwrap();
+    let second = workspace.snapshot().unwrap().active_document.unwrap();
+    ai.paint(info.revision, &info.frames[0].id, &info.layers[0].id, vec![pixen::desktop::PaintPixel {
+        x: 0, y: 0, color: "#ff0000ff".into(),
+    }]).unwrap();
+    let next = workspace.active().snapshot().unwrap().document.unwrap();
+    assert_eq!(&workspace.active().cel(&next.frames[0].id, &next.layers[0].id).unwrap()[..4], &[0,0,0,0]);
+    assert_eq!(workspace.snapshot().unwrap().active_document.as_deref(), Some(second.as_str()));
+    workspace.activate(&first).unwrap();
+    assert_eq!(&workspace.active().cel(&info.frames[0].id, &info.layers[0].id).unwrap()[..4], &[255,0,0,255]);
+    workspace.close(&first, true).unwrap();
+    assert!(workspace.ai_desktop(&first).is_err());
+}
 
 #[test]
 fn tabs_preserve_independent_unsaved_documents_and_save_targets() {

@@ -19,6 +19,12 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+fn authoring_instructions(context: &str) -> String {
+    format!(
+        "{context} Payload budget: keep each complete JSON tool call below 200 KiB (UTF-8 bytes); some AI clients reject calls around 256 KiB before they reach Pixen. Prefer rectangle/line/ellipse/fill for geometric regions and set_pixel_rows (x, y, rows of palette indices) for dense artwork instead of thousands of set_pixels objects. Split larger artwork into bounded row strips or sparse batches, read each returned revision and use it as the next expected_revision. Each batch is atomic and a separate undo step; earlier batches remain if a later one fails. Do not retry an oversized call unchanged. Use cropped get_pixels/inspect_project and selected contact-sheet frames to keep inspection responses small. Tool schemas describe the currently supported layer, frame, palette, region and canvas operations."
+    )
+}
+
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ApplyEdits {
@@ -240,7 +246,7 @@ impl State {
         if let Some(viewer) = self.viewers.get_mut(&preview_key(path))
             && let Err(e) = viewer.inspection(view)
         {
-            eprintln!("pixloom: inspection delivery failed: {e:#}");
+            eprintln!("pixen: inspection delivery failed: {e:#}");
         }
     }
     fn review_response(
@@ -264,7 +270,7 @@ impl State {
             && let Some(viewer) = self.viewers.get_mut(&preview_key(path))
             && let Err(e) = viewer.review(&wire)
         {
-            eprintln!("pixloom: review delivery failed: {e:#}");
+            eprintln!("pixen: review delivery failed: {e:#}");
         }
         let mut content = r
             .images
@@ -329,7 +335,7 @@ impl State {
         if let Some(viewer) = self.viewers.get_mut(&preview_key(path))
             && let Err(error) = viewer.activity(activity)
         {
-            eprintln!("pixloom: activity delivery failed: {error:#}");
+            eprintln!("pixen: activity delivery failed: {error:#}");
         }
     }
     fn apply(
@@ -484,10 +490,18 @@ fn edit_activity(operations: &[Operation]) -> crate::viewer::Activity {
             Operation::Layer(layer) => {
                 let (label, id) = match layer {
                     L::AddLayer { layer_id, .. } => ("Add layer", Some(layer_id)),
+                    L::DuplicateLayer { new_layer_id, .. } => {
+                        ("Duplicate layer", Some(new_layer_id))
+                    }
                     L::RemoveLayer { .. } => ("Remove layer", None),
                     L::RenameLayer { layer_id, .. } => ("Rename layer", Some(layer_id)),
                     L::ReorderLayer { layer_id, .. } => ("Reorder layer", Some(layer_id)),
                     L::UpdateLayer { layer_id, .. } => ("Update layer", Some(layer_id)),
+                    L::LinkCells { layer_id, .. } => ("Link cells", Some(layer_id)),
+                    L::UnlinkCells { layer_id, .. } => ("Make cells independent", Some(layer_id)),
+                    L::CopyCells { layer_id, .. } => ("Copy cells", Some(layer_id)),
+                    L::PasteCells { layer_id, .. } => ("Paste cels", Some(layer_id)),
+                    L::ClearCells { layer_id, .. } => ("Clear cells", Some(layer_id)),
                 };
                 event.label = label.into();
                 event.layer_id = id.cloned();
@@ -500,6 +514,7 @@ fn edit_activity(operations: &[Operation]) -> crate::viewer::Activity {
                         ("Duplicate frame", Some(new_frame_id))
                     }
                     F::ReorderFrame { frame_id, .. } => ("Reorder frame", Some(frame_id)),
+                    F::RenameFrame { frame_id, .. } => ("Rename frame", Some(frame_id)),
                     F::SetFrameDuration { frame_id, .. } => ("Change frame timing", Some(frame_id)),
                 };
                 event.label = label.into();
@@ -638,7 +653,7 @@ impl Server {
         )
     }
     #[tool(
-        description = "Open any supported inspector input as an editable project: .pixloom, JSON, .pxo, .ase/.aseprite and supported raster images/animations. Preserve authoring palette indices. Default save destination is .pixloom (same file for .pixloom input, sibling otherwise); optional output_path selects .pixloom or .pixloom.json. One active project; existing unrelated destinations are rejected."
+        description = "Open any supported inspector input as an editable project: .pixloom, JSON, .pxo, .ase/.aseprite and supported raster images/animations. Preserve authoring palette indices. Default save destination is .pixloom (same file for .pixloom input, sibling otherwise); optional output_path selects .pixloom or .pixen.json. One active project; existing unrelated destinations are rejected."
     )]
     fn open_project(&self, Parameters(args): Parameters<OpenProject>) -> CallToolResult {
         let mut state = self.state.lock().unwrap();
@@ -651,7 +666,7 @@ impl Server {
         if opened.is_ok() && state.show_viewer {
             let path = state.session.recovery_path().unwrap().to_owned();
             if let Err(e) = state.open(path) {
-                eprintln!("pixloom: viewer unavailable: {e:#}");
+                eprintln!("pixen: viewer unavailable: {e:#}");
             }
         }
         result(opened)
@@ -663,7 +678,7 @@ impl Server {
         result(self.state.lock().unwrap().session.save(&args.project_id))
     }
     #[tool(
-        description = "Explicitly export active artwork to .aseprite/.ase, .pxo, .pixloom, .pixloom.json or a supported image format (PNG/GIF/APNG/WebP/JPEG/BMP/TIFF/SVG). Does not change project destination, revision or history. Optional stable frame_id selects one image frame; animated images otherwise use full timeline. overwrite defaults false; loop_animation defaults false. Video uses CLI."
+        description = "Explicitly export active artwork to .aseprite/.ase, .pxo, .pixloom, .pixen.json or a supported image format (PNG/GIF/APNG/WebP/JPEG/BMP/TIFF/SVG). Does not change project destination, revision or history. Optional stable frame_id selects one image frame; animated images otherwise use full timeline. overwrite defaults false; loop_animation defaults false. Video uses CLI."
     )]
     fn export_project(&self, Parameters(args): Parameters<ExportProject>) -> CallToolResult {
         result(self.state.lock().unwrap().session.export(
@@ -750,7 +765,7 @@ impl Server {
         if created.is_ok() && state.show_viewer {
             let path = state.session.recovery_path().unwrap().to_owned();
             if let Err(e) = state.open(path) {
-                eprintln!("pixloom: viewer unavailable: {e:#}");
+                eprintln!("pixen: viewer unavailable: {e:#}");
             }
         }
         result(created)
@@ -816,7 +831,7 @@ impl Server {
     }
 
     #[tool(
-        description = "Draw one typed operation on an explicit project/layer/frame at expected_revision. Supports set_pixels, inclusive-endpoint Bresenham line, positive origin/dimension rectangle or ellipse (filled/outlined), four-connected equal-index fill, erase_region (transparent), clear_cel (transparent), and legacy clear with palette_index. All bounds and indices are strict; no clipping or implicit palette creation except a transparent entry if required. Ellipses test pixel centres inside the bounding ellipse; outlines are four-neighbour boundaries. Uses the same atomic executor as apply_edits and one undo step. No image is generated. Explicit link groups share edits; unlinked reused cels detach."
+        description = "Draw one typed operation on an explicit project/layer/frame at expected_revision. Supports compact set_pixel_rows (x,y,rows: equal-width arrays of palette indices; non-empty, strict bounds, all entries including transparent indices overwrite pixels), sparse set_pixels, inclusive-endpoint Bresenham line, positive origin/dimension rectangle or ellipse (filled/outlined), four-connected equal-index fill, erase_region (transparent), clear_cel (transparent), and legacy clear with palette_index. All bounds and indices are strict; no clipping or implicit palette creation except a transparent entry if required. Ellipses test pixel centres inside the bounding ellipse; outlines are four-neighbour boundaries. Uses the same atomic executor as apply_edits and one undo step. No image is generated. Explicit link groups share edits; unlinked reused cels detach."
     )]
     fn draw(&self, Parameters(args): Parameters<Draw>) -> CallToolResult {
         result(self.state.lock().unwrap().apply(
@@ -831,7 +846,7 @@ impl Server {
     }
 
     #[tool(
-        description = "Atomically add/remove/rename/reorder a layer or update visibility/opacity, at expected_revision. Use explicit stable layer IDs; add_layer requires a new never-used ID and a name. Indices are zero-based final positions, bottom-to-top compositing order. New layers are transparent on every frame. Opacity is 0..1. Removing a layer is destructive but undoable; the last layer cannot be removed. Uses apply_edits' executor; no image is generated."
+        description = "Atomically add/remove/duplicate/rename/reorder a layer, update visibility/opacity, or paste/clear/link/unlink timeline cells, at expected_revision. See the operation schema for current variants. Use explicit stable layer IDs; add_layer requires a new never-used ID and a name. Indices are zero-based final positions, bottom-to-top compositing order. New layers are transparent on every frame. duplicate_layer copies all cels independently under a new never-used new_layer_id and name. Opacity is 0..1. Removing a layer is destructive but undoable; the last layer cannot be removed. Uses apply_edits' executor; no image is generated."
     )]
     fn edit_layer(&self, Parameters(args): Parameters<EditLayer>) -> CallToolResult {
         result(self.state.lock().unwrap().apply(
@@ -842,7 +857,7 @@ impl Server {
     }
 
     #[tool(
-        description = "Atomically add/remove/duplicate/reorder a frame or set its positive finite duration_ms, at expected_revision. Explicit stable frame IDs survive reorder; additions require a never-used ID. Indices are zero-based final positions. New frames are transparent. duplicate_frame copies all layer cels and clears duplicate links: editing it cannot modify its source. Removing a frame is destructive but undoable; the last frame cannot be removed. Existing tag membership is retained; non-contiguous tag results are rejected. Uses apply_edits' executor; no image is generated. Duplication alone creates an identical hold, not motion: draw visually distinct keyframes and useful intermediate poses, then review get_contact_sheet and playback."
+        description = "Atomically add/remove/duplicate/rename/reorder a frame or set its positive finite duration_ms, at expected_revision. Explicit stable frame IDs survive reorder; additions require a never-used ID. Indices are zero-based final positions. New frames are transparent. duplicate_frame copies all layer cels and clears duplicate links: editing it cannot modify its source. Removing a frame is destructive but undoable; the last frame cannot be removed. Existing tag membership is retained; non-contiguous tag results are rejected. Uses apply_edits' executor; no image is generated. Duplication alone creates an identical hold, not motion: draw visually distinct keyframes and useful intermediate poses, then review get_contact_sheet and playback."
     )]
     fn edit_frame(&self, Parameters(args): Parameters<EditFrame>) -> CallToolResult {
         result(self.state.lock().unwrap().apply(
@@ -948,7 +963,7 @@ impl Server {
     }
 
     #[tool(
-        description = "Show/restore and request foreground activation of a read-only user preview. Supply exactly one of project_id (active editing project) or path (existing Pixloom JSON/.pixloom, Pixelorama .pxo, RGBA Aseprite, or GIF). Reuses an existing window for the same source; returns promptly after a bounded opening acknowledgement, never waits for user approval or closure. Existing files are never written. opened reports window initialization, focused is observed focus and activation remains subject to OS policy. Showing a window provides NO visual feedback to the AI; use inspect_project for an actual PNG image."
+        description = "Show/restore and request foreground activation of a read-only user preview. Supply exactly one of project_id (active editing project) or path (existing Pixen JSON/.pixloom, Pixelorama .pxo, RGBA Aseprite, or GIF). Reuses an existing window for the same source; returns promptly after a bounded opening acknowledgement, never waits for user approval or closure. Existing files are never written. opened reports window initialization, focused is observed focus and activation remains subject to OS policy. Showing a window provides NO visual feedback to the AI; use inspect_project for an actual PNG image."
     )]
     fn open_preview(&self, Parameters(args): Parameters<OpenPreview>) -> CallToolResult {
         let opened = (|| -> anyhow::Result<serde_json::Value> {
@@ -1006,8 +1021,8 @@ impl Server {
 impl ServerHandler for Server {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-            .with_server_info(Implementation::new("pixloom", env!("CARGO_PKG_VERSION")))
-            .with_instructions("Pixloom pixel-art authoring. Use report_activity with a brief user-facing description when starting a meaningful task (busy=true) and when finishing it (busy=false). An animation request means multiple visually distinct frames with intentional motion, not a static sprite in a multi-frame document. Workflow: block out, review, create keyframes, add useful intermediates, inspect get_contact_sheet and playback, correct, finish/save, export the full timeline (CLI --loop for looping GIF/WebP/APNG), open user preview. get_preview shows only the first frame; inspect_project targets a specific stable frame ID. Use get_project_info/get_pixels for exact inspection; edit_layer/edit_frame/draw or mixed apply_edits batches for atomic revision-checked changes; undo/redo for transaction history. inspect_project returns actual PNG content; open_preview only shows the user a read-only window. Viewer selection never changes explicit editing targets. Prefer .pixloom project destinations. open_project accepts all supported inspector inputs, save_project checkpoints without ending a session, and finish_project saves/releases it. Both refuse external file changes. export_project explicitly writes native or image formats. edit_palette/copy_region/transform_region share apply_edits transactions. get_onion_skin/compare_frames/inspect_layer return actual PNG review and sync an open Follow AI viewer without editing artwork. Use get_review_sheet for multi-scale silhouette/grayscale evidence, manage_checkpoint/compare_checkpoint for independent baselines, analyze_sprite for measurements, validate_artwork for caller rules and audit_animation for motion evidence. Read-only reviews never change artwork/history and do not score artistic quality or run critic agents. Checkpoints are session-local; follow report revisions and truncation flags.")
+            .with_server_info(Implementation::new("pixen", env!("CARGO_PKG_VERSION")))
+            .with_instructions(authoring_instructions("Pixen pixel-art authoring. Use report_activity with a brief user-facing description when starting a meaningful task (busy=true) and when finishing it (busy=false). An animation request means multiple visually distinct frames with intentional motion, not a static sprite in a multi-frame document. Workflow: block out, review, create keyframes, add useful intermediates, inspect get_contact_sheet and playback, correct, finish/save, export the full timeline (CLI --loop for looping GIF/WebP/APNG), open user preview. get_preview shows only the first frame; inspect_project targets a specific stable frame ID. Use get_project_info/get_pixels for exact inspection; edit_layer/edit_frame/draw or mixed apply_edits batches for atomic revision-checked changes; undo/redo for transaction history. inspect_project returns actual PNG content; open_preview only shows the user a read-only window. Viewer selection never changes explicit editing targets. Prefer .pixloom project destinations. open_project accepts all supported inspector inputs, save_project checkpoints without ending a session, and finish_project saves/releases it. Both refuse external file changes. export_project explicitly writes native or image formats. edit_palette/copy_region/transform_region share apply_edits transactions. get_onion_skin/compare_frames/inspect_layer return actual PNG review and sync an open Follow AI viewer without editing artwork. Use get_review_sheet for multi-scale silhouette/grayscale evidence, manage_checkpoint/compare_checkpoint for independent baselines, analyze_sprite for measurements, validate_artwork for caller rules and audit_animation for motion evidence. Read-only reviews never change artwork/history and do not score artistic quality or run critic agents. Checkpoints are session-local; follow report revisions and truncation flags."))
     }
 }
 
