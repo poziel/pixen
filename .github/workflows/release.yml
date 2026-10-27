@@ -139,7 +139,7 @@ jobs:
           pattern: headless-tools-*
           path: release-assets
           merge-multiple: false
-      - name: Publish prerelease and checksums
+      - name: Publish latest release and checksums
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -166,4 +166,4 @@ jobs:
           notes="$PWD/release-notes.txt"
           cd publish
           sha256sum * > SHA256SUMS.txt
-          gh release create "$RELEASE_TAG" ./* --target "$GITHUB_SHA" --prerelease --latest=false --title "Pixen $RELEASE_TAG" --notes-file "$notes"
+          gh release create "$RELEASE_TAG" ./* --target "$GITHUB_SHA" --latest --title "Pixen $RELEASE_TAG" --notes-file "$notes"

@@ -5,7 +5,7 @@
 - **Build and release Pixen** runs on every push to `main` (including merges),
   on version tags, or manually. It tests and builds the desktop editor on Windows
   x64, Linux x64, macOS Apple Silicon, and macOS Intel. Only after every platform
-  succeeds does a push publish a GitHub prerelease with the application downloads
+  succeeds does a push publish a GitHub release marked **Latest** with the application downloads
   and checksums. Manual runs retain artifacts without publishing.
 - **Headless tools checks** runs for pull requests to `main`, or manually. Its
   CLI/MCP packages do not contain the desktop editor and are labeled
@@ -59,11 +59,12 @@ without publishing a release.
 
 ## Automatic releases from main
 
-Every successful push to `main` publishes a unique preview tag such as
+Every successful push to `main` publishes a unique build tag such as
 `v0.2.0-main.3.1` using the manifest version, workflow run number, and attempt.
 The release tag targets the exact commit that was built. Failed platform jobs
-prevent publication; no partial release is created. These automated prereleases
-do not change the manifest version or replace existing releases.
+prevent publication; no partial release is created. Each release is published
+with the **Latest** designation so it appears in the repository sidebar. These
+automated releases do not change the manifest version or replace existing releases.
 
 ## Publish a named version
 
