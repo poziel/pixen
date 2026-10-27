@@ -2,14 +2,26 @@
 
 ## Available workflows
 
-- **Build tools** runs on pushes and pull requests to `main`, or manually. It
-  tests the Rust engine and builds CLI/MCP archives for Windows x64, Linux x64,
-  macOS Apple Silicon, and macOS Intel. Download these from a run's Artifacts.
-  They do not contain the desktop editor.
-- **Desktop release** runs manually for validation or when a `v*` tag is pushed.
-  It checks dependencies first, then tests and builds the editor on the same
-  four platforms. Manual runs retain artifacts without publishing a release.
-  Tags publish a GitHub prerelease only after every platform succeeds.
+- **Build and release Pixen** runs on every push to `main` (including merges),
+  on version tags, or manually. It tests and builds the desktop editor on Windows
+  x64, Linux x64, macOS Apple Silicon, and macOS Intel. Only after every platform
+  succeeds does a push publish a GitHub prerelease with the application downloads
+  and checksums. Manual runs retain artifacts without publishing.
+- **Headless tools checks** runs for pull requests to `main`, or manually. Its
+  CLI/MCP packages do not contain the desktop editor and are labeled
+  `headless-tools-*`. Pushes to `main` use the full desktop workflow instead.
+
+## Download the application
+
+Open the repository's [Releases](https://github.com/poziel/pixen/releases) page.
+For Windows, choose `Pixen-<version>-x86_64-pc-windows-msvc.zip`, extract it, and
+run `pixen.exe`. The ZIP contains the editor, CLI, and MCP server together. Its
+contents are verified before upload; a missing or empty executable fails the job.
+The `*-setup.exe` download is the Windows installer.
+
+`Pixen-tools-*` archives contain only CLI/MCP utilities. They are optional and
+do not contain the application. In Actions, application artifacts are labeled
+`pixen-desktop-*` and headless artifacts are uploaded separately.
 
 Desktop output includes a Windows NSIS installer and a ZIP with the editor,
 CLI/MCP tools, themes, and skills; macOS DMGs; Linux AppImage and Debian packages;
@@ -45,9 +57,17 @@ by the install step. Release jobs always use published dependencies and never
 invoke local development overrides. Manual runs test the full package build
 without publishing a release.
 
-## Publish a version
+## Automatic releases from main
 
-First run **Desktop release** manually on `main` and inspect the artifacts.
+Every successful push to `main` publishes a unique preview tag such as
+`v0.2.0-main.3.1` using the manifest version, workflow run number, and attempt.
+The release tag targets the exact commit that was built. Failed platform jobs
+prevent publication; no partial release is created. These automated prereleases
+do not change the manifest version or replace existing releases.
+
+## Publish a named version
+
+Optionally run **Build and release Pixen** manually and inspect the artifacts.
 Keep `package.json`, both Cargo manifests, and `src-tauri/tauri.conf.json` versions
 aligned. Commit the corresponding lockfile changes, then tag that commit:
 

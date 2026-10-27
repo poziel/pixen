@@ -105,6 +105,7 @@ Omit --viewer to keep editing headless until a preview is requested.
     [Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem') | Out-Null
     if ([IO.File]::Exists($archive)) { [IO.File]::Delete($archive) }
     [IO.Compression.ZipFile]::CreateFromDirectory($destination, $archive, [IO.Compression.CompressionLevel]::Optimal, $true)
+    & (Join-Path $PSScriptRoot 'verify-windows-package.ps1') -Archive $archive
     # Publish only generated files. Existing portable data is never read into the ZIP.
     # Never stop a running release to replace it. Publish beside it when locked.
     $releaseInUse = $false

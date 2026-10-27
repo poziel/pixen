@@ -1,8 +1,6 @@
-name: Build tools
+name: Headless tools checks
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -45,7 +43,7 @@ jobs:
         run: ./scripts/package-tools.ps1 -Target '${{ matrix.target }}'
       - uses: actions/upload-artifact@v7
         with:
-          name: tools-${{ matrix.target }}
+          name: headless-tools-${{ matrix.target }}
           path: target/packages/*
           if-no-files-found: error
           retention-days: 14

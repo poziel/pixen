@@ -1,7 +1,8 @@
-name: Desktop release
+name: Build and release Pixen
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
   workflow_dispatch:
 
@@ -93,11 +94,17 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/release.ps1 -PackageOnly
+      - name: Verify Windows application archive
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archives = @(Get-ChildItem -LiteralPath target/portable -Filter '*.zip')
+          if ($archives.Count -ne 1) { throw 'Expected exactly one Windows application ZIP.' }
+          ./scripts/verify-windows-package.ps1 -Archive $archives[0].FullName
       - uses: actions/upload-artifact@v7
         with:
-          name: desktop-${{ matrix.target }}
+          name: pixen-desktop-${{ matrix.target }}
           path: |
-            target/packages/*
             target/portable/*.zip
             target/release/bundle/nsis/*.exe
             target/release/bundle/dmg/*.dmg
@@ -105,17 +112,31 @@ jobs:
             target/release/bundle/appimage/*.AppImage
           if-no-files-found: error
           retention-days: 14
+      - uses: actions/upload-artifact@v7
+        with:
+          name: headless-tools-${{ matrix.target }}
+          path: target/packages/*
+          if-no-files-found: error
+          retention-days: 14
 
   publish:
-    if: github.event_name == 'push' && github.ref_type == 'tag'
+    if: github.event_name == 'push'
     needs: desktop
     runs-on: ubuntu-22.04
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@v8
         with:
-          pattern: desktop-*
+          pattern: pixen-desktop-*
+          path: release-assets
+          merge-multiple: false
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: headless-tools-*
           path: release-assets
           merge-multiple: false
       - name: Publish prerelease and checksums
@@ -124,6 +145,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
         run: |
           set -euo pipefail
           mkdir -p publish
@@ -132,6 +154,16 @@ jobs:
             test ! -e "publish/$name" || { echo "Duplicate asset: $name"; exit 1; }
             cp "$asset" "publish/$name"
           done < <(find release-assets -type f -print0)
+          if [ "$REF_TYPE" != tag ]; then
+            version=$(node -p "require('./package.json').version")
+            RELEASE_TAG="v${version}-main.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
+          fi
+          cat > release-notes.txt <<'NOTES'
+          Download the Windows application ZIP named Pixen-<version>-x86_64-pc-windows-msvc.zip for the editor, CLI, MCP server, and skills. Extract it and run pixen.exe. The setup executable is the Windows installer. Pixen-tools archives contain only headless CLI/MCP utilities and do not include the editor.
+
+          macOS: download the DMG for your processor. Linux: download the AppImage or Debian package. These preview packages are unsigned (macOS is ad-hoc signed, not notarized). External AI tools and FFmpeg are not included. MCP desktop preview integration on macOS/Linux is not yet verified.
+          NOTES
+          notes="$PWD/release-notes.txt"
           cd publish
           sha256sum * > SHA256SUMS.txt
-          gh release create "$RELEASE_TAG" ./* --verify-tag --prerelease --title "Pixen $RELEASE_TAG" --notes 'Automated preview build for Windows, macOS, and Linux. Desktop packages are unsigned; macOS packages are not notarized. Windows ZIP includes the editor, CLI, MCP server, and skills. Other platforms provide separate desktop installers and headless tools; MCP desktop preview integration on those platforms is not yet verified. External AI tools and FFmpeg are not included.'
+          gh release create "$RELEASE_TAG" ./* --target "$GITHUB_SHA" --prerelease --latest=false --title "Pixen $RELEASE_TAG" --notes-file "$notes"
