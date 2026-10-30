@@ -653,7 +653,7 @@ impl Server {
         )
     }
     #[tool(
-        description = "Open any supported inspector input as an editable project: .pixloom, JSON, .pxo, .ase/.aseprite and supported raster images/animations. Preserve authoring palette indices. Default save destination is .pixloom (same file for .pixloom input, sibling otherwise); optional output_path selects .pixloom or .pixen.json. One active project; existing unrelated destinations are rejected."
+        description = "Open any supported inspector input as an editable project: .pixen, legacy .pixloom, JSON, .pxo, .ase/.aseprite and supported raster images/animations. Preserve authoring palette indices. Default save destination is .pixen (same file for .pixen input, sibling otherwise); optional output_path selects .pixen or .pixen.json. One active project; existing unrelated destinations are rejected."
     )]
     fn open_project(&self, Parameters(args): Parameters<OpenProject>) -> CallToolResult {
         let mut state = self.state.lock().unwrap();
@@ -672,13 +672,13 @@ impl Server {
         result(opened)
     }
     #[tool(
-        description = "Save the active project's .pixloom (preferred) or explicitly chosen JSON destination without ending the session or changing revision/history. Atomic checkpoint; refuses unrelated existing files or external changes since open/save."
+        description = "Save the active project's .pixen (preferred) or explicitly chosen JSON destination without ending the session or changing revision/history. Atomic checkpoint; refuses unrelated existing files or external changes since open/save."
     )]
     fn save_project(&self, Parameters(args): Parameters<ProjectId>) -> CallToolResult {
         result(self.state.lock().unwrap().session.save(&args.project_id))
     }
     #[tool(
-        description = "Explicitly export active artwork to .aseprite/.ase, .pxo, .pixloom, .pixen.json or a supported image format (PNG/GIF/APNG/WebP/JPEG/BMP/TIFF/SVG). Does not change project destination, revision or history. Optional stable frame_id selects one image frame; animated images otherwise use full timeline. overwrite defaults false; loop_animation defaults false. Video uses CLI."
+        description = "Explicitly export active artwork to .aseprite/.ase, .pxo, .pixen, .pixen.json or a supported image format (PNG/GIF/APNG/WebP/JPEG/BMP/TIFF/SVG). Does not change project destination, revision or history. Optional stable frame_id selects one image frame; animated images otherwise use full timeline. overwrite defaults false; loop_animation defaults false. Video uses CLI."
     )]
     fn export_project(&self, Parameters(args): Parameters<ExportProject>) -> CallToolResult {
         result(self.state.lock().unwrap().session.export(
@@ -963,7 +963,7 @@ impl Server {
     }
 
     #[tool(
-        description = "Show/restore and request foreground activation of a read-only user preview. Supply exactly one of project_id (active editing project) or path (existing Pixen JSON/.pixloom, Pixelorama .pxo, RGBA Aseprite, or GIF). Reuses an existing window for the same source; returns promptly after a bounded opening acknowledgement, never waits for user approval or closure. Existing files are never written. opened reports window initialization, focused is observed focus and activation remains subject to OS policy. Showing a window provides NO visual feedback to the AI; use inspect_project for an actual PNG image."
+        description = "Show/restore and request foreground activation of a read-only user preview. Supply exactly one of project_id (active editing project) or path (existing Pixen JSON/.pixen, Pixelorama .pxo, RGBA Aseprite, or GIF). Reuses an existing window for the same source; returns promptly after a bounded opening acknowledgement, never waits for user approval or closure. Existing files are never written. opened reports window initialization, focused is observed focus and activation remains subject to OS policy. Showing a window provides NO visual feedback to the AI; use inspect_project for an actual PNG image."
     )]
     fn open_preview(&self, Parameters(args): Parameters<OpenPreview>) -> CallToolResult {
         let opened = (|| -> anyhow::Result<serde_json::Value> {
@@ -999,7 +999,7 @@ impl Server {
     }
 
     #[tool(
-        description = "Validate and save to the project's .pixloom (preferred) or explicit JSON destination, refusing unrelated existing files and external changes. Success closes its viewer and releases the project; failure preserves the active session and viewer."
+        description = "Validate and save to the project's .pixen (preferred) or explicit JSON destination, refusing unrelated existing files and external changes. Success closes its viewer and releases the project; failure preserves the active session and viewer."
     )]
     fn finish_project(&self, Parameters(args): Parameters<ProjectId>) -> CallToolResult {
         let mut state = self.state.lock().unwrap();
@@ -1022,7 +1022,7 @@ impl ServerHandler for Server {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("pixen", env!("CARGO_PKG_VERSION")))
-            .with_instructions(authoring_instructions("Pixen pixel-art authoring. Use report_activity with a brief user-facing description when starting a meaningful task (busy=true) and when finishing it (busy=false). An animation request means multiple visually distinct frames with intentional motion, not a static sprite in a multi-frame document. Workflow: block out, review, create keyframes, add useful intermediates, inspect get_contact_sheet and playback, correct, finish/save, export the full timeline (CLI --loop for looping GIF/WebP/APNG), open user preview. get_preview shows only the first frame; inspect_project targets a specific stable frame ID. Use get_project_info/get_pixels for exact inspection; edit_layer/edit_frame/draw or mixed apply_edits batches for atomic revision-checked changes; undo/redo for transaction history. inspect_project returns actual PNG content; open_preview only shows the user a read-only window. Viewer selection never changes explicit editing targets. Prefer .pixloom project destinations. open_project accepts all supported inspector inputs, save_project checkpoints without ending a session, and finish_project saves/releases it. Both refuse external file changes. export_project explicitly writes native or image formats. edit_palette/copy_region/transform_region share apply_edits transactions. get_onion_skin/compare_frames/inspect_layer return actual PNG review and sync an open Follow AI viewer without editing artwork. Use get_review_sheet for multi-scale silhouette/grayscale evidence, manage_checkpoint/compare_checkpoint for independent baselines, analyze_sprite for measurements, validate_artwork for caller rules and audit_animation for motion evidence. Read-only reviews never change artwork/history and do not score artistic quality or run critic agents. Checkpoints are session-local; follow report revisions and truncation flags."))
+            .with_instructions(authoring_instructions("Pixen pixel-art authoring. Use report_activity with a brief user-facing description when starting a meaningful task (busy=true) and when finishing it (busy=false). An animation request means multiple visually distinct frames with intentional motion, not a static sprite in a multi-frame document. Workflow: block out, review, create keyframes, add useful intermediates, inspect get_contact_sheet and playback, correct, finish/save, export the full timeline (CLI --loop for looping GIF/WebP/APNG), open user preview. get_preview shows only the first frame; inspect_project targets a specific stable frame ID. Use get_project_info/get_pixels for exact inspection; edit_layer/edit_frame/draw or mixed apply_edits batches for atomic revision-checked changes; undo/redo for transaction history. inspect_project returns actual PNG content; open_preview only shows the user a read-only window. Viewer selection never changes explicit editing targets. Prefer .pixen project destinations. open_project accepts all supported inspector inputs, save_project checkpoints without ending a session, and finish_project saves/releases it. Both refuse external file changes. export_project explicitly writes native or image formats. edit_palette/copy_region/transform_region share apply_edits transactions. get_onion_skin/compare_frames/inspect_layer return actual PNG review and sync an open Follow AI viewer without editing artwork. Use get_review_sheet for multi-scale silhouette/grayscale evidence, manage_checkpoint/compare_checkpoint for independent baselines, analyze_sprite for measurements, validate_artwork for caller rules and audit_animation for motion evidence. Read-only reviews never change artwork/history and do not score artistic quality or run critic agents. Checkpoints are session-local; follow report revisions and truncation flags."))
     }
 }
 

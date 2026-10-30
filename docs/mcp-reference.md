@@ -518,10 +518,9 @@ saving, exporting and closing the artwork.
 - History documents must serialize within 64 MiB. History and checkpoints are
   in-memory session state; recovery contains artwork, not the full protocol
   session/history/checkpoint store.
-- Old running binaries may expose fewer tools or stale descriptions. Current
-  source uses `.pixen` / `.pixen.json` project destinations even where older
-  tool-description strings still mention `.pixloom`. Use the implementation
-  behavior documented here and inspect the running binary's schema.
+- Old running binaries may expose fewer tools or stale descriptions, including
+  `.pixloom` destination guidance. Current source uses `.pixen` / `.pixen.json`.
+  Reconnect after rebuilding and inspect the running binary's schema.
 
 ## Implementation map
 
