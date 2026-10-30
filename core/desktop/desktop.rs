@@ -55,6 +55,7 @@ pub struct DocumentInfo {
     pub layers: Vec<LayerInfo>,
     pub path: Option<PathBuf>,
     pub dirty: bool,
+    pub source_missing: bool,
     pub source_width: u32,
     pub source_height: u32,
     pub source_frame_count: usize,
@@ -118,6 +119,7 @@ pub struct Application {
     alternate_sprite: Option<Sprite>,
     alternate_view: bool,
     source: Option<PathBuf>,
+    missing_source: Option<PathBuf>,
     stamp: Option<(SystemTime, u64)>,
     destination: Option<PathBuf>,
     revision: u64,
@@ -156,6 +158,7 @@ impl Application {
             alternate_sprite: None,
             alternate_view: false,
             source: None,
+            missing_source: None,
             stamp: None,
             destination: None,
             revision: 0,
@@ -188,11 +191,14 @@ impl Application {
         if let Some(desktop) = &desktop {
             desktop.enable_background_recovery();
         }
-        let native = path.extension().is_some_and(|x| x == "pixloom")
+        let native = path
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("pixen"))
             || path.to_string_lossy().ends_with(".pixen.json");
         self.cleanup_saved_recovery();
         self.stamp = Some(Self::file_stamp(&path)?);
         self.source = Some(path.clone());
+        self.missing_source = None;
         self.destination = native.then_some(path);
         self.alternate_view = false;
         self.update_sprite(sprite);
@@ -227,6 +233,7 @@ impl Application {
         self.alternate_view = false;
         self.update_sprite(sprite);
         self.source = None;
+        self.missing_source = None;
         self.destination = None;
         self.stamp = None;
         self.revision = revision;
@@ -470,6 +477,7 @@ impl Application {
             .finish_save(saved)?;
         self.destination = Some(saved.destination.clone());
         self.source = self.destination.clone();
+        self.missing_source = None;
         self.stamp = Some(Self::file_stamp(&saved.destination)?);
         self.saved_revision = saved.revision;
         Ok(())
@@ -485,6 +493,19 @@ impl Application {
         }
     }
     pub fn snapshot(&mut self) -> Result<Snapshot> {
+        if !self.managed && !self.saving {
+            if let Some(path) = self.source.as_ref() {
+                if !path
+                    .try_exists()
+                    .with_context(|| format!("cannot access project {}", path.display()))?
+                {
+                    self.missing_source = self.source.take();
+                    self.destination = None;
+                    self.stamp = None;
+                    self.saved_revision = u64::MAX;
+                }
+            }
+        }
         if let Some(path) = self.source.clone() {
             let stamp = Self::file_stamp(&path)?;
             if !self.saving && Some(stamp) != self.stamp {
@@ -553,6 +574,7 @@ impl Application {
                 .collect(),
             path: self.source.clone(),
             dirty: self.saved_revision != self.revision,
+            source_missing: self.missing_source.is_some(),
             source_width: self.sprite.as_ref().unwrap().width,
             source_height: self.sprite.as_ref().unwrap().height,
             source_frame_count: self.sprite.as_ref().unwrap().frames.len(),

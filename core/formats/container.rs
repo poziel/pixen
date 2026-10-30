@@ -57,8 +57,15 @@ impl Reader {
         );
         let manifest: Manifest = serde_json::from_value(json_read(&mut archive, "manifest.json")?)?;
         ensure!(
-            matches!(manifest.format.as_str(), "pixloom" | "spritex"),
+            matches!(manifest.format.as_str(), "pixen" | "pixloom" | "spritex"),
             "unsupported container format"
+        );
+        ensure!(
+            manifest.format != "pixen"
+                || !path
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("pixloom")),
+            "unsupported extension .pixloom for a Pixen project; rename this file to .pixen"
         );
         ensure!(
             manifest.container_version == 1,
@@ -222,7 +229,7 @@ pub fn write<W: Write + Seek>(writer: W, doc: &Document) -> Result<()> {
     };
     entry(
         "manifest.json",
-        &json!({"format":"pixloom","container_version":1,"document":"document.json","required_features":[]}),
+        &json!({"format":"pixen","container_version":1,"document":"document.json","required_features":[]}),
     )?;
     entry("document.json", &structure)?;
     let mut cels: Vec<_> = doc.cels.iter().collect();
@@ -238,8 +245,10 @@ pub fn write<W: Write + Seek>(writer: W, doc: &Document) -> Result<()> {
 pub fn pack(input: &Path, destination: &Path, optimize: bool, force: bool) -> Result<()> {
     output::preflight(input, &[destination], force)?;
     ensure!(
-        destination.extension().is_some_and(|e| e == "pixloom"),
-        "pack output must end in .pixloom"
+        destination
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("pixen")),
+        "pack output must end in .pixen"
     );
     let mut doc = crate::input::read(input)?;
     if optimize {

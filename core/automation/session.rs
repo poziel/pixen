@@ -17,7 +17,7 @@ pub struct CreateProject {
     pub height: u32,
     /// Colours in #RRGGBBAA order; indices are zero-based and stable.
     pub palette: Vec<String>,
-    /// Prefer .pixloom; explicit .pixen.json is also supported. Parent must exist.
+    /// Prefer .pixen; explicit .pixen.json is also supported. Parent must exist.
     pub output_path: PathBuf,
 }
 
@@ -127,15 +127,31 @@ impl Session {
         })
     }
     pub fn save_baseline(&self) -> Result<Option<Vec<u8>>> {
-        Ok(self.active.as_ref().context("no active project")?.saved_bytes.as_ref().map(|bytes| (**bytes).clone()))
+        Ok(self
+            .active
+            .as_ref()
+            .context("no active project")?
+            .saved_bytes
+            .as_ref()
+            .map(|bytes| (**bytes).clone()))
     }
-    pub fn restore_save_baseline(&mut self, destination: Option<&Path>, expected: Option<Vec<u8>>) -> Result<()> {
+    pub fn restore_save_baseline(
+        &mut self,
+        destination: Option<&Path>,
+        expected: Option<Vec<u8>>,
+    ) -> Result<()> {
         if let Some(destination) = destination {
             // These paths were resolved when originally opened/saved. A disconnected
             // drive must not prevent reopening the in-memory checkpoint.
-            ensure!(destination.is_absolute(), "Checkpoint save destination must be absolute");
+            ensure!(
+                destination.is_absolute(),
+                "Checkpoint save destination must be absolute"
+            );
             let resolved = destination.to_owned();
-            ensure!(project_destination(&resolved), "Invalid checkpoint save destination");
+            ensure!(
+                project_destination(&resolved),
+                "Invalid checkpoint save destination"
+            );
             let project = self.active.as_mut().context("no active project")?;
             project.output = resolved;
             project.saved_bytes = expected.map(Arc::new);
@@ -153,7 +169,7 @@ impl Session {
             .unwrap_or_else(|| p.output.clone());
         ensure!(
             project_destination(&destination),
-            "choose .pixloom or .pixen.json"
+            "unsupported project extension; save Pixen projects as .pixen or .pixen.json"
         );
         let same = destination == p.output;
         Ok(SaveSnapshot {
@@ -273,7 +289,7 @@ impl Session {
     pub fn save_as(&mut self, id: &str, destination: &Path) -> Result<Value> {
         ensure!(
             project_destination(destination),
-            "choose .pixloom or .pixen.json"
+            "unsupported project extension; save Pixen projects as .pixen or .pixen.json"
         );
         let destination = output::resolved(destination)?;
         let p = self.project(id)?;
@@ -308,7 +324,7 @@ impl Session {
         ensure!(!args.palette.is_empty(), "palette must not be empty");
         ensure!(
             project_destination(&args.output_path),
-            "output_path must end in .pixloom or .pixen.json"
+            "output_path must end in .pixen or .pixen.json"
         );
         let output = output::resolved(&args.output_path)?;
         ensure!(!output.exists(), "output already exists");
@@ -338,7 +354,7 @@ impl Session {
             .insert(crate::edit::FRAME_ID_KEY.into(), json!("frame-1"));
         schema::validate_document(&doc)?;
         let mut recovery = tempfile::Builder::new()
-            .prefix(".pixloom-recovery-")
+            .prefix(".pixen-recovery-")
             .suffix(".pixen.json")
             .tempfile_in(crate::storage::recovery_dir(
                 output.parent().context("output needs parent")?,
@@ -589,7 +605,7 @@ impl Session {
             .to_ascii_lowercase()
             .as_str()
         {
-            "json" | "pixloom" | "spritex" => crate::input::read(&source)?,
+            "json" | "pixen" | "pixloom" | "spritex" => crate::input::read(&source)?,
             _ => schema::to_document(&crate::preview::load(&source)?)?,
         };
         crate::edit::transparent(&mut doc);
@@ -618,7 +634,7 @@ impl Session {
         snapshot(&doc)?;
         let default_output = if source
             .extension()
-            .is_some_and(|e| e.eq_ignore_ascii_case("pixloom"))
+            .is_some_and(|e| e.eq_ignore_ascii_case("pixen"))
         {
             source.clone()
         } else {
@@ -627,8 +643,9 @@ impl Session {
                 .context("missing filename")?
                 .to_string_lossy();
             source.with_file_name(format!(
-                "{}.pixloom",
-                stem.strip_suffix(".pixloom")
+                "{}.pixen",
+                stem.strip_suffix(".pixen")
+                    .or_else(|| stem.strip_suffix(".pixloom"))
                     .or_else(|| stem.strip_suffix(".spritex"))
                     .unwrap_or(&stem)
             ))
@@ -636,7 +653,7 @@ impl Session {
         let output = output::resolved(output_path.unwrap_or(&default_output))?;
         ensure!(
             project_destination(&output),
-            "project output must end in .pixloom or .pixen.json; use export_project for other formats"
+            "project output must end in .pixen or .pixen.json; use export_project for other formats"
         );
         let same_source = output == source;
         ensure!(
@@ -652,7 +669,7 @@ impl Session {
             None
         };
         let mut recovery = tempfile::Builder::new()
-            .prefix(".pixloom-recovery-")
+            .prefix(".pixen-recovery-")
             .suffix(".pixen.json")
             .tempfile_in(crate::storage::recovery_dir(
                 output.parent().context("output needs parent")?,
@@ -1015,5 +1032,5 @@ fn changed(
 
 fn project_destination(path: &Path) -> bool {
     let name = path.to_string_lossy().to_ascii_lowercase();
-    name.ends_with(".pixloom") || name.ends_with(".pixen.json")
+    name.ends_with(".pixen") || name.ends_with(".pixen.json")
 }

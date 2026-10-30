@@ -45,7 +45,7 @@ enum Commands {
         #[arg(long)]
         force: bool,
     },
-    /// Package authoring JSON as a compressed split-cel .pixloom container.
+    /// Package authoring JSON as a compressed split-cel .pixen container.
     Pack {
         input: PathBuf,
         #[arg(long)]
@@ -69,9 +69,9 @@ enum Commands {
         #[arg(long, conflicts_with = "in_place")]
         force: bool,
     },
-    /// Validate authoring JSON or .pixloom, including all pixels and editing links.
+    /// Validate authoring JSON or .pixen, including all pixels and editing links.
     Validate { input: PathBuf },
-    /// Build editable projects from authoring JSON or .pixloom; append each format to OUTPUT.
+    /// Build editable projects from authoring JSON or .pixen; append each format to OUTPUT.
     Build {
         input: PathBuf,
         #[arg(long)]
@@ -118,7 +118,7 @@ enum Commands {
         #[arg(long)]
         force: bool,
     },
-    /// Convert a .pixloom container or supported native project to the authoring JSON filename OUTPUT.
+    /// Convert a .pixen container or supported native project to the authoring JSON filename OUTPUT.
     Unpack {
         input: PathBuf,
         #[arg(long)]

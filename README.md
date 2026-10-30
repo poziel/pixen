@@ -20,7 +20,7 @@ A desktop pixel-art editor with animation, AI-assisted drawing, and scriptable e
 
 Pixen combines a desktop editor with a Rust document engine, command-line tools,
 and an MCP server. Draw by hand, animate layers and cels, or ask an AI assistant
-to edit the artwork in the same document. Save editable `.pixloom` projects or
+to edit the artwork in the same document. Save editable `.pixen` projects or
 readable `.pixen.json` sources, then export assets for your game or application.
 
 - **Desktop editing:** document tabs, drawing and selection tools, shape and text
@@ -176,7 +176,7 @@ See the [complete authoring reference](skills/pixen/references/authoring-format.
 and save pixel art while a separate read-only window displays its work. The
 `open_preview` tool also opens existing static or animated projects, with local
 playback and frame thumbnails. Open supported projects for editing with
-`open_project`; `.pixloom` is the default save format, with explicit native/image
+`open_project`; `.pixen` is the default save format, with explicit native/image
 exports available. Revision-checked palette, region, layer, frame and drawing
 tools share atomic batches and bounded undo/redo. `resize_canvas` changes canvas
 bounds with revision checks and undo, cropping or padding without scaling pixels. Onion-skin, frame-comparison
@@ -194,8 +194,8 @@ Import existing raster artwork into an editable document:
 
 ```powershell
 pixen-cli import sprite.png --output "D:\Art\my-sprite.pixen.json"
-pixen-cli import sprite.png --output "D:\Art\my-sprite.pixloom"
-pixen-cli import sprite.jpg --output "D:\Art\trimmed.pixloom" --transparent-color "#FFFFFF" --color-tolerance 20 --transparent-mode border --trim
+pixen-cli import sprite.png --output "D:\Art\my-sprite.pixen"
+pixen-cli import sprite.jpg --output "D:\Art\trimmed.pixen" --transparent-color "#FFFFFF" --color-tolerance 20 --transparent-mode border --trim
 ```
 
 PNG, JPEG, WebP, BMP and the first TIFF image, plus GIF, APNG and animated WebP, import as one
@@ -208,15 +208,15 @@ Run `pixen-cli <command> --help` for all options.
 
 | Command | Input | Purpose |
 | --- | --- | --- |
-| `import` | PNG, JPEG, GIF, APNG, WebP, BMP, or TIFF | Create editable `.pixen.json` or `.pixloom` |
-| `validate` | Authoring JSON or `.pixloom` | Check the document, pixels, and editing links |
-| `build` | Authoring JSON or `.pixloom` | Create editable `.pxo` and `.aseprite` projects |
-| `export` | Authoring JSON or `.pixloom` | Export images, animations, or video |
-| `pack` | Authoring JSON | Create a compressed `.pixloom` container |
-| `unpack` | `.pixloom`, `.pxo`, or `.aseprite` | Write editable authoring JSON |
+| `import` | PNG, JPEG, GIF, APNG, WebP, BMP, or TIFF | Create editable `.pixen.json` or `.pixen` |
+| `validate` | Authoring JSON or `.pixen` | Check the document, pixels, and editing links |
+| `build` | Authoring JSON or `.pixen` | Create editable `.pxo` and `.aseprite` projects |
+| `export` | Authoring JSON or `.pixen` | Export images, animations, or video |
+| `pack` | Authoring JSON | Create a compressed `.pixen` container |
+| `unpack` | `.pixen`, `.pxo`, or `.aseprite` | Write editable authoring JSON |
 | `optimize` | Authoring JSON | Losslessly compact JSON pixel storage |
-| `inspect` | `.pixloom`, `.pxo`, or `.aseprite` | Print structure or native metadata as JSON |
-| `render` | `.pixloom`, `.pxo`, or `.aseprite` | Render a PNG frame or contact sheet |
+| `inspect` | `.pixen`, `.pxo`, or `.aseprite` | Print structure or native metadata as JSON |
+| `render` | `.pixen`, `.pxo`, or `.aseprite` | Render a PNG frame or contact sheet |
 
 ### Inspect and convert native projects
 
@@ -235,14 +235,14 @@ Native input supports a defined subset of each editor's format. Pixelorama targe
 
 ```sh
 pixen-cli optimize spark.pixen.json --output spark-small
-pixen-cli pack spark-small.pixen.json --output spark.pixloom
-pixen-cli validate spark.pixloom
-pixen-cli unpack spark.pixloom --output restored.pixen.json
+pixen-cli pack spark-small.pixen.json --output spark.pixen
+pixen-cli validate spark.pixen
+pixen-cli unpack spark.pixen --output restored.pixen.json
 ```
 
 Separate optimizer outputs get the `.pixen.json` suffix. Use `--in-place` instead of `--output` to optimize the original file.
 
-A `.pixloom` file is a ZIP container with independently compressed cel payloads. Packing preserves encodings by default; add `pack --optimize` to optimize first. Containers retain unused cels, palette indices, metadata, and explicit links. Use either authoring format with `build` and `export`.
+A `.pixen` file is a ZIP container with independently compressed cel payloads. Packing preserves encodings by default; add `pack --optimize` to optimize first. Containers retain unused cels, palette indices, metadata, and explicit links. Use either authoring format with `build` and `export`.
 
 Read more about [optimization](docs/optimizer.md) and [containers](docs/container-format.md).
 
@@ -297,7 +297,7 @@ Pixen checks output paths before writing and requires `--force` to replace exist
 
 Canvas sizes, frame counts, expanded pixel data, archives, and encoded outputs have bounded resource limits. Rendering uses RGBA source-over compositing without colour management; editor blend rounding can differ slightly. Consult the individual format documents for precise bounds and supported features.
 
-Pixen was previously named Pixloom and, before that, Spritex. The binary project extension remains `.pixloom`; editable JSON now uses `.pixen.json`. Container identifiers and metadata remain unchanged. Saved AI preferences fall back to the previous Pixloom settings directory; new preferences are written under Pixen. Existing `.spritex.json` documents, `.spritex` containers, and legacy Aseprite metadata envelopes remain readable. Reserved `_spritec*` provenance keys are retained for compatibility.
+Pixen was previously named Pixloom and, before that, Spritex. The binary project extension remains `.pixen`; editable JSON now uses `.pixen.json`. Container identifiers and metadata remain unchanged. Saved AI preferences fall back to the previous Pixloom settings directory; new preferences are written under Pixen. Existing `.spritex.json` documents, `.spritex` containers, and legacy Aseprite metadata envelopes remain readable. Reserved `_spritec*` provenance keys are retained for compatibility.
 
 ## Development
 
@@ -325,12 +325,12 @@ see the [animation workflow](docs/mcp.md#authoring-and-delivering-animation) and
 
 ## Desktop app and AI live view
 
-Run `pixen` to open the editor, or `pixen "path/to/project.pixloom"` to load
+Run `pixen` to open the editor, or `pixen "path/to/project.pixen"` to load
 artwork immediately. Open files through the application menu or drag and drop.
 Documents use independent tabs, with layers, drawing tools, AI chat, and a
 layer/frame timeline matrix sharing the active artwork.
 
-Supported inputs include `.pixloom`, authoring JSON, Pixelorama `.pxo`, RGBA
+Supported inputs include `.pixen`, authoring JSON, Pixelorama `.pxo`, RGBA
 Aseprite `.ase`/`.aseprite`, PNG/APNG, JPEG, GIF, WebP, BMP, and the first TIFF
 image. Native format limitations still apply; see the format references above.
 Use **File > Export** for batch outputs and [manual editing](docs/manual-editing.md)
@@ -353,7 +353,7 @@ when desktop previews are wanted:
 Windows executables have the `.exe` suffix. The MCP server runs only through
 `pixen-mcp`; the CLI has no MCP subcommand.
 
-On Windows, right-click a `.pixloom` file, choose **Open with → Choose another app**,
+On Windows, right-click a `.pixen` file, choose **Open with → Choose another app**,
 browse to `target/release/pixen.exe`, and choose **Always**. Update existing MCP
 client configurations to point to `pixen-mcp.exe`, with `--viewer` as the optional argument. Pixen does not modify file
 associations or MCP configurations automatically.
@@ -385,3 +385,5 @@ headless binaries. The desktop has its own manifest and depends on that library.
 execution and the former web bridge are no longer supported.
 
 See [Code layout](docs/code-layout.md) for the source and test folder guide.
+
+Legacy `.pixloom` containers remain readable; new projects use `.pixen`.

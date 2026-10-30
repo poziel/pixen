@@ -138,6 +138,7 @@ export function createEditor(transport: typeof call = call) {
       }
       if (next.documents) for (const id of documentViews.keys()) if (!next.documents.some(document => document.id === id)) documentViews.delete(id);
       state.snapshot = next;
+      if (next.document?.source_missing) state.error = 'The project file was moved or deleted. This document is unsaved; use Save As to save a new .pixen project.';
       if (state.follow && next.event_serial !== lastEvent) {
         const doc = next.document;
         const target =

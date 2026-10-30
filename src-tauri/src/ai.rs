@@ -21,7 +21,9 @@ struct Conversation {
     document_id: String,
     provider: Provider,
     cwd: String,
-    runtime: AgentRuntime,
+    runtime: Arc<AgentRuntime>,
+    owner: String,
+    window: String,
     session_id: Mutex<Option<String>>,
     sink: EventSink,
     desktop: Desktop,
@@ -48,6 +50,69 @@ impl Drop for Conversation {
 #[derive(Default)]
 pub struct AiBackend(Mutex<HashMap<String, Arc<Conversation>>>, Mutex<()>);
 
+/// Pixen's artwork policy behind Frame Server's reusable Tauri transport.
+pub struct PixenAgentHost;
+
+#[frame_agent_connectors::tauri::async_trait]
+impl frame_agent_connectors::tauri::AgentHost<tauri::Wry> for PixenAgentHost {
+    async fn request(
+        &self,
+        context: frame_agent_connectors::tauri::AgentContext<tauri::Wry>,
+        runtime_id: String,
+        method: String,
+        params: Value,
+    ) -> Reply<Value> {
+        ai_request(
+            context.app.state(),
+            context.app.state(),
+            runtime_id,
+            method,
+            params,
+            &context.webview,
+        )
+        .await
+    }
+
+    async fn disconnect(
+        &self,
+        context: frame_agent_connectors::tauri::AgentContext<tauri::Wry>,
+        runtime_id: String,
+    ) -> Reply<()> {
+        let state = context.app.state::<AiBackend>();
+        let connection = {
+            let mut connections = state.0.lock().await;
+            if let Some(connection) = connections.get(&runtime_id) {
+                if connection.owner != context.webview {
+                    return Err("AI conversation is not owned by this webview".into());
+                }
+            }
+            connections.remove(&runtime_id)
+        };
+        if let Some(connection) = connection {
+            connection.runtime.dispose().await.map_err(error)?;
+        }
+        Ok(())
+    }
+
+    async fn close_window(&self, app: tauri::AppHandle, window: String) {
+        let state = app.state::<AiBackend>();
+        let connections = {
+            let mut all = state.0.lock().await;
+            let ids: Vec<_> = all
+                .iter()
+                .filter(|(_, connection)| connection.window == window)
+                .map(|(id, _)| id.clone())
+                .collect();
+            ids.into_iter()
+                .filter_map(|id| all.remove(&id))
+                .collect::<Vec<_>>()
+        };
+        for connection in connections {
+            let _ = connection.runtime.dispose().await;
+        }
+    }
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectionInfo {
@@ -57,6 +122,7 @@ pub struct ConnectionInfo {
 
 #[tauri::command]
 pub async fn ai_connect(
+    webview: tauri::Webview,
     app: tauri::AppHandle,
     state: tauri::State<'_, Backend>,
     ai: tauri::State<'_, AiBackend>,
@@ -118,19 +184,14 @@ pub async fn ai_connect(
             .into(),
         },
     );
-    let runtime = AgentRuntime::new(config).await.map_err(error)?;
-    let (sink, mut receiver) = mpsc::unbounded_channel();
-    tauri::async_runtime::spawn(async move {
-        while let Some(event) = receiver.recv().await {
-            if events.send(event).is_err() {
-                break;
-            }
-        }
-    });
+    let runtime = Arc::new(AgentRuntime::new(config).await.map_err(error)?);
+    let sink = frame_agent_connectors::tauri::event_sink(runtime.clone(), events);
     let cwd = cwd.to_string_lossy().into_owned();
     ai.0.lock().await.insert(
         runtime_id.clone(),
         Arc::new(Conversation {
+            owner: webview.label().to_owned(),
+            window: webview.window().label().to_owned(),
             document_id,
             provider,
             cwd: cwd.clone(),
@@ -141,16 +202,22 @@ pub async fn ai_connect(
             _bridge: bridge,
         }),
     );
+    if app.get_webview_window(webview.window().label()).is_none() {
+        if let Some(connection) = ai.0.lock().await.remove(&runtime_id) {
+            let _ = connection.runtime.dispose().await;
+        }
+        return Err("Conversation window closed during setup".into());
+    }
     Ok(ConnectionInfo { runtime_id, cwd })
 }
 
-#[tauri::command]
 pub async fn ai_request(
     state: tauri::State<'_, Backend>,
     ai: tauri::State<'_, AiBackend>,
     runtime_id: String,
     method: String,
     mut params: Value,
+    owner: &str,
 ) -> Reply<Value> {
     if !params.is_object() {
         return Err("AI request parameters must be an object".into());
@@ -159,6 +226,7 @@ pub async fn ai_request(
         ai.0.lock()
             .await
             .get(&runtime_id)
+            .filter(|conversation| conversation.owner == owner)
             .cloned()
             .ok_or("AI conversation is closed")?;
     match method.as_str() {
@@ -297,15 +365,6 @@ pub async fn ai_models(
         }
     }
     Ok(Vec::new())
-}
-
-#[tauri::command]
-pub async fn ai_disconnect(ai: tauri::State<'_, AiBackend>, runtime_id: String) -> Reply<()> {
-    let conversation = ai.0.lock().await.remove(&runtime_id);
-    if let Some(c) = conversation {
-        c.runtime.dispose().await.map_err(error)?;
-    }
-    Ok(())
 }
 
 #[tauri::command]

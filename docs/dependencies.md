@@ -1,5 +1,22 @@
 # Frame dependencies
 
+## Unreleased Tauri agent adapter migration
+
+The current connector migration uses the sibling Frame Server
+`packages/agents-rust` crate with its optional `tauri` feature. Run
+`bun run deps:local` after building Frame's Tauri package so the new
+`@frame/tauri/agents` entry is available. Both sibling checkouts are currently
+required to build this revision.
+
+The published dependency configuration described below is the previous release
+baseline. Before releasing this revision, publish the updated Frame Server
+crate and Frame Tauri package, replace the temporary Cargo path dependency and
+old npm pins with those released versions, and regenerate both lockfiles.
+The release dependency check must continue to reject local Cargo paths.
+Do not use `deps:released` or `build:released` to validate this unreleased
+migration. `PIXEN_FRAME_SERVER_PATH` cannot redirect the temporary Cargo path;
+the sibling layout is required until the release dependency pins are updated.
+
 Pixen uses two dependency modes. The committed manifests and lockfiles describe
 published dependencies for reproducible builds. Local development commands use
 sibling sources without committing local paths or local lockfile resolutions.
@@ -63,15 +80,15 @@ public Git dependency and other Rust dependencies when resolving its graph.
 
 Useful commands:
 
-| Command | Dependency mode |
-| --- | --- |
-| `bun run deps:local` | Install local Frame outputs for frontend checks and tests |
-| `bun run dev` | Local Frame and Frame Server; start the desktop dev session |
-| `bun run build:debug` | Local Frame and Frame Server; build the debug desktop |
-| `bun scripts/dependencies.ts native-check` | Check the desktop against local Frame Server |
-| `bun run deps:released` | Restore the published frontend dependency installation |
-| `bun run build` / `bun run release` | Local sources; production build / Windows ZIP |
-| `bun run build:released` | Published dependency production build |
+| Command                                    | Dependency mode                                             |
+| ------------------------------------------ | ----------------------------------------------------------- |
+| `bun run deps:local`                       | Install local Frame outputs for frontend checks and tests   |
+| `bun run dev`                              | Local Frame and Frame Server; start the desktop dev session |
+| `bun run build:debug`                      | Local Frame and Frame Server; build the debug desktop       |
+| `bun scripts/dependencies.ts native-check` | Check the desktop against local Frame Server                |
+| `bun run deps:released`                    | Restore the published frontend dependency installation      |
+| `bun run build` / `bun run release`        | Local sources; production build / Windows ZIP               |
+| `bun run build:released`                   | Published dependency production build                       |
 
 After changing Frame source, rebuild the affected Frame package, then run
 `bun run deps:local` again to refresh Bun's local package copies. The local

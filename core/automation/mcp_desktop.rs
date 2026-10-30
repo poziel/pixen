@@ -17,7 +17,7 @@ struct TurnCheckpoint {
 fn store_turn_snapshot(root: &Path, bytes: &[u8]) -> Result<Arc<tempfile::NamedTempFile>> {
     use std::io::Write;
     let mut file = tempfile::Builder::new()
-        .prefix(".pixloom-turn-")
+        .prefix(".pixen-turn-")
         .tempfile_in(root)?;
     file.write_all(bytes)?;
     file.flush()?;
@@ -36,13 +36,27 @@ pub struct Desktop {
 
 impl Desktop {
     pub fn restore_checkpoint(&self, bytes: &[u8]) -> Result<()> {
-        self.server.state.lock().unwrap().session.restore_document(bytes)
+        self.server
+            .state
+            .lock()
+            .unwrap()
+            .session
+            .restore_document(bytes)
     }
     pub fn save_baseline(&self) -> Result<Option<Vec<u8>>> {
         self.server.state.lock().unwrap().session.save_baseline()
     }
-    pub fn restore_save_baseline(&self, destination: Option<&Path>, expected: Option<Vec<u8>>) -> Result<()> {
-        self.server.state.lock().unwrap().session.restore_save_baseline(destination, expected)
+    pub fn restore_save_baseline(
+        &self,
+        destination: Option<&Path>,
+        expected: Option<Vec<u8>>,
+    ) -> Result<()> {
+        self.server
+            .state
+            .lock()
+            .unwrap()
+            .session
+            .restore_save_baseline(destination, expected)
     }
     pub fn export_document(&self) -> Result<crate::schema::Document> {
         Ok(self
@@ -263,7 +277,7 @@ impl Desktop {
             .active_id()
             .context("no artwork yet")?
             .to_owned();
-        let destination = crate::output::resolved(&self.root.join("artwork.pixloom"))?;
+        let destination = crate::output::resolved(&self.root.join("artwork.pixen"))?;
         if state.session.info(&id)?["output_path"] == serde_json::json!(destination) {
             state.session.save(&id)?;
         }
@@ -293,9 +307,11 @@ impl Desktop {
             let original = keep_original
                 && source.file_name().is_some_and(|name| {
                     let name = name.to_string_lossy().to_ascii_lowercase();
-                    name.ends_with(".pixloom") || name.ends_with(".pixen.json")
+                    name.ends_with(".pixen")
+                        || name.ends_with(".pixloom")
+                        || name.ends_with(".pixen.json")
                 });
-            let temporary = root.join("artwork.pixloom");
+            let temporary = root.join("artwork.pixen");
             session.open(source, Some(if original { source } else { &temporary }))?;
             if !original {
                 let id = session.active_id().unwrap().to_owned();
@@ -330,7 +346,7 @@ impl Desktop {
             width,
             height,
             palette: vec!["#00000000".into(), "#FFFFFFFF".into()],
-            output_path: self.root.join("artwork.pixloom"),
+            output_path: self.root.join("artwork.pixen"),
         })?;
         self.save_temporary(&mut state)
     }
@@ -527,7 +543,7 @@ impl ServerHandler for Desktop {
         if request.name == "create_project" {
             request.arguments.get_or_insert_default().insert(
                 "output_path".into(),
-                serde_json::json!(self.root.join("artwork.pixloom")),
+                serde_json::json!(self.root.join("artwork.pixen")),
             );
         }
         let creating = request.name == "create_project";

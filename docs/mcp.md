@@ -1,5 +1,12 @@
 # MCP and live canvas
 
+For every tool's arguments, results, operation variants and availability, see
+the [complete MCP server and tool reference](mcp-reference.md). It documents the
+current 31-tool standalone server and 26-tool desktop bridge, including the
+current `.pixen` / `.pixen.json` project destinations. Older workflow examples
+and historical verification notes below retain legacy `.pixloom` naming and
+viewer details; use the reference for the current API contract.
+
 Build and run from this repository (Rust 1.89 or newer):
 
 ```powershell
@@ -19,7 +26,7 @@ cargo build --release --locked --target-dir target/mcp-editing
 
 Point the client configuration below at that executable to use the new copy.
 Restart the MCP client connection after changing the binary/configuration.
-Check `tools/list`: this implementation exposes 30 tools including
+Check `tools/list`: this implementation exposes 31 tools including
 `edit_frame`, `inspect_project`, `get_contact_sheet`, and `open_preview`.
 A stale four-tool server can only expose the original static-preview workflow;
 source changes alone do not upgrade a running process. On Windows the original
@@ -142,7 +149,7 @@ to avoid depending on the client's working directory.
 
 `get_preview` remains backward-compatible: `{"project_id":"project-1","scale":8}`
 returns the first-frame composite PNG and its original revision/dimensions.
-There are 30 tools. `apply_edits` remains the atomic batch-edit path;
+There are 31 tools. `apply_edits` remains the atomic batch-edit path;
 the focused mutation tools below use the same typed executor.
 
 All coordinates are zero-based and must be inside the canvas. Rectangles use

@@ -1,0 +1,7 @@
+Create a 256 × 256 pixel-art scene of a lively, compact Japanese city street, inspired by the attached reference. Show a dense row of small shops and low-rise buildings in the foreground, taller buildings behind them, leafy street trees, utility poles and overhead wires, signs, windows, and a narrow road along the bottom. Include a bright blue sky with a few clouds.
+
+Use a detailed but readable pixel-art style: crisp square pixels, deliberate clusters, limited cohesive colors, clear silhouettes, and strong depth from foreground to background. Give the scene a warm, lived-in feel, with small touches of red, green, and yellow among cool urban tones. Keep the composition legible at 256 × 256; simplify tiny details rather than letting them turn into visual noise.
+
+Create 20 animation frames that form a seamless loop. Keep the canvas, camera, buildings, signs, and all static details perfectly fixed between frames. Add only subtle motion: clouds drift slowly, a few tree leaves flutter, one or two signs or shop lights flicker gently, and a small highlight or reflection shifts on the road. Make each motion cycle smoothly back to its starting state by frame 20.
+
+Keep the pixel placement consistent across frames: no camera movement, zoom, parallax, shape changes, or random pixel shimmer. Preserve the same palette, lighting, and outlines throughout. The final result should feel like a still miniature city that has just enough movement to feel alive.

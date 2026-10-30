@@ -20,7 +20,7 @@ pub fn load(path: &Path) -> Result<Sprite> {
         path.display()
     );
     match path.extension().and_then(|s|s.to_str()).unwrap_or_default().to_ascii_lowercase().as_str() {
-        "json" | "pixloom" | "spritex" => crate::input::compile(path),
+        "json" | "pixen" | "pixloom" | "spritex" => crate::input::compile(path),
         "pxo" | "ase" | "aseprite" => crate::native::read(path),
         "png" | "jpg" | "jpeg" | "gif" | "apng" | "webp" | "bmp" | "tif" | "tiff" => crate::schema::compile(crate::import::document(crate::import::decode(path)?)?),
         _ => anyhow::bail!("unsupported project input; use Pixen JSON/.pixloom, Pixelorama .pxo, RGBA .ase/.aseprite, or PNG/JPEG/GIF/APNG/WebP/BMP/TIFF"),

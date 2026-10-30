@@ -6,7 +6,7 @@ fn roundtrip_and_determinism() {
     ))
     .unwrap();
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("test.pixloom");
+    let path = dir.path().join("test.pixen");
     let mut a = std::io::Cursor::new(Vec::new());
     container::write(&mut a, &doc).unwrap();
     let mut b = std::io::Cursor::new(Vec::new());
@@ -56,7 +56,7 @@ fn fixture() -> schema::Document {
 #[test]
 fn metadata_and_one_cel_do_not_read_unrelated_malformed_payload() {
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.pixloom");
+    let p = dir.path().join("a.pixen");
     container::write(std::fs::File::create(&p).unwrap(), &fixture()).unwrap();
     let mut all = entries(&p);
     let bad = all
@@ -82,7 +82,7 @@ fn metadata_and_one_cel_do_not_read_unrelated_malformed_payload() {
 #[test]
 fn malformed_archives_and_references_fail() {
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.pixloom");
+    let p = dir.path().join("a.pixen");
     container::write(std::fs::File::create(&p).unwrap(), &fixture()).unwrap();
     let original = entries(&p);
     for case in 0..10 {
@@ -125,7 +125,7 @@ fn malformed_archives_and_references_fail() {
 fn pack_overwrite_and_input_safety_and_optimized_indices() {
     let dir = tempfile::tempdir().unwrap();
     let input = dir.path().join("input.json");
-    let out = dir.path().join("out.pixloom");
+    let out = dir.path().join("out.pixen");
     let bytes = serde_json::to_vec(&fixture()).unwrap();
     std::fs::write(&input, &bytes).unwrap();
     container::pack(&input, &out, true, false).unwrap();
@@ -153,7 +153,7 @@ fn legacy_roundtrip_preserves_unused_cels_annotations_and_links() {
     d["annotations"] = serde_json::json!({"metadata":{"test":[1,"x"]},"user_data":"hello"});
     let doc = schema::read_document(&serde_json::to_vec(&d).unwrap()).unwrap();
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.pixloom");
+    let p = dir.path().join("a.pixen");
     container::write(std::fs::File::create(&p).unwrap(), &doc).unwrap();
     assert_eq!(
         serde_json::to_value(&doc).unwrap(),
@@ -163,7 +163,7 @@ fn legacy_roundtrip_preserves_unused_cels_annotations_and_links() {
 #[test]
 fn single_cel_decode_checks_indices_without_other_payloads() {
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.pixloom");
+    let p = dir.path().join("a.pixen");
     let doc = fixture();
     container::write(std::fs::File::create(&p).unwrap(), &doc).unwrap();
     let mut r = container::Reader::open(&p).unwrap();
@@ -178,7 +178,7 @@ fn cli_json_and_container_export_and_native_build_are_equivalent() {
     use std::process::Command;
     let dir = tempfile::tempdir().unwrap();
     let input = dir.path().join("a.pixen.json");
-    let packed = dir.path().join("a.pixloom");
+    let packed = dir.path().join("a.pixen");
     std::fs::write(
         &input,
         include_bytes!("../../skills/pixen/examples/animated.pixloom.json"),
@@ -248,7 +248,7 @@ fn cli_json_and_container_export_and_native_build_are_equivalent() {
 #[test]
 fn zip_security_and_declared_size_limits() {
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.pixloom");
+    let p = dir.path().join("a.pixen");
     container::write(std::fs::File::create(&p).unwrap(), &fixture()).unwrap();
     let original = std::fs::read(&p).unwrap();
     let central: Vec<_> = original
@@ -297,7 +297,7 @@ fn zip_security_and_declared_size_limits() {
 #[test]
 fn too_many_small_entries_rejected() {
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.pixloom");
+    let p = dir.path().join("a.pixen");
     let all: Vec<_> = (0..schema::MAX_SLOTS + 3)
         .map(|i| (format!("cels/{i}.json"), Vec::new()))
         .collect();
@@ -307,7 +307,7 @@ fn too_many_small_entries_rejected() {
 #[test]
 fn duplicate_payload_fields_are_not_silently_reinterpreted() {
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.pixloom");
+    let p = dir.path().join("a.pixen");
     container::write(std::fs::File::create(&p).unwrap(), &fixture()).unwrap();
     let mut all = entries(&p);
     let e = all
@@ -323,7 +323,7 @@ fn duplicate_payload_fields_are_not_silently_reinterpreted() {
 fn corrupt_unused_payload_preserves_unpack_destination_and_source() {
     use std::process::Command;
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.pixloom");
+    let p = dir.path().join("a.pixen");
     let destination = dir.path().join("a.pixen.json");
     container::write(std::fs::File::create(&p).unwrap(), &fixture()).unwrap();
     let mut all = entries(&p);
@@ -355,7 +355,7 @@ fn corrupt_unused_payload_preserves_unpack_destination_and_source() {
 #[test]
 fn explicit_payload_references_work_independently_of_filenames_and_order() {
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.pixloom");
+    let p = dir.path().join("a.pixen");
     let doc = fixture();
     container::write(std::fs::File::create(&p).unwrap(), &doc).unwrap();
     let mut all = entries(&p);
@@ -378,7 +378,7 @@ fn explicit_payload_references_work_independently_of_filenames_and_order() {
 #[test]
 fn payload_header_order_and_strict_fields_survive_direct_loading() {
     let dir = tempfile::tempdir().unwrap();
-    let p = dir.path().join("a.pixloom");
+    let p = dir.path().join("a.pixen");
     container::write(std::fs::File::create(&p).unwrap(), &fixture()).unwrap();
     let original = entries(&p);
     for tail in [
@@ -417,7 +417,7 @@ fn legacy_spritex_extension_and_manifest_remain_readable() {
         .find(|(name, _)| name == "manifest.json")
         .unwrap();
     let mut value: serde_json::Value = serde_json::from_slice(&manifest.1).unwrap();
-    assert_eq!(value["format"], "pixloom");
+    assert_eq!(value["format"], "pixen");
     value["format"] = serde_json::json!("spritex");
     manifest.1 = serde_json::to_vec(&value).unwrap();
     archive(&path, &all);
@@ -426,4 +426,48 @@ fn legacy_spritex_extension_and_manifest_remain_readable() {
         serde_json::to_value(pixen::input::read(&path).unwrap()).unwrap(),
         serde_json::to_value(doc).unwrap()
     );
+}
+
+#[test]
+fn pixen_extension_roundtrips_and_rejects_a_misnamed_pixen_container() {
+    let root = tempfile::tempdir().unwrap();
+    let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("skills/pixen/examples/encodings.pixloom.json");
+    let destination = root.path().join("artwork.pixen");
+    container::pack(&source, &destination, false, false).unwrap();
+    assert!(pixen::input::is_container(&destination));
+    let expected = pixen::input::read(&source).unwrap();
+    let actual = pixen::input::read(&destination).unwrap();
+    assert_eq!(
+        serde_json::to_value(actual).unwrap(),
+        serde_json::to_value(expected).unwrap()
+    );
+    let legacy = root.path().join("legacy.pixloom");
+    std::fs::copy(destination, &legacy).unwrap();
+    let error = pixen::input::read(&legacy).err().unwrap().to_string();
+    assert!(error.contains("unsupported extension .pixloom"));
+    assert!(error.contains(".pixen"));
+}
+
+#[test]
+fn genuine_legacy_pixloom_containers_remain_readable() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("legacy.pixloom");
+    let doc = schema::read_document(include_bytes!(
+        "../../skills/pixen/examples/encodings.pixloom.json"
+    ))
+    .unwrap();
+    let mut bytes = std::io::Cursor::new(Vec::new());
+    container::write(&mut bytes, &doc).unwrap();
+    std::fs::write(&path, bytes.into_inner()).unwrap();
+    let mut all = entries(&path);
+    let manifest = all
+        .iter_mut()
+        .find(|entry| entry.0 == "manifest.json")
+        .unwrap();
+    let mut value: serde_json::Value = serde_json::from_slice(&manifest.1).unwrap();
+    value["format"] = serde_json::json!("pixloom");
+    manifest.1 = serde_json::to_vec(&value).unwrap();
+    archive(&path, &all);
+    assert!(pixen::input::read(&path).is_ok());
 }

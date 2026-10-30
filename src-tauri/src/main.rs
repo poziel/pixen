@@ -36,7 +36,7 @@ struct Backend {
 }
 type Reply<T> = Result<T, String>;
 fn error(e: impl std::fmt::Display) -> String {
-    e.to_string()
+    format!("{e:#}")
 }
 async fn work<T: Send + 'static>(
     state: &Backend,
@@ -174,7 +174,7 @@ async fn open_document(state: tauri::State<'_, Backend>, path: Option<PathBuf>) 
                 .add_filter(
                     "Pixel art",
                     &[
-                        "pixloom", "json", "pxo", "ase", "aseprite", "png", "jpg", "jpeg", "gif",
+                        "pixen", "pixloom", "json", "pxo", "ase", "aseprite", "png", "jpg", "jpeg", "gif",
                         "apng", "webp", "bmp", "tif", "tiff",
                     ],
                 )
@@ -244,7 +244,7 @@ async fn save_document(
             .ok_or("no document")?;
         let needs = save_as
             || doc.path.as_ref().is_none_or(|p| {
-                !(p.to_string_lossy().ends_with(".pixloom")
+                !(p.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("pixen"))
                     || p.to_string_lossy().ends_with(".pixen.json"))
             });
         Ok((id, needs))
@@ -253,8 +253,8 @@ async fn save_document(
     let path = if needs_path {
         tauri::async_runtime::spawn_blocking(|| {
             rfd::FileDialog::new()
-                .add_filter("Pixen projects", &["pixloom"])
-                .set_file_name("artwork.pixloom")
+                .add_filter("Pixen projects", &["pixen"])
+                .set_file_name("artwork.pixen")
                 .save_file()
         })
         .await
@@ -399,8 +399,8 @@ fn main() {
         }),
     );
     for window in &mut context.config_mut().app.windows { window.data_directory = None; }
-    let result = tauri::Builder::default().plugin(tauri_plugin_opener::init()).manage(backend).manage(ai::AiBackend::default()).manage(storage_migration::MigrationState::default()).manage(storage_migration::ResumeState(args.storage_resume.clone()))
-        .invoke_handler(tauri::generate_handler![storage_migration::storage_status, storage_migration::prepare_storage_migration, storage_migration::begin_storage_migration, storage_migration::cancel_storage_migration,settings_file::read_settings_file, settings_file::write_settings_file, settings_file::read_keybindings_file, settings_file::write_keybindings_file,ai::ai_connect, ai::ai_request, ai::ai_disconnect, ai::ai_models, ai::ai_test_provider, ai::ai_drop_files, export::choose_export_folder, export::export_document, sample_color, snapshot, read_cel, paint_pixels, edit_structure, edit_history, open_document, create_document, activate_document, close_document, resize_document, toggle_view, follow_target, save_document, configure_recovery, render, review_document, desktop_ready, theme_config])
+    let result = tauri::Builder::default().plugin(tauri_plugin_opener::init()).plugin(frame_agent_connectors::tauri::init(ai::PixenAgentHost)).manage(backend).manage(ai::AiBackend::default()).manage(storage_migration::MigrationState::default()).manage(storage_migration::ResumeState(args.storage_resume.clone()))
+        .invoke_handler(tauri::generate_handler![storage_migration::storage_status, storage_migration::prepare_storage_migration, storage_migration::begin_storage_migration, storage_migration::cancel_storage_migration,settings_file::read_settings_file, settings_file::write_settings_file, settings_file::read_keybindings_file, settings_file::write_keybindings_file,ai::ai_connect, ai::ai_models, ai::ai_test_provider, ai::ai_drop_files, export::choose_export_folder, export::export_document, sample_color, snapshot, read_cel, paint_pixels, edit_structure, edit_history, open_document, create_document, activate_document, close_document, resize_document, toggle_view, follow_target, save_document, configure_recovery, render, review_document, desktop_ready, theme_config])
         .setup(move |app| {
             if protocol.managed {
                 let handle = app.handle().clone();

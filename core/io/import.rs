@@ -409,10 +409,12 @@ pub fn run(
         .file_name()
         .context("output needs a filename")?
         .to_string_lossy();
-    let container = name.ends_with(".pixloom");
+    let container = destination
+        .extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("pixen"));
     ensure!(
         container || name.ends_with(".pixen.json"),
-        "import output must end in .pixen.json or .pixloom"
+        "import output must end in .pixen.json or .pixen"
     );
     output::preflight(input, &[destination], force)?;
     if destination.exists() {

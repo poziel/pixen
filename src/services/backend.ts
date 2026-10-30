@@ -13,6 +13,7 @@ export interface LayerInfo {
   cells?: { cel: string | null; link: string | null }[];
 }
 export interface DocumentInfo {
+  source_missing?: boolean;
   generation: number;
   revision: number;
   width: number;

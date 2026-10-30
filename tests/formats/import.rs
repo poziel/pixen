@@ -39,7 +39,7 @@ fn static_formats_exact_pixels_determinism_and_workflows() {
     let input = dir.path().join("source image.png");
     image.save(&input).unwrap();
     let mut docs = vec![];
-    for (i, ext) in ["pixen.json", "pixloom"].into_iter().enumerate() {
+    for (i, ext) in ["pixen.json", "pixen"].into_iter().enumerate() {
         let output = dir.path().join(format!("arbitrary name.{ext}"));
         let r = cli(&["import", s(&input), "--output", s(&output)]);
         assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
@@ -80,7 +80,7 @@ fn static_formats_exact_pixels_determinism_and_workflows() {
     }
     assert_eq!(docs[0], docs[1]);
     let json = dir.path().join("arbitrary name.pixen.json");
-    let packed = dir.path().join("packed.pixloom");
+    let packed = dir.path().join("packed.pixen");
     assert!(
         cli(&["pack", s(&json), "--output", s(&packed)])
             .status
@@ -175,7 +175,7 @@ fn shared_trim_preserves_alignment_pixels_and_empty_canvas() {
 #[test]
 fn failures_preserve_input_destination_and_leave_no_temporary_files() {
     let dir = tempfile::tempdir().unwrap();
-    let input = dir.path().join("input.pixloom");
+    let input = dir.path().join("input.pixen");
     RgbaImage::new(1, 1)
         .save_with_format(&input, image::ImageFormat::Png)
         .unwrap();
@@ -427,7 +427,7 @@ fn hard_link_alias_is_rejected_even_with_force() {
     let dir = tempfile::tempdir().unwrap();
     let input = dir.path().join("source.png");
     RgbaImage::new(1, 1).save(&input).unwrap();
-    let dest = dir.path().join("alias.pixloom");
+    let dest = dir.path().join("alias.pixen");
     std::fs::hard_link(&input, &dest).unwrap();
     let error = import::run(&input, &dest, &Options::default(), true).unwrap_err();
     assert!(error.to_string().contains("aliases input"));
@@ -512,7 +512,7 @@ fn zero_duration_is_explicitly_rejected_and_atomic_staging_cleans_up() {
             .to_string()
             .contains("zero-duration")
     );
-    let destination = dir.path().join("preserved.pixloom");
+    let destination = dir.path().join("preserved.pixen");
     std::fs::write(&destination, b"preserve").unwrap();
     let staged = pixen::output::Prepared::new(&destination, |file| {
         use std::io::Write;
@@ -554,7 +554,7 @@ fn apng_separate_thumbnail_is_excluded_and_animation_outputs_agree() {
     assert_eq!(d.images[1].get_pixel(0, 0).0, [0, 0, 0, 0]);
     let expected: Vec<_> = d.images.iter().map(|i| i.as_raw().clone()).collect();
     let mut documents = vec![];
-    for (n, ext) in ["pixen.json", "pixloom"].iter().enumerate() {
+    for (n, ext) in ["pixen.json", "pixen"].iter().enumerate() {
         let output = dir.path().join(format!("animation.{ext}"));
         import::run(
             &path,
@@ -581,7 +581,7 @@ fn apng_separate_thumbnail_is_excluded_and_animation_outputs_agree() {
     }
     assert_eq!(documents[0], documents[1]);
     let json = dir.path().join("animation.pixen.json");
-    let packed = dir.path().join("packed.pixloom");
+    let packed = dir.path().join("packed.pixen");
     assert!(
         cli(&["pack", s(&json), "--output", s(&packed)])
             .status

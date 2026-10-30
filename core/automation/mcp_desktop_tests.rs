@@ -43,7 +43,7 @@ fn manual_canvas_resize_preserves_indices_and_pads_without_scaling() {
         crate::schema::decode_indices(&snapshot()).unwrap()["cel-1"],
         vec![vec![1]]
     );
-    assert!(dir.path().join("artwork.pixloom").exists());
+    assert!(dir.path().join("artwork.pixen").exists());
 }
 
 #[test]
@@ -140,7 +140,7 @@ fn bridge_edits_the_desktop_document_and_filters_file_actions() {
     );
     assert_ne!(created["result"]["isError"], true, "{created}");
     assert!(
-        dir.path().join("artwork.pixloom").is_file(),
+        dir.path().join("artwork.pixen").is_file(),
         "temporary project container should exist before drawing"
     );
     let edit = request(

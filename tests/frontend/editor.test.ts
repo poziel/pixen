@@ -269,3 +269,16 @@ test('new artworks use current defaults while existing tabs keep their independe
   expect(editor.state.background).toBe('black'); expect(editor.state.fps).toBe(8);
   expect(editor.state.defaults).toEqual({background:'transparent',fps:5});
 });
+
+test('a detached source keeps its artwork and shows an unsaved-document warning', async () => {
+  const next = snapshot();
+  next.document!.source_missing = true;
+  next.document!.dirty = true;
+  next.document!.path = null;
+  const editor = createEditor(async <T>(command: string) => structuredClone(next) as T);
+  await editor.refresh();
+  expect(editor.state.snapshot?.document?.dirty).toBe(true);
+  expect(editor.state.snapshot?.document?.frames.length).toBeGreaterThan(0);
+  expect(editor.state.error).toContain('unsaved');
+  expect(editor.state.error).toContain('Save As');
+});

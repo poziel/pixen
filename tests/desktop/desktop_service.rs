@@ -3,7 +3,7 @@ use pixen::desktop::{Application, RenderRequest};
 #[test]
 fn recovery_timer_runs_without_frontend_polling_and_does_not_save_the_project() {
     let root = tempfile::tempdir().unwrap();
-    let path = root.path().join("project.pixloom");
+    let path = root.path().join("project.pixen");
     let mut app = Application::new(false);
     app.create(1, 1).unwrap();
     app.save(Some(&path)).unwrap();
@@ -85,7 +85,7 @@ fn desktop_edits_use_memory_until_a_background_recovery_checkpoint() {
 #[test]
 fn captured_save_does_not_save_newer_edits_or_clear_their_dirty_state() {
     let root = tempfile::tempdir().unwrap();
-    let path = root.path().join("async.pixloom");
+    let path = root.path().join("async.pixen");
     let mut app = Application::new(false);
     app.create(2, 2).unwrap();
     let doc = app.snapshot().unwrap().document.unwrap();
@@ -441,7 +441,7 @@ fn desktop_structure_edits_preserve_artwork_names_and_history() {
     assert_eq!(&app.cel(&frame, &layer).unwrap()[..4], &[255, 0, 0, 255]);
     assert!(app.cel("next", "ink").unwrap().iter().all(|v| *v == 0));
     let root = tempfile::tempdir().unwrap();
-    let path = root.path().join("structure.pixloom");
+    let path = root.path().join("structure.pixen");
     app.save(Some(&path)).unwrap();
     let mut reopened = Application::new(false);
     reopened.open(&path).unwrap();
@@ -533,7 +533,7 @@ fn manual_strokes_are_atomic_revision_checked_and_undoable() {
     );
     assert_eq!(app.snapshot().unwrap().document.unwrap().generation, before);
     let root = tempfile::tempdir().unwrap();
-    let path = root.path().join("manual-stroke.pixloom");
+    let path = root.path().join("manual-stroke.pixen");
     app.save(Some(&path)).unwrap();
     let mut reopened = Application::new(false);
     reopened.open(&path).unwrap();
@@ -546,7 +546,7 @@ fn manual_strokes_are_atomic_revision_checked_and_undoable() {
 #[test]
 fn document_lifetime_save_and_preview_do_not_require_a_frontend() {
     let root = tempfile::tempdir().unwrap();
-    let path = root.path().join("saved.pixloom");
+    let path = root.path().join("saved.pixen");
     let mut app = Application::new(false);
     app.create(4, 3).unwrap();
     let state = app.snapshot().unwrap();
@@ -574,7 +574,7 @@ fn document_lifetime_save_and_preview_do_not_require_a_frontend() {
 #[test]
 fn managed_view_is_read_only_and_rejects_stale_render_requests() {
     let root = tempfile::tempdir().unwrap();
-    let path = root.path().join("source.pixloom");
+    let path = root.path().join("source.pixen");
     let mut writer = Application::new(false);
     writer.create(2, 2).unwrap();
     writer.save(Some(&path)).unwrap();
@@ -685,7 +685,7 @@ fn inspection_review_and_resize_preview_preserve_source_pixels() {
 #[test]
 fn external_edits_do_not_overwrite_unsaved_document_changes() {
     let root = tempfile::tempdir().unwrap();
-    let path = root.path().join("art.pixloom");
+    let path = root.path().join("art.pixen");
     let mut app = Application::new(false);
     app.create(2, 2).unwrap();
     app.save(Some(&path)).unwrap();
@@ -698,7 +698,7 @@ fn external_edits_do_not_overwrite_unsaved_document_changes() {
     assert!(app.snapshot().is_err());
     assert!(app.save(None).is_err());
     assert_eq!(std::fs::read(&path).unwrap(), external);
-    let copy = root.path().join("copy.pixloom");
+    let copy = root.path().join("copy.pixen");
     app.save(Some(&copy)).unwrap();
     let sprite = pixen::preview::load(&copy).unwrap();
     assert_eq!((sprite.width, sprite.height), (3, 3));
@@ -709,22 +709,61 @@ fn json_export_captures_unsaved_pixels_without_changing_project_state() {
     let root = tempfile::tempdir().unwrap();
     let mut app = Application::new(false);
     app.create(2, 2).unwrap();
-    let path=root.path().join("project.pixloom");
+    let path = root.path().join("project.pixen");
     app.save(Some(&path)).unwrap();
-    let doc=app.snapshot().unwrap().document.unwrap();
-    app.paint(doc.generation,&doc.frames[0].id,&doc.layers[0].id,vec![pixen::desktop::PaintPixel{x:0,y:0,color:"#ff0000ff".into()}]).unwrap();
-    let before=app.snapshot().unwrap().document.unwrap();
-    let document=app.export_document().unwrap();
-    let output=root.path().join("export.pixen.json");
-    let prepared=pixen::output::Prepared::new(&output,|f|pixen::output::write_document(f,&document)).unwrap();
+    let doc = app.snapshot().unwrap().document.unwrap();
+    app.paint(
+        doc.generation,
+        &doc.frames[0].id,
+        &doc.layers[0].id,
+        vec![pixen::desktop::PaintPixel {
+            x: 0,
+            y: 0,
+            color: "#ff0000ff".into(),
+        }],
+    )
+    .unwrap();
+    let before = app.snapshot().unwrap().document.unwrap();
+    let document = app.export_document().unwrap();
+    let output = root.path().join("export.pixen.json");
+    let prepared =
+        pixen::output::Prepared::new(&output, |f| pixen::output::write_document(f, &document))
+            .unwrap();
     prepared.commit(false).unwrap();
-    let loaded=pixen::input::compile(&output).unwrap();
-    assert_eq!(&pixen::raster::render(&loaded,0).unwrap()[..4],&[255,0,0,255]);
-    let after=app.snapshot().unwrap().document.unwrap();
-    assert_eq!(before.path,after.path);
-    assert_eq!(before.revision,after.revision);
+    let loaded = pixen::input::compile(&output).unwrap();
+    assert_eq!(
+        &pixen::raster::render(&loaded, 0).unwrap()[..4],
+        &[255, 0, 0, 255]
+    );
+    let after = app.snapshot().unwrap().document.unwrap();
+    assert_eq!(before.path, after.path);
+    assert_eq!(before.revision, after.revision);
     assert!(after.dirty);
-    let mut reopened=Application::new(false);
+    let mut reopened = Application::new(false);
     reopened.open(&output).unwrap();
-    assert_eq!(reopened.snapshot().unwrap().document.unwrap().path,Some(output.canonicalize().unwrap()));
+    assert_eq!(
+        reopened.snapshot().unwrap().document.unwrap().path,
+        Some(output.canonicalize().unwrap())
+    );
+}
+
+#[test]
+fn missing_source_becomes_unsaved_and_can_be_saved_as_a_new_project() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("project.pixen");
+    let mut app = Application::new(false);
+    app.create(2, 2).unwrap();
+    app.save(Some(&path)).unwrap();
+    std::fs::rename(&path, root.path().join("moved.pixen")).unwrap();
+    let doc = app.snapshot().unwrap().document.unwrap();
+    assert!(doc.dirty);
+    assert!(doc.source_missing);
+    assert!(doc.path.is_none());
+    assert_eq!((doc.width, doc.height), (2, 2));
+    let saved = root.path().join("recovered.pixen");
+    app.save(Some(&saved)).unwrap();
+    let doc = app.snapshot().unwrap().document.unwrap();
+    assert!(!doc.dirty);
+    assert!(!doc.source_missing);
+    assert!(saved.is_file());
 }
