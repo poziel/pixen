@@ -73,7 +73,7 @@ moment it rotates. Copy generously and let the stacking order hide the excess.
 
 ## Then
 
-`aseprite:animate`.
+`pixen:animate`.
 
 ## Related
 

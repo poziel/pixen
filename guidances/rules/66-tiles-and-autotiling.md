@@ -27,7 +27,7 @@ A tile is drawn once and shown a thousand times, so every flaw is multiplied: a 
 
 14. **Pick the set by the terrain, not by habit.** Rectangles and UI boxes: 9-slice (+ 4 inner corners). Pipes, roads, wall lines: 4-bit, 16 tiles. Smooth terrain at minimum art: dual-grid, 16 tiles. Full terrain with the `tileset` export: blob47. RPG Maker: A2 (20 minitiles → the same 47 shapes).
 15. **A diagonal neighbour counts only when both cardinals beside it are present.** That rule collapses 256 masks to exactly 47. Bit order, clockwise from north: N=1, NE=2, E=4, SE=8, S=16, SW=32, W=64, NW=128.
-16. **The `tileset` tool expects canonical order**: the 47 reduced masks in ascending numeric order at Aseprite tile indices 1–47 (index 0 is the reserved empty tile). Wangtile id = index − 1. Any other order autotiles wrongly; the export refuses an incomplete set.
+16. **The `tileset` tool expects canonical order**: the 47 reduced masks in ascending numeric order at Pixen tile indices 1–47 (index 0 is the reserved empty tile). Wangtile id = index − 1. Any other order autotiles wrongly; the export refuses an incomplete set.
 17. **Build the body tile first, then edges, then corners**; draw no detail until every connection works. Squeeze every tile: avoid rare cases. Test with a single cell, a 3×3 patch (9 different tiles), an L shape (inner corner), a ring (hole), a plus.
 18. **Two terrains on one map**: give them priorities and draw overlays lowest to highest; the higher terrain's open sides read the lower one as its background.
 19. **Animated tiles** cycle frames inside one autotile index; the index changes only when a neighbour changes.
@@ -160,7 +160,7 @@ BBBBBBBBBBBBBBBB
 
 ### Layout: blob47 (what `tileset` export `layout="blob47"` expects)
 
-`#` = neighbour is the same terrain, `.` = not, centre always terrain. Each cell is `index=mask`; the index is the Aseprite tile index, the mask is the sum of the set bits. Author in this order.
+`#` = neighbour is the same terrain, `.` = not, centre always terrain. Each cell is `index=mask`; the index is the Pixen tile index, the mask is the sum of the set bits. Author in this order.
 
 ```text
  1=0     2=1     3=4     4=5     5=7     6=16    7=17    8=20

@@ -43,7 +43,7 @@ The text grid is where you find the pixel that is one row too low, the run of
 - [ ] Tags named the way the engine expects (`idle`, `walk`, `attack`)
 - [ ] Exported at the size and layout the user asked for
 - [ ] Spritesheet has its JSON atlas if the engine needs one
-- [ ] Working `.aseprite` saved, not just the export
+- [ ] Working `.pixen` saved, not just the export
 
 ## Reporting
 

@@ -82,7 +82,7 @@ uses it — so the export opens in Tiled as a level, not just an image.
 - LDtk needs no exporter — it reads `.aseprite` directly, so just save the
   document.
 
-Aseprite reserves tile index 0 for the empty tile. The exporter drops it from
+Pixen reserves tile index 0 for the empty tile. The exporter drops it from
 the atlas so engine indices line up, and index 0 becomes "no tile", which is
 what every engine expects.
 
@@ -94,7 +94,7 @@ tileset op="export" format="tiled" layout="blob47" path="…/terrain.tsj"
 
 Adds a Tiled wangset for 4-connected autotiling. It assumes the 47 tiles are
 authored in **canonical blob47 order** — the 47 distinct neighbour masks in
-ascending order, after Aseprite's empty tile — and refuses if the set is
+ascending order, after Pixen's empty tile — and refuses if the set is
 incomplete rather than writing a wangset that autotiles wrongly. If you are not
 sure of the ordering, export `format="json"` first: it reports the
 index-to-mask mapping so you can check a few tiles by eye.

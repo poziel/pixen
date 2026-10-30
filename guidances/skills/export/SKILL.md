@@ -1,7 +1,7 @@
 ---
 name: export
 title: Export game-ready assets
-description: Produce the files an engine actually consumes — spritesheets with atlases, GIFs, scaled PNGs — with the tags and layout the target needs. Use when work is finished and needs to leave Aseprite.
+description: Produce the files an engine actually consumes — spritesheets with atlases, GIFs, scaled PNGs — with the tags and layout the target needs. Use when work is finished and needs to leave Pixen.
 ---
 
 # Export game-ready assets
@@ -21,7 +21,7 @@ re-export. If you do not know, ask — it is one question.
 
 ## Before exporting
 
-Run `aseprite:review`. Exporting broken art just distributes it.
+Run `pixen:review`. Exporting broken art just distributes it.
 
 Then check specifically:
 
@@ -73,7 +73,7 @@ Exporting does not save the working document.
 sprite_manage op="save"
 ```
 
-The `.aseprite` file is the asset. The PNG is a build artifact.
+The `.pixen` file is the asset. The PNG is a build artifact.
 
 ## Report
 

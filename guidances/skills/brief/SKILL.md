@@ -24,7 +24,7 @@ the user's time and yours. Five questions, one answer, then draw.
 ## Procedure
 
 1. **`preflight`.** If not ready, stop and tell the user — nothing below works
-   without a live Aseprite.
+   without a live Pixen.
 
 2. **Read what already exists.** If a sprite is open, `sprite_info` it. The
    user's existing canvas size and palette usually answer half the questions,
@@ -44,7 +44,7 @@ the user's time and yours. Five questions, one answer, then draw.
    do not care about it.
 
    When the request is something new — a character, a prop, an animation —
-   `aseprite:concept` follows, and its offer goes **in this same message**:
+   `pixen:concept` follows, and its offer goes **in this same message**:
    the decisions above, then the image-model prompt in one code block, then the
    choice between sending references and continuing without. The user answers
    once. If they correct a decision, fix the prompt to match before they copy it.
@@ -58,9 +58,9 @@ the user's time and yours. Five questions, one answer, then draw.
 
 ## Then
 
-`aseprite:concept` for anything drawn from scratch — its offer is already in
-the message above. Then `aseprite:new` to create the document, or
-`aseprite:draw` if a suitable sprite is already open.
+`pixen:concept` for anything drawn from scratch — its offer is already in
+the message above. Then `pixen:new` to create the document, or
+`pixen:draw` if a suitable sprite is already open.
 
 ## Related
 

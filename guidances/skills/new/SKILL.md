@@ -1,7 +1,7 @@
 ---
 name: new
 title: Create a sprite document
-description: Create a new Aseprite document with the right canvas size, colour mode, palette and layer structure, so later work does not have to fight the setup. Use when starting fresh rather than editing an existing sprite.
+description: Create a new Pixen document with the right canvas size, colour mode, palette and layer structure, so later work does not have to fight the setup. Use when starting fresh rather than editing an existing sprite.
 ---
 
 # Create a sprite document
@@ -21,7 +21,7 @@ things right and the rest of the work is drawing.
    ```
 
    - Use **RGB** unless the user wants hard palette enforcement at the file
-     level. Indexed mode makes the palette a hard constraint Aseprite itself
+     level. Indexed mode makes the palette a hard constraint Pixen itself
      enforces — good for a strict retro target, awkward for iteration.
    - Size to the game's grid if there is one: a 16×16 tile game wants character
      sprites that are a multiple of 16 in at least one dimension.
@@ -49,12 +49,12 @@ things right and the rest of the work is drawing.
    ```
 
    For anything that will be animated, build the full character rig instead —
-   see `aseprite:rig`. Splitting baked pixels apart later is real work.
+   see `pixen:rig`. Splitting baked pixels apart later is real work.
 
 5. **Save immediately**, so the user has a file and undo has an anchor:
 
    ```
-   sprite_manage op="save_as" path="…/knight.aseprite"
+   sprite_manage op="save_as" path="…/knight.pixen"
    ```
 
    Ask where, or put it beside whatever project the user is working in.
@@ -63,7 +63,7 @@ things right and the rest of the work is drawing.
 
 ## Then
 
-`aseprite:draw` to block in the art.
+`pixen:draw` to block in the art.
 
 ## Related
 
