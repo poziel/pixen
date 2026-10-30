@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: tools-${{ github.ref }}
@@ -34,13 +35,25 @@ jobs:
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.3'
+      - name: Configure GitHub npm registry authentication
+        run: bun -e 'require("node:fs").appendFileSync(".npmrc", "\n//npm.pkg.github.com/:_authToken=\u0024{NODE_AUTH_TOKEN}\n")'
+      - name: Install packaging dependencies
+        run: bun install --ignore-scripts --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.FRAME_PACKAGES_TOKEN || github.token }}
+      - name: Check packaging scripts
+        run: bun run check:scripts
+      - name: Test packaging scripts
+        run: bun test tests/scripts
       - name: Test Rust engine and tools
         run: cargo test --locked
       - name: Build tools
         run: cargo build --release --locked --bin pixen-cli --bin pixen-mcp
       - name: Package tools
-        shell: pwsh
-        run: ./scripts/package-tools.ps1 -Target '${{ matrix.target }}'
+        run: bun scripts/package-tools.ts --target '${{ matrix.target }}'
       - uses: actions/upload-artifact@v7
         with:
           name: headless-tools-${{ matrix.target }}

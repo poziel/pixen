@@ -64,17 +64,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf
       - name: Configure GitHub npm registry authentication
-        shell: pwsh
-        run: |
-          '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}' | Add-Content -LiteralPath .npmrc -Encoding utf8
+        run: bun -e 'require("node:fs").appendFileSync(".npmrc", "\n//npm.pkg.github.com/:_authToken=\u0024{NODE_AUTH_TOKEN}\n")'
       - name: Install locked frontend dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.FRAME_PACKAGES_TOKEN || github.token }}
         run: bun install --frozen-lockfile
       - name: Check frontend
         run: bun run check
+      - name: Check packaging scripts
+        run: bun run check:scripts
       - name: Test frontend
-        run: bun test tests/frontend
+        run: bun run test
       - name: Test Rust engine
         run: cargo test --locked
       - name: Build CLI and MCP server
@@ -88,19 +88,13 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: '1'
         run: bun run tauri build --ci --config target/tauri.release.json --bundles ${{ matrix.bundles }} -- --locked
       - name: Package headless tools
-        shell: pwsh
-        run: ./scripts/package-tools.ps1 -Target '${{ matrix.target }}'
+        run: bun scripts/package-tools.ts --target '${{ matrix.target }}'
       - name: Package Windows editor and tools ZIP
         if: runner.os == 'Windows'
-        shell: pwsh
-        run: ./scripts/release.ps1 -PackageOnly
+        run: bun scripts/release.ts --package-only
       - name: Verify Windows application archive
         if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $archives = @(Get-ChildItem -LiteralPath target/portable -Filter '*.zip')
-          if ($archives.Count -ne 1) { throw 'Expected exactly one Windows application ZIP.' }
-          ./scripts/verify-windows-package.ps1 -Archive $archives[0].FullName
+        run: bun scripts/verify-windows-package.ts --directory target/portable
       - uses: actions/upload-artifact@v7
         with:
           name: pixen-desktop-${{ matrix.target }}
