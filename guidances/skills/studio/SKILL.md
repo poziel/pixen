@@ -158,7 +158,6 @@ route around. Say which mode you used in the report.
 | Files for an engine or for sharing | `pixen:review` if not already done → `pixen:export` |
 | Words on the art — a label, score, title card | `pixen:draw` (its Text section) → `pixen:review` |
 | Nine-slice UI panels, pivots or hotspots for an engine | `pixen:export` (slices) |
-| Share the finished work in the community gallery | `pixen:review` if not already done → `pixen:submit` |
 
 If a request fits no row, it is usually a direct tool call ("rename the layer",
 "add a frame"): make it, `look` if pixels changed, and say what you did.

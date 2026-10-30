@@ -12,6 +12,4 @@ This terminology pass does not translate the upstream commands to Pixen's MCP
 API or register skills, rules, prompts or agents with a client.
 
 References to the actual `.aseprite` interchange format, its conversion behavior
-and original source citations retain their real names. The gallery workflow
-uses explicit destination placeholders rather than inventing a Pixen gallery or
-publishing to the upstream repository.
+and original source citations retain their real names.

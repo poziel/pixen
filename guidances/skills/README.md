@@ -29,7 +29,6 @@ names everywhere:
 | `pixen:review` | Before saying anything is finished |
 | `pixen:fix` | Editing art that already exists |
 | `pixen:export` | Handing files to a game engine |
-| `pixen:submit` | Sharing a finished sprite to the community gallery as a pull request |
 
 Skills reference `rules://` rather than restating craft, so a rule has exactly
 one place to be wrong.
