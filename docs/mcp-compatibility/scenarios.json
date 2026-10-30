@@ -1,0 +1,1039 @@
+{
+  "contract": "pixen-mcp/v1",
+  "runner": "current-executor-oracle",
+  "steps": [
+    {
+      "id": "create",
+      "expected": {
+        "revision": 0
+      },
+      "current_call": {
+        "name": "create_project",
+        "arguments": {
+          "width": 4,
+          "height": 4,
+          "palette": [
+            "#AA0000FF",
+            "#AA0000FF",
+            "#00000000",
+            "#00FF00FF"
+          ],
+          "output_path": "$output_path"
+        }
+      },
+      "source_guidance": {
+        "command": "sprite_manage",
+        "arguments": {
+          "op": "new",
+          "width": 4,
+          "height": 4,
+          "palette": [
+            "#AA0000FF",
+            "#AA0000FF",
+            "#00000000",
+            "#00FF00FF"
+          ],
+          "path": "$output_path"
+        }
+      },
+      "target": {
+        "name": "sprite_manage",
+        "arguments": {
+          "op": "new",
+          "width": 4,
+          "height": 4,
+          "palette": [
+            "#AA0000FF",
+            "#AA0000FF",
+            "#00000000",
+            "#00FF00FF"
+          ],
+          "output_path": "$output_path"
+        }
+      },
+      "target_expected": {
+        "contract": "pixen-mcp/v1",
+        "tool": "sprite_manage",
+        "revision": 0
+      }
+    },
+    {
+      "id": "rig-one-transaction",
+      "expected": {
+        "revision": 1,
+        "undo_steps": 1
+      },
+      "current_call": {
+        "name": "apply_edits",
+        "arguments": {
+          "project_id": "$project_id",
+          "expected_revision": 0,
+          "operations": [
+            {
+              "type": "add_layer",
+              "layer_id": "base-id",
+              "name": "base"
+            },
+            {
+              "type": "add_layer",
+              "layer_id": "shade-id",
+              "name": "shading"
+            }
+          ]
+        }
+      },
+      "source_guidance": {
+        "command": "layer",
+        "arguments": {
+          "batch": [
+            {
+              "op": "create",
+              "name": "base"
+            },
+            {
+              "op": "create",
+              "name": "shading"
+            }
+          ]
+        }
+      },
+      "target": {
+        "name": "layer",
+        "arguments": {
+          "batch": [
+            {
+              "op": "create",
+              "name": "base"
+            },
+            {
+              "op": "create",
+              "name": "shading"
+            }
+          ],
+          "project_id": "$project_id",
+          "expected_revision": 0
+        }
+      },
+      "target_expected": {
+        "contract": "pixen-mcp/v1",
+        "tool": "layer",
+        "revision": 1,
+        "result": {
+          "undo_steps": 1
+        }
+      }
+    },
+    {
+      "id": "exact-duplicate-color-index",
+      "expected": {
+        "revision": 2,
+        "undo_steps": 2
+      },
+      "current_call": {
+        "name": "draw",
+        "arguments": {
+          "project_id": "$project_id",
+          "expected_revision": 1,
+          "frame_id": "$frame_id",
+          "layer_id": "base-id",
+          "operation": {
+            "type": "set_pixels",
+            "pixels": [
+              {
+                "x": 0,
+                "y": 0,
+                "palette_index": 1
+              },
+              {
+                "x": 1,
+                "y": 0,
+                "palette_index": 3
+              }
+            ]
+          }
+        }
+      },
+      "source_guidance": {
+        "command": "draw",
+        "arguments": {
+          "layer": "base",
+          "frame": 1,
+          "ops": [
+            {
+              "kind": "pixels",
+              "pixels": [
+                {
+                  "x": 0,
+                  "y": 0,
+                  "palette_index": 1
+                },
+                {
+                  "x": 1,
+                  "y": 0,
+                  "palette_index": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "target": {
+        "name": "draw",
+        "arguments": {
+          "layer": "base",
+          "frame": 1,
+          "ops": [
+            {
+              "kind": "pixels",
+              "pixels": [
+                {
+                  "x": 0,
+                  "y": 0,
+                  "palette_index": 1
+                },
+                {
+                  "x": 1,
+                  "y": 0,
+                  "palette_index": 3
+                }
+              ]
+            }
+          ],
+          "project_id": "$project_id",
+          "expected_revision": 1
+        }
+      },
+      "target_expected": {
+        "contract": "pixen-mcp/v1",
+        "tool": "draw",
+        "revision": 2,
+        "result": {
+          "undo_steps": 2
+        }
+      }
+    },
+    {
+      "id": "grid-transparent-erases",
+      "expected": {
+        "revision": 3,
+        "undo_steps": 3
+      },
+      "current_call": {
+        "name": "draw",
+        "arguments": {
+          "project_id": "$project_id",
+          "expected_revision": 2,
+          "frame_id": "$frame_id",
+          "layer_id": "base-id",
+          "operation": {
+            "type": "set_pixel_rows",
+            "x": 0,
+            "y": 0,
+            "rows": [
+              [
+                1,
+                2
+              ]
+            ]
+          }
+        }
+      },
+      "source_guidance": {
+        "command": "draw",
+        "arguments": {
+          "layer": "base",
+          "frame": 1,
+          "ops": [
+            {
+              "kind": "grid",
+              "x": 0,
+              "y": 0,
+              "legend": {
+                "R": 1
+              },
+              "rows": [
+                "R."
+              ]
+            }
+          ]
+        }
+      },
+      "target": {
+        "name": "draw",
+        "arguments": {
+          "layer": "base",
+          "frame": 1,
+          "ops": [
+            {
+              "kind": "grid",
+              "x": 0,
+              "y": 0,
+              "legend": {
+                "r": 1
+              },
+              "rows": [
+                "R."
+              ]
+            }
+          ],
+          "project_id": "$project_id",
+          "expected_revision": 2
+        }
+      },
+      "target_expected": {
+        "contract": "pixen-mcp/v1",
+        "tool": "draw",
+        "revision": 3,
+        "result": {
+          "undo_steps": 3
+        }
+      }
+    },
+    {
+      "id": "grid-transparent-skip",
+      "expected": {
+        "revision": 4,
+        "undo_steps": 4
+      },
+      "current_call": {
+        "name": "draw",
+        "arguments": {
+          "project_id": "$project_id",
+          "expected_revision": 3,
+          "frame_id": "$frame_id",
+          "layer_id": "base-id",
+          "operation": {
+            "type": "set_pixels",
+            "pixels": [
+              {
+                "x": 1,
+                "y": 0,
+                "palette_index": 3
+              }
+            ]
+          }
+        }
+      },
+      "source_guidance": {
+        "command": "draw",
+        "arguments": {
+          "layer": "base",
+          "frame": 1,
+          "ops": [
+            {
+              "kind": "grid",
+              "x": 0,
+              "y": 0,
+              "legend": {
+                "G": 3
+              },
+              "rows": [
+                ".G"
+              ],
+              "transparent": "skip"
+            }
+          ]
+        }
+      },
+      "target": {
+        "name": "draw",
+        "arguments": {
+          "layer": "base",
+          "frame": 1,
+          "ops": [
+            {
+              "kind": "grid",
+              "x": 0,
+              "y": 0,
+              "legend": {
+                "g": 3
+              },
+              "rows": [
+                ".G"
+              ],
+              "transparent": "skip"
+            }
+          ],
+          "project_id": "$project_id",
+          "expected_revision": 3
+        }
+      },
+      "target_expected": {
+        "contract": "pixen-mcp/v1",
+        "tool": "draw",
+        "revision": 4,
+        "result": {
+          "undo_steps": 4
+        }
+      }
+    },
+    {
+      "id": "read-exact-indices",
+      "expected": {
+        "revision": 4,
+        "pixels": [
+          {
+            "x": 0,
+            "y": 0,
+            "palette_index": 1,
+            "rgba": "#AA0000FF"
+          },
+          {
+            "x": 1,
+            "y": 0,
+            "palette_index": 3,
+            "rgba": "#00FF00FF"
+          }
+        ]
+      },
+      "current_call": {
+        "name": "get_pixels",
+        "arguments": {
+          "project_id": "$project_id",
+          "frame_id": "$frame_id",
+          "layer_id": "base-id",
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        }
+      },
+      "source_guidance": {
+        "command": "read_pixels",
+        "arguments": {
+          "layer": "base",
+          "frame": 1,
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        }
+      },
+      "target": {
+        "name": "read_pixels",
+        "arguments": {
+          "layer": "base",
+          "frame": 1,
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          },
+          "project_id": "$project_id"
+        }
+      },
+      "target_expected": {
+        "contract": "pixen-mcp/v1",
+        "tool": "read_pixels",
+        "revision": 4,
+        "result": {
+          "pixels": [
+            {
+              "x": 0,
+              "y": 0,
+              "palette_index": 1,
+              "rgba": "#AA0000FF"
+            },
+            {
+              "x": 1,
+              "y": 0,
+              "palette_index": 3,
+              "rgba": "#00FF00FF"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "stale-change",
+      "error_contains": "stale revision",
+      "current_call": {
+        "name": "draw",
+        "arguments": {
+          "project_id": "$project_id",
+          "expected_revision": 3,
+          "frame_id": "$frame_id",
+          "layer_id": "base-id",
+          "operation": {
+            "type": "set_pixels",
+            "pixels": [
+              {
+                "x": 0,
+                "y": 0,
+                "palette_index": 0
+              }
+            ]
+          }
+        }
+      },
+      "source_guidance": {
+        "command": "draw",
+        "arguments": {
+          "layer": "base",
+          "frame": 1,
+          "ops": [
+            {
+              "kind": "pixels",
+              "pixels": [
+                {
+                  "x": 0,
+                  "y": 0,
+                  "palette_index": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "target": {
+        "name": "draw",
+        "arguments": {
+          "layer": "base",
+          "frame": 1,
+          "ops": [
+            {
+              "kind": "pixels",
+              "pixels": [
+                {
+                  "x": 0,
+                  "y": 0,
+                  "palette_index": 0
+                }
+              ]
+            }
+          ],
+          "project_id": "$project_id",
+          "expected_revision": 3
+        }
+      },
+      "target_error": {
+        "code": "stale_revision",
+        "tool": "draw",
+        "state_unchanged": true
+      }
+    },
+    {
+      "id": "invalid-batch-rolls-back",
+      "error_contains": "out of bounds",
+      "current_call": {
+        "name": "apply_edits",
+        "arguments": {
+          "project_id": "$project_id",
+          "expected_revision": 4,
+          "operations": [
+            {
+              "frame_id": "$frame_id",
+              "layer_id": "base-id",
+              "type": "set_pixels",
+              "pixels": [
+                {
+                  "x": 0,
+                  "y": 0,
+                  "palette_index": 0
+                }
+              ]
+            },
+            {
+              "frame_id": "$frame_id",
+              "layer_id": "base-id",
+              "type": "set_pixels",
+              "pixels": [
+                {
+                  "x": 4,
+                  "y": 0,
+                  "palette_index": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "target": {
+        "name": "edit_batch",
+        "arguments": {
+          "project_id": "$project_id",
+          "expected_revision": 4,
+          "operations": [
+            {
+              "tool": "draw",
+              "arguments": {
+                "frame_id": "$frame_id",
+                "layer_id": "base-id",
+                "ops": [
+                  {
+                    "pixels": [
+                      {
+                        "x": 0,
+                        "y": 0,
+                        "palette_index": 0
+                      }
+                    ],
+                    "kind": "pixels"
+                  }
+                ]
+              }
+            },
+            {
+              "tool": "draw",
+              "arguments": {
+                "frame_id": "$frame_id",
+                "layer_id": "base-id",
+                "ops": [
+                  {
+                    "pixels": [
+                      {
+                        "x": 4,
+                        "y": 0,
+                        "palette_index": 1
+                      }
+                    ],
+                    "kind": "pixels"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "target_error": {
+        "code": "out_of_bounds",
+        "tool": "edit_batch",
+        "state_unchanged": true
+      }
+    },
+    {
+      "id": "invalid-index",
+      "error_contains": "palette",
+      "current_call": {
+        "name": "draw",
+        "arguments": {
+          "project_id": "$project_id",
+          "expected_revision": 4,
+          "frame_id": "$frame_id",
+          "layer_id": "base-id",
+          "operation": {
+            "type": "set_pixels",
+            "pixels": [
+              {
+                "x": 0,
+                "y": 0,
+                "palette_index": 4
+              }
+            ]
+          }
+        }
+      },
+      "target": {
+        "name": "draw",
+        "arguments": {
+          "project_id": "$project_id",
+          "expected_revision": 4,
+          "frame_id": "$frame_id",
+          "layer_id": "base-id",
+          "ops": [
+            {
+              "pixels": [
+                {
+                  "x": 0,
+                  "y": 0,
+                  "palette_index": 4
+                }
+              ],
+              "kind": "pixels"
+            }
+          ]
+        }
+      },
+      "target_error": {
+        "code": "palette_mismatch",
+        "tool": "draw",
+        "state_unchanged": true
+      }
+    },
+    {
+      "id": "negative-coordinate",
+      "error_contains": "out of bounds",
+      "current_call": {
+        "name": "draw",
+        "arguments": {
+          "project_id": "$project_id",
+          "expected_revision": 4,
+          "frame_id": "$frame_id",
+          "layer_id": "base-id",
+          "operation": {
+            "type": "set_pixels",
+            "pixels": [
+              {
+                "x": -1,
+                "y": 0,
+                "palette_index": 1
+              }
+            ]
+          }
+        }
+      },
+      "target": {
+        "name": "draw",
+        "arguments": {
+          "project_id": "$project_id",
+          "expected_revision": 4,
+          "frame_id": "$frame_id",
+          "layer_id": "base-id",
+          "ops": [
+            {
+              "pixels": [
+                {
+                  "x": -1,
+                  "y": 0,
+                  "palette_index": 1
+                }
+              ],
+              "kind": "pixels"
+            }
+          ]
+        }
+      },
+      "target_error": {
+        "code": "out_of_bounds",
+        "tool": "draw",
+        "state_unchanged": true
+      }
+    },
+    {
+      "id": "independent-frame",
+      "expected": {
+        "revision": 5,
+        "undo_steps": 5
+      },
+      "current_call": {
+        "name": "edit_frame",
+        "arguments": {
+          "project_id": "$project_id",
+          "expected_revision": 4,
+          "operation": {
+            "type": "duplicate_frame",
+            "frame_id": "$frame_id",
+            "new_frame_id": "pose-b",
+            "index": 0
+          }
+        }
+      },
+      "source_guidance": {
+        "command": "frame",
+        "arguments": {
+          "op": "duplicate",
+          "frame": 1,
+          "index": 0
+        }
+      },
+      "target": {
+        "name": "frame",
+        "arguments": {
+          "op": "duplicate",
+          "frame": 1,
+          "index": 0,
+          "project_id": "$project_id",
+          "expected_revision": 4
+        }
+      },
+      "target_expected": {
+        "contract": "pixen-mcp/v1",
+        "tool": "frame",
+        "revision": 5,
+        "result": {
+          "undo_steps": 5
+        }
+      }
+    },
+    {
+      "id": "one-based-frame-after-insertion",
+      "expected": {
+        "revision": 6,
+        "undo_steps": 6
+      },
+      "current_call": {
+        "name": "draw",
+        "arguments": {
+          "project_id": "$project_id",
+          "expected_revision": 5,
+          "frame_id": "pose-b",
+          "layer_id": "base-id",
+          "operation": {
+            "type": "set_pixels",
+            "pixels": [
+              {
+                "x": 0,
+                "y": 0,
+                "palette_index": 3
+              }
+            ]
+          }
+        }
+      },
+      "source_guidance": {
+        "command": "draw",
+        "arguments": {
+          "layer": "base",
+          "frame": 1,
+          "ops": [
+            {
+              "kind": "pixels",
+              "pixels": [
+                {
+                  "x": 0,
+                  "y": 0,
+                  "palette_index": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "target": {
+        "name": "draw",
+        "arguments": {
+          "layer": "base",
+          "frame": 1,
+          "ops": [
+            {
+              "kind": "pixels",
+              "pixels": [
+                {
+                  "x": 0,
+                  "y": 0,
+                  "palette_index": 3
+                }
+              ]
+            }
+          ],
+          "project_id": "$project_id",
+          "expected_revision": 5
+        }
+      },
+      "target_expected": {
+        "contract": "pixen-mcp/v1",
+        "tool": "draw",
+        "revision": 6,
+        "result": {
+          "undo_steps": 6
+        }
+      }
+    },
+    {
+      "id": "source-frame-still-independent",
+      "expected": {
+        "revision": 6,
+        "pixels": [
+          {
+            "palette_index": 1
+          },
+          {
+            "palette_index": 3
+          }
+        ]
+      },
+      "current_call": {
+        "name": "get_pixels",
+        "arguments": {
+          "project_id": "$project_id",
+          "frame_id": "$frame_id",
+          "layer_id": "base-id",
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        }
+      },
+      "source_guidance": {
+        "command": "read_pixels",
+        "arguments": {
+          "layer": "base",
+          "frame": 2,
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        }
+      },
+      "target": {
+        "name": "read_pixels",
+        "arguments": {
+          "layer": "base",
+          "frame": 2,
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          },
+          "project_id": "$project_id"
+        }
+      },
+      "target_expected": {
+        "contract": "pixen-mcp/v1",
+        "tool": "read_pixels",
+        "revision": 6,
+        "result": {
+          "pixels": [
+            {
+              "palette_index": 1
+            },
+            {
+              "palette_index": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "duration-batch",
+      "expected": {
+        "revision": 7,
+        "undo_steps": 7
+      },
+      "current_call": {
+        "name": "apply_edits",
+        "arguments": {
+          "project_id": "$project_id",
+          "expected_revision": 6,
+          "operations": [
+            {
+              "type": "set_frame_duration",
+              "frame_id": "pose-b",
+              "duration_ms": 150
+            },
+            {
+              "type": "set_frame_duration",
+              "frame_id": "$frame_id",
+              "duration_ms": 100
+            }
+          ]
+        }
+      },
+      "source_guidance": {
+        "command": "frame",
+        "arguments": {
+          "op": "set_duration",
+          "durations": [
+            150,
+            100
+          ]
+        }
+      },
+      "target": {
+        "name": "frame",
+        "arguments": {
+          "op": "set_duration",
+          "durations": [
+            150,
+            100
+          ],
+          "project_id": "$project_id",
+          "expected_revision": 6
+        }
+      },
+      "target_expected": {
+        "contract": "pixen-mcp/v1",
+        "tool": "frame",
+        "revision": 7,
+        "result": {
+          "undo_steps": 7
+        }
+      }
+    },
+    {
+      "id": "undo-is-monotonic",
+      "expected": {
+        "revision": 8,
+        "undo_steps": 6,
+        "redo_steps": 1
+      },
+      "current_call": {
+        "name": "undo",
+        "arguments": {
+          "project_id": "$project_id",
+          "expected_revision": 7
+        }
+      },
+      "target": {
+        "name": "undo",
+        "arguments": {
+          "project_id": "$project_id",
+          "expected_revision": 7
+        }
+      },
+      "target_expected": {
+        "contract": "pixen-mcp/v1",
+        "tool": "undo",
+        "revision": 8,
+        "result": {
+          "undo_steps": 6,
+          "redo_steps": 1
+        }
+      }
+    },
+    {
+      "id": "redo-is-monotonic",
+      "expected": {
+        "revision": 9,
+        "undo_steps": 7,
+        "redo_steps": 0
+      },
+      "current_call": {
+        "name": "redo",
+        "arguments": {
+          "project_id": "$project_id",
+          "expected_revision": 8
+        }
+      },
+      "target": {
+        "name": "redo",
+        "arguments": {
+          "project_id": "$project_id",
+          "expected_revision": 8
+        }
+      },
+      "target_expected": {
+        "contract": "pixen-mcp/v1",
+        "tool": "redo",
+        "revision": 9,
+        "result": {
+          "undo_steps": 7,
+          "redo_steps": 0
+        }
+      }
+    },
+    {
+      "id": "save-standalone",
+      "current_call": {
+        "name": "save_project",
+        "arguments": {
+          "project_id": "$project_id"
+        }
+      },
+      "source_guidance": {
+        "command": "sprite_manage",
+        "arguments": {
+          "op": "save"
+        }
+      },
+      "target": {
+        "name": "sprite_manage",
+        "arguments": {
+          "op": "save",
+          "project_id": "$project_id"
+        }
+      }
+    }
+  ],
+  "backward_compatibility_required": false
+}

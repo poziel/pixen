@@ -2,7 +2,7 @@ use pixen::{container, schema};
 #[test]
 fn roundtrip_and_determinism() {
     let doc = schema::read_document(include_bytes!(
-        "../../skills/pixen/examples/encodings.pixloom.json"
+        "../../playbook/skills/pixen/examples/encodings.pixloom.json"
     ))
     .unwrap();
     let dir = tempfile::tempdir().unwrap();
@@ -49,7 +49,7 @@ fn archive(path: &std::path::Path, entries: &[(String, Vec<u8>)]) {
 }
 fn fixture() -> schema::Document {
     schema::read_document(include_bytes!(
-        "../../skills/pixen/examples/encodings.pixloom.json"
+        "../../playbook/skills/pixen/examples/encodings.pixloom.json"
     ))
     .unwrap()
 }
@@ -145,7 +145,7 @@ fn pack_overwrite_and_input_safety_and_optimized_indices() {
 #[test]
 fn legacy_roundtrip_preserves_unused_cels_annotations_and_links() {
     let mut d: serde_json::Value =
-        serde_json::from_slice(include_bytes!("../../skills/pixen/examples/animated.json"))
+        serde_json::from_slice(include_bytes!("../../playbook/skills/pixen/examples/animated.json"))
             .unwrap();
     let mut unused = d["cels"][0].clone();
     unused["id"] = "unused".into();
@@ -181,7 +181,7 @@ fn cli_json_and_container_export_and_native_build_are_equivalent() {
     let packed = dir.path().join("a.pixen");
     std::fs::write(
         &input,
-        include_bytes!("../../skills/pixen/examples/animated.pixloom.json"),
+        include_bytes!("../../playbook/skills/pixen/examples/animated.pixloom.json"),
     )
     .unwrap();
     let run = |args: Vec<String>| {
@@ -432,7 +432,7 @@ fn legacy_spritex_extension_and_manifest_remain_readable() {
 fn pixen_extension_roundtrips_and_rejects_a_misnamed_pixen_container() {
     let root = tempfile::tempdir().unwrap();
     let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("skills/pixen/examples/encodings.pixloom.json");
+        .join("playbook/skills/pixen/examples/encodings.pixloom.json");
     let destination = root.path().join("artwork.pixen");
     container::pack(&source, &destination, false, false).unwrap();
     assert!(pixen::input::is_container(&destination));
@@ -454,7 +454,7 @@ fn genuine_legacy_pixloom_containers_remain_readable() {
     let root = tempfile::tempdir().unwrap();
     let path = root.path().join("legacy.pixloom");
     let doc = schema::read_document(include_bytes!(
-        "../../skills/pixen/examples/encodings.pixloom.json"
+        "../../playbook/skills/pixen/examples/encodings.pixloom.json"
     ))
     .unwrap();
     let mut bytes = std::io::Cursor::new(Vec::new());

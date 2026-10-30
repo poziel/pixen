@@ -47,7 +47,7 @@ fn checkpoint_survives_history_and_detects_palette_only_changes() {
 #[test]
 fn equivalent_hex_spelling_does_not_report_resolved_color_changes() {
     let mut a = pixen::schema::read_document(include_bytes!(
-        "../../skills/pixen/examples/animated.pixloom.json"
+        "../../playbook/skills/pixen/examples/animated.pixloom.json"
     ))
     .unwrap();
     for (i, f) in a.frames.iter_mut().enumerate() {

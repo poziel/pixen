@@ -1,0 +1,1768 @@
+{
+  "contract": "pixen-mcp/v1",
+  "excluded": [
+    "gallery_submission"
+  ],
+  "operations": [
+    {
+      "command": "preflight",
+      "op": "default",
+      "classification": "new_capability",
+      "reason": "Connection/mode and per-operation discovery; readiness does not create a project.",
+      "alternatives": [
+        "tools/list"
+      ],
+      "source": "playbook/skills/studio/SKILL.md",
+      "target_tool": "preflight",
+      "target_op": "default",
+      "implementation_tools": [
+        "tools/list"
+      ]
+    },
+    {
+      "command": "sprite_info",
+      "op": "default",
+      "classification": "adapter",
+      "reason": "Session info supplies stable IDs, palette, layers and frames; disclose absent upstream metadata.",
+      "alternatives": [
+        "sprite_info"
+      ],
+      "source": "playbook/agents/pixel-critic.md",
+      "target_tool": "sprite_info",
+      "target_op": "default",
+      "implementation_tools": [
+        "get_project_info"
+      ]
+    },
+    {
+      "command": "sprite_manage",
+      "op": "new",
+      "classification": "adapter",
+      "reason": "Requires explicit palette and destination, no upstream RGB mode emulation; desktop destination is application owned.",
+      "alternatives": [
+        "sprite_manage"
+      ],
+      "source": "playbook/skills/new/SKILL.md",
+      "target_tool": "sprite_manage",
+      "target_op": "new",
+      "implementation_tools": [
+        "create_project"
+      ]
+    },
+    {
+      "command": "sprite_manage",
+      "op": "save",
+      "classification": "adapter",
+      "reason": "Standalone only; retain external-change protection.",
+      "alternatives": [
+        "sprite_manage"
+      ],
+      "source": "playbook/skills/export/SKILL.md",
+      "target_tool": "sprite_manage",
+      "target_op": "save",
+      "implementation_tools": [
+        "save_project"
+      ]
+    },
+    {
+      "command": "sprite_manage",
+      "op": "save_as",
+      "classification": "new_capability",
+      "reason": "Explicit save-destination change needs a public standalone capability; export is a copy and does not change destination. Desktop UI owns Save As.",
+      "alternatives": [
+        "export"
+      ],
+      "source": "playbook/skills/studio/SKILL.md",
+      "target_tool": "sprite_manage",
+      "target_op": "save_as",
+      "implementation_tools": [
+        "export_project"
+      ]
+    },
+    {
+      "command": "sprite_manage",
+      "op": "slice_create",
+      "classification": "new_capability",
+      "reason": "Slice/center/pivot metadata editing and atlas propagation are absent from MCP.",
+      "alternatives": [
+        "sprite_info"
+      ],
+      "source": "playbook/skills/export/SKILL.md",
+      "target_tool": "sprite_manage",
+      "target_op": "slice_create",
+      "implementation_tools": [
+        "get_project_info"
+      ]
+    },
+    {
+      "command": "sprite_manage",
+      "op": "colorMode",
+      "classification": "unsupported",
+      "reason": "No emulation of upstream rgb versus indexed modes. Use Pixen exact-index palette semantics.",
+      "alternatives": [
+        "sprite_manage"
+      ],
+      "source": "playbook/skills/new/SKILL.md",
+      "target_tool": "sprite_manage",
+      "target_op": "color_mode",
+      "implementation_tools": [
+        "create_project"
+      ]
+    },
+    {
+      "command": "layer",
+      "op": "create",
+      "classification": "adapter",
+      "reason": "Flat same-document layers; allocate stable IDs, expand batch once, never loop commits. Duplicate cels independently.",
+      "alternatives": [
+        "layer",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/rig/SKILL.md",
+      "target_tool": "layer",
+      "target_op": "create",
+      "implementation_tools": [
+        "edit_layer",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "layer",
+      "op": "duplicate",
+      "classification": "adapter",
+      "reason": "Flat same-document layers; allocate stable IDs, expand batch once, never loop commits. Duplicate cels independently.",
+      "alternatives": [
+        "layer",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/rig/SKILL.md",
+      "target_tool": "layer",
+      "target_op": "duplicate",
+      "implementation_tools": [
+        "edit_layer",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "layer",
+      "op": "delete",
+      "classification": "adapter",
+      "reason": "Flat same-document layers; allocate stable IDs, expand batch once, never loop commits. Duplicate cels independently.",
+      "alternatives": [
+        "layer",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/rig/SKILL.md",
+      "target_tool": "layer",
+      "target_op": "delete",
+      "implementation_tools": [
+        "edit_layer",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "layer",
+      "op": "rename",
+      "classification": "adapter",
+      "reason": "Flat same-document layers; allocate stable IDs, expand batch once, never loop commits. Duplicate cels independently.",
+      "alternatives": [
+        "layer",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/rig/SKILL.md",
+      "target_tool": "layer",
+      "target_op": "rename",
+      "implementation_tools": [
+        "edit_layer",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "layer",
+      "op": "reorder",
+      "classification": "adapter",
+      "reason": "Flat same-document layers; allocate stable IDs, expand batch once, never loop commits. Duplicate cels independently.",
+      "alternatives": [
+        "layer",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/rig/SKILL.md",
+      "target_tool": "layer",
+      "target_op": "reorder",
+      "implementation_tools": [
+        "edit_layer",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "layer",
+      "op": "batch",
+      "classification": "adapter",
+      "reason": "Flat same-document layers; allocate stable IDs, expand batch once, never loop commits. Duplicate cels independently.",
+      "alternatives": [
+        "layer",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/rig/SKILL.md",
+      "target_tool": "layer",
+      "target_op": "batch",
+      "implementation_tools": [
+        "edit_layer",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "layer",
+      "op": "set",
+      "classification": "adapter",
+      "reason": "Only visibility and opacity 0..1; other set fields are unavailable.",
+      "alternatives": [
+        "layer"
+      ],
+      "source": "playbook/rules/62-parallax-backgrounds.md",
+      "target_tool": "layer",
+      "target_op": "set",
+      "implementation_tools": [
+        "edit_layer"
+      ]
+    },
+    {
+      "command": "layer",
+      "op": "editable",
+      "classification": "new_capability",
+      "reason": "Lock/editability mutation and group hierarchy are not native MCP layer operations. Reject group paths until supported.",
+      "alternatives": [
+        "sprite_info"
+      ],
+      "source": "playbook/rules/37-views-and-directions.md",
+      "target_tool": "layer",
+      "target_op": "editable",
+      "implementation_tools": [
+        "get_project_info"
+      ]
+    },
+    {
+      "command": "layer",
+      "op": "groups",
+      "classification": "new_capability",
+      "reason": "Lock/editability mutation and group hierarchy are not native MCP layer operations. Reject group paths until supported.",
+      "alternatives": [
+        "sprite_info"
+      ],
+      "source": "playbook/rules/37-views-and-directions.md",
+      "target_tool": "layer",
+      "target_op": "groups",
+      "implementation_tools": [
+        "get_project_info"
+      ]
+    },
+    {
+      "command": "layer",
+      "op": "toSprite",
+      "classification": "unsupported",
+      "reason": "Cross-document duplicate/copy is outside the one-document v1 contract; preserve source via explicit exports.",
+      "alternatives": [
+        "export"
+      ],
+      "source": "playbook/agents/rig-builder.md",
+      "target_tool": "layer",
+      "target_op": "to_sprite",
+      "implementation_tools": [
+        "export_project"
+      ]
+    },
+    {
+      "command": "frame",
+      "op": "add",
+      "classification": "adapter",
+      "reason": "Resolve one-based frame positions to IDs; count/durations expand in one apply, duplicate produces independent holds.",
+      "alternatives": [
+        "frame",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/animate/SKILL.md",
+      "target_tool": "frame",
+      "target_op": "add",
+      "implementation_tools": [
+        "edit_frame",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "frame",
+      "op": "duplicate",
+      "classification": "adapter",
+      "reason": "Resolve one-based frame positions to IDs; count/durations expand in one apply, duplicate produces independent holds.",
+      "alternatives": [
+        "frame",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/animate/SKILL.md",
+      "target_tool": "frame",
+      "target_op": "duplicate",
+      "implementation_tools": [
+        "edit_frame",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "frame",
+      "op": "set_duration",
+      "classification": "adapter",
+      "reason": "Resolve one-based frame positions to IDs; count/durations expand in one apply, duplicate produces independent holds.",
+      "alternatives": [
+        "frame",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/animate/SKILL.md",
+      "target_tool": "frame",
+      "target_op": "set_duration",
+      "implementation_tools": [
+        "edit_frame",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "cel",
+      "op": "copy",
+      "classification": "adapter",
+      "reason": "Copy cells within a layer via copy_cells; reject cross-project targets.",
+      "alternatives": [
+        "layer",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/animate/SKILL.md",
+      "target_tool": "cel",
+      "target_op": "copy",
+      "implementation_tools": [
+        "edit_layer",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "cel",
+      "op": "move",
+      "classification": "new_capability",
+      "reason": "Upstream cel offsets/positions differ from bounded raster region transforms; do not clip off-canvas pixels or change hidden geometry.",
+      "alternatives": [
+        "transform"
+      ],
+      "source": "playbook/rules/62-parallax-backgrounds.md",
+      "target_tool": "cel",
+      "target_op": "move",
+      "implementation_tools": [
+        "transform_region"
+      ]
+    },
+    {
+      "command": "cel",
+      "op": "set",
+      "classification": "new_capability",
+      "reason": "Upstream cel offsets/positions differ from bounded raster region transforms; do not clip off-canvas pixels or change hidden geometry.",
+      "alternatives": [
+        "transform"
+      ],
+      "source": "playbook/rules/62-parallax-backgrounds.md",
+      "target_tool": "cel",
+      "target_op": "set",
+      "implementation_tools": [
+        "transform_region"
+      ]
+    },
+    {
+      "command": "cel",
+      "op": "tween",
+      "classification": "new_capability",
+      "reason": "Need cel interpolation, explicit rounding/easing and atomic multi-frame execution.",
+      "alternatives": [
+        "frame",
+        "draw"
+      ],
+      "source": "playbook/agents/animation-director.md",
+      "target_tool": "cel",
+      "target_op": "tween",
+      "implementation_tools": [
+        "edit_frame",
+        "copy_region",
+        "draw"
+      ]
+    },
+    {
+      "command": "cel",
+      "op": "oscillate",
+      "classification": "new_capability",
+      "reason": "Need cel interpolation, explicit rounding/easing and atomic multi-frame execution.",
+      "alternatives": [
+        "frame",
+        "draw"
+      ],
+      "source": "playbook/agents/animation-director.md",
+      "target_tool": "cel",
+      "target_op": "oscillate",
+      "implementation_tools": [
+        "edit_frame",
+        "copy_region",
+        "draw"
+      ]
+    },
+    {
+      "command": "draw",
+      "op": "pixels",
+      "classification": "adapter",
+      "reason": "Exact existing indices/unique colors, unit stroke, bounded regions; rect/ellipse color and fill may expand to multiple native ops. Fill is four-connected equal-index only; clear maps to erase_region, blit to copy_region including explicit transforms.",
+      "alternatives": [
+        "draw",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/draw/SKILL.md",
+      "target_tool": "draw",
+      "target_op": "pixels",
+      "implementation_tools": [
+        "draw",
+        "copy_region",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "draw",
+      "op": "line",
+      "classification": "adapter",
+      "reason": "Exact existing indices/unique colors, unit stroke, bounded regions; rect/ellipse color and fill may expand to multiple native ops. Fill is four-connected equal-index only; clear maps to erase_region, blit to copy_region including explicit transforms.",
+      "alternatives": [
+        "draw",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/draw/SKILL.md",
+      "target_tool": "draw",
+      "target_op": "line",
+      "implementation_tools": [
+        "draw",
+        "copy_region",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "draw",
+      "op": "rect",
+      "classification": "adapter",
+      "reason": "Exact existing indices/unique colors, unit stroke, bounded regions; rect/ellipse color and fill may expand to multiple native ops. Fill is four-connected equal-index only; clear maps to erase_region, blit to copy_region including explicit transforms.",
+      "alternatives": [
+        "draw",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/draw/SKILL.md",
+      "target_tool": "draw",
+      "target_op": "rect",
+      "implementation_tools": [
+        "draw",
+        "copy_region",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "draw",
+      "op": "ellipse",
+      "classification": "adapter",
+      "reason": "Exact existing indices/unique colors, unit stroke, bounded regions; rect/ellipse color and fill may expand to multiple native ops. Fill is four-connected equal-index only; clear maps to erase_region, blit to copy_region including explicit transforms.",
+      "alternatives": [
+        "draw",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/draw/SKILL.md",
+      "target_tool": "draw",
+      "target_op": "ellipse",
+      "implementation_tools": [
+        "draw",
+        "copy_region",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "draw",
+      "op": "fill",
+      "classification": "adapter",
+      "reason": "Exact existing indices/unique colors, unit stroke, bounded regions; rect/ellipse color and fill may expand to multiple native ops. Fill is four-connected equal-index only; clear maps to erase_region, blit to copy_region including explicit transforms.",
+      "alternatives": [
+        "draw",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/draw/SKILL.md",
+      "target_tool": "draw",
+      "target_op": "fill",
+      "implementation_tools": [
+        "draw",
+        "copy_region",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "draw",
+      "op": "clear",
+      "classification": "adapter",
+      "reason": "Exact existing indices/unique colors, unit stroke, bounded regions; rect/ellipse color and fill may expand to multiple native ops. Fill is four-connected equal-index only; clear maps to erase_region, blit to copy_region including explicit transforms.",
+      "alternatives": [
+        "draw",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/draw/SKILL.md",
+      "target_tool": "draw",
+      "target_op": "clear",
+      "implementation_tools": [
+        "draw",
+        "copy_region",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "draw",
+      "op": "blit",
+      "classification": "adapter",
+      "reason": "Exact existing indices/unique colors, unit stroke, bounded regions; rect/ellipse color and fill may expand to multiple native ops. Fill is four-connected equal-index only; clear maps to erase_region, blit to copy_region including explicit transforms.",
+      "alternatives": [
+        "draw",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/draw/SKILL.md",
+      "target_tool": "draw",
+      "target_op": "blit",
+      "implementation_tools": [
+        "draw",
+        "copy_region",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "draw",
+      "op": "ops",
+      "classification": "adapter",
+      "reason": "Exact existing indices/unique colors, unit stroke, bounded regions; rect/ellipse color and fill may expand to multiple native ops. Fill is four-connected equal-index only; clear maps to erase_region, blit to copy_region including explicit transforms.",
+      "alternatives": [
+        "draw",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/draw/SKILL.md",
+      "target_tool": "draw",
+      "target_op": "ops",
+      "implementation_tools": [
+        "draw",
+        "copy_region",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "draw",
+      "op": "grid",
+      "classification": "new_capability",
+      "reason": "Need equal-width glyph codec, index legends, erase/skip semantics and diagnostics before using native rows/sparse pixels.",
+      "alternatives": [
+        "draw",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/fix/SKILL.md",
+      "target_tool": "draw",
+      "target_op": "grid",
+      "implementation_tools": [
+        "draw",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "draw",
+      "op": "polyline",
+      "classification": "new_capability",
+      "reason": "Need explicit geometry/bitmap-font layout, ramp/dither policy or scoped recoloring; do not pretend native drawing supports these.",
+      "alternatives": [
+        "draw",
+        "palette"
+      ],
+      "source": "playbook/rules/84-bitmap-fonts.md",
+      "target_tool": "draw",
+      "target_op": "polyline",
+      "implementation_tools": [
+        "draw",
+        "edit_palette"
+      ]
+    },
+    {
+      "command": "draw",
+      "op": "text",
+      "classification": "new_capability",
+      "reason": "Need explicit geometry/bitmap-font layout, ramp/dither policy or scoped recoloring; do not pretend native drawing supports these.",
+      "alternatives": [
+        "draw",
+        "palette"
+      ],
+      "source": "playbook/rules/84-bitmap-fonts.md",
+      "target_tool": "draw",
+      "target_op": "text",
+      "implementation_tools": [
+        "draw",
+        "edit_palette"
+      ]
+    },
+    {
+      "command": "draw",
+      "op": "gradient",
+      "classification": "new_capability",
+      "reason": "Need explicit geometry/bitmap-font layout, ramp/dither policy or scoped recoloring; do not pretend native drawing supports these.",
+      "alternatives": [
+        "draw",
+        "palette"
+      ],
+      "source": "playbook/rules/84-bitmap-fonts.md",
+      "target_tool": "draw",
+      "target_op": "gradient",
+      "implementation_tools": [
+        "draw",
+        "edit_palette"
+      ]
+    },
+    {
+      "command": "draw",
+      "op": "dither",
+      "classification": "new_capability",
+      "reason": "Need explicit geometry/bitmap-font layout, ramp/dither policy or scoped recoloring; do not pretend native drawing supports these.",
+      "alternatives": [
+        "draw",
+        "palette"
+      ],
+      "source": "playbook/rules/84-bitmap-fonts.md",
+      "target_tool": "draw",
+      "target_op": "dither",
+      "implementation_tools": [
+        "draw",
+        "edit_palette"
+      ]
+    },
+    {
+      "command": "draw",
+      "op": "replace",
+      "classification": "new_capability",
+      "reason": "Need explicit geometry/bitmap-font layout, ramp/dither policy or scoped recoloring; do not pretend native drawing supports these.",
+      "alternatives": [
+        "draw",
+        "palette"
+      ],
+      "source": "playbook/rules/84-bitmap-fonts.md",
+      "target_tool": "draw",
+      "target_op": "replace",
+      "implementation_tools": [
+        "draw",
+        "edit_palette"
+      ]
+    },
+    {
+      "command": "draw",
+      "op": "thickness",
+      "classification": "new_capability",
+      "reason": "Thick strokes, tolerant fill and perceptual palette locking/snapping require explicit semantics and capability discovery. Exact lookup only in the initial adapter.",
+      "alternatives": [
+        "draw",
+        "read_pixels"
+      ],
+      "source": "playbook/rules/92-generated-art-tells.md",
+      "target_tool": "draw",
+      "target_op": "thickness",
+      "implementation_tools": [
+        "draw",
+        "get_pixels"
+      ]
+    },
+    {
+      "command": "draw",
+      "op": "tolerance",
+      "classification": "new_capability",
+      "reason": "Thick strokes, tolerant fill and perceptual palette locking/snapping require explicit semantics and capability discovery. Exact lookup only in the initial adapter.",
+      "alternatives": [
+        "draw",
+        "read_pixels"
+      ],
+      "source": "playbook/rules/92-generated-art-tells.md",
+      "target_tool": "draw",
+      "target_op": "tolerance",
+      "implementation_tools": [
+        "draw",
+        "get_pixels"
+      ]
+    },
+    {
+      "command": "draw",
+      "op": "paletteLock",
+      "classification": "new_capability",
+      "reason": "Thick strokes, tolerant fill and perceptual palette locking/snapping require explicit semantics and capability discovery. Exact lookup only in the initial adapter.",
+      "alternatives": [
+        "draw",
+        "read_pixels"
+      ],
+      "source": "playbook/rules/92-generated-art-tells.md",
+      "target_tool": "draw",
+      "target_op": "palette_lock",
+      "implementation_tools": [
+        "draw",
+        "get_pixels"
+      ]
+    },
+    {
+      "command": "palette",
+      "op": "get",
+      "classification": "adapter",
+      "reason": "Read exact ordered palette; usage and perceptual analyses are separate capabilities.",
+      "alternatives": [
+        "sprite_info"
+      ],
+      "source": "playbook/skills/concept/SKILL.md",
+      "target_tool": "palette",
+      "target_op": "get",
+      "implementation_tools": [
+        "get_project_info"
+      ]
+    },
+    {
+      "command": "palette",
+      "op": "set",
+      "classification": "adapter",
+      "reason": "Set existing slots or append explicit colors without replacing, reindexing or deduplicating used entries. Reject destructive replace=true.",
+      "alternatives": [
+        "palette",
+        "edit_batch"
+      ],
+      "source": "playbook/rules/20-color-for-pixel-art.md",
+      "target_tool": "palette",
+      "target_op": "set",
+      "implementation_tools": [
+        "edit_palette",
+        "apply_edits"
+      ]
+    },
+    {
+      "command": "palette",
+      "op": "preset",
+      "classification": "new_capability",
+      "reason": "Preset catalogs/loaders, hue-shift algorithms, usage/Delta-E diagnostics and quantization are not current MCP palette tools.",
+      "alternatives": [
+        "palette",
+        "analyze_sprite"
+      ],
+      "source": "playbook/skills/palette/SKILL.md",
+      "target_tool": "palette",
+      "target_op": "preset",
+      "implementation_tools": [
+        "edit_palette",
+        "analyze_sprite"
+      ]
+    },
+    {
+      "command": "palette",
+      "op": "load",
+      "classification": "new_capability",
+      "reason": "Preset catalogs/loaders, hue-shift algorithms, usage/Delta-E diagnostics and quantization are not current MCP palette tools.",
+      "alternatives": [
+        "palette",
+        "analyze_sprite"
+      ],
+      "source": "playbook/skills/palette/SKILL.md",
+      "target_tool": "palette",
+      "target_op": "load",
+      "implementation_tools": [
+        "edit_palette",
+        "analyze_sprite"
+      ]
+    },
+    {
+      "command": "palette",
+      "op": "ramp",
+      "classification": "new_capability",
+      "reason": "Preset catalogs/loaders, hue-shift algorithms, usage/Delta-E diagnostics and quantization are not current MCP palette tools.",
+      "alternatives": [
+        "palette",
+        "analyze_sprite"
+      ],
+      "source": "playbook/skills/palette/SKILL.md",
+      "target_tool": "palette",
+      "target_op": "ramp",
+      "implementation_tools": [
+        "edit_palette",
+        "analyze_sprite"
+      ]
+    },
+    {
+      "command": "palette",
+      "op": "analyze",
+      "classification": "new_capability",
+      "reason": "Preset catalogs/loaders, hue-shift algorithms, usage/Delta-E diagnostics and quantization are not current MCP palette tools.",
+      "alternatives": [
+        "palette",
+        "analyze_sprite"
+      ],
+      "source": "playbook/skills/palette/SKILL.md",
+      "target_tool": "palette",
+      "target_op": "analyze",
+      "implementation_tools": [
+        "edit_palette",
+        "analyze_sprite"
+      ]
+    },
+    {
+      "command": "palette",
+      "op": "extract",
+      "classification": "new_capability",
+      "reason": "Preset catalogs/loaders, hue-shift algorithms, usage/Delta-E diagnostics and quantization are not current MCP palette tools.",
+      "alternatives": [
+        "palette",
+        "analyze_sprite"
+      ],
+      "source": "playbook/skills/palette/SKILL.md",
+      "target_tool": "palette",
+      "target_op": "extract",
+      "implementation_tools": [
+        "edit_palette",
+        "analyze_sprite"
+      ]
+    },
+    {
+      "command": "recolor",
+      "op": "replace",
+      "classification": "adapter",
+      "reason": "Exact source-index to destination-index remap within explicit whole layer/frame scope. Region/mask or all-colors replacement requires a new capability.",
+      "alternatives": [
+        "palette"
+      ],
+      "source": "playbook/rules/14-readability-and-scale.md",
+      "target_tool": "recolor",
+      "target_op": "replace",
+      "implementation_tools": [
+        "edit_palette"
+      ]
+    },
+    {
+      "command": "recolor",
+      "op": "snap",
+      "classification": "new_capability",
+      "reason": "Need perceptual color operations and explicit mask/region policy; preserve indices and report mappings.",
+      "alternatives": [
+        "palette",
+        "read_pixels"
+      ],
+      "source": "playbook/skills/palette/SKILL.md",
+      "target_tool": "recolor",
+      "target_op": "snap",
+      "implementation_tools": [
+        "edit_palette",
+        "get_pixels"
+      ]
+    },
+    {
+      "command": "recolor",
+      "op": "shade",
+      "classification": "new_capability",
+      "reason": "Need perceptual color operations and explicit mask/region policy; preserve indices and report mappings.",
+      "alternatives": [
+        "palette",
+        "read_pixels"
+      ],
+      "source": "playbook/skills/palette/SKILL.md",
+      "target_tool": "recolor",
+      "target_op": "shade",
+      "implementation_tools": [
+        "edit_palette",
+        "get_pixels"
+      ]
+    },
+    {
+      "command": "recolor",
+      "op": "desaturate",
+      "classification": "new_capability",
+      "reason": "Need perceptual color operations and explicit mask/region policy; preserve indices and report mappings.",
+      "alternatives": [
+        "palette",
+        "read_pixels"
+      ],
+      "source": "playbook/skills/palette/SKILL.md",
+      "target_tool": "recolor",
+      "target_op": "desaturate",
+      "implementation_tools": [
+        "edit_palette",
+        "get_pixels"
+      ]
+    },
+    {
+      "command": "recolor",
+      "op": "hue_shift",
+      "classification": "new_capability",
+      "reason": "Need perceptual color operations and explicit mask/region policy; preserve indices and report mappings.",
+      "alternatives": [
+        "palette",
+        "read_pixels"
+      ],
+      "source": "playbook/skills/palette/SKILL.md",
+      "target_tool": "recolor",
+      "target_op": "hue_shift",
+      "implementation_tools": [
+        "edit_palette",
+        "get_pixels"
+      ]
+    },
+    {
+      "command": "recolor",
+      "op": "region",
+      "classification": "new_capability",
+      "reason": "Need perceptual color operations and explicit mask/region policy; preserve indices and report mappings.",
+      "alternatives": [
+        "palette",
+        "read_pixels"
+      ],
+      "source": "playbook/skills/palette/SKILL.md",
+      "target_tool": "recolor",
+      "target_op": "region",
+      "implementation_tools": [
+        "edit_palette",
+        "get_pixels"
+      ]
+    },
+    {
+      "command": "recolor",
+      "op": "selectionOnly",
+      "classification": "new_capability",
+      "reason": "Need perceptual color operations and explicit mask/region policy; preserve indices and report mappings.",
+      "alternatives": [
+        "palette",
+        "read_pixels"
+      ],
+      "source": "playbook/skills/palette/SKILL.md",
+      "target_tool": "recolor",
+      "target_op": "selection_only",
+      "implementation_tools": [
+        "edit_palette",
+        "get_pixels"
+      ]
+    },
+    {
+      "command": "recolor",
+      "op": "clampToPalette",
+      "classification": "new_capability",
+      "reason": "Need perceptual color operations and explicit mask/region policy; preserve indices and report mappings.",
+      "alternatives": [
+        "palette",
+        "read_pixels"
+      ],
+      "source": "playbook/skills/palette/SKILL.md",
+      "target_tool": "recolor",
+      "target_op": "clamp_to_palette",
+      "implementation_tools": [
+        "edit_palette",
+        "get_pixels"
+      ]
+    },
+    {
+      "command": "transform",
+      "op": "flip",
+      "classification": "adapter",
+      "reason": "Bounded explicit region only; flip horizontal/vertical, rotations 90/180/270; translate via transform_region. Whole-cel offsets/clipping not equivalent.",
+      "alternatives": [
+        "transform"
+      ],
+      "source": "playbook/rules/75-rotation-and-turnarounds.md",
+      "target_tool": "transform",
+      "target_op": "flip",
+      "implementation_tools": [
+        "transform_region"
+      ]
+    },
+    {
+      "command": "transform",
+      "op": "rotate",
+      "classification": "adapter",
+      "reason": "Bounded explicit region only; flip horizontal/vertical, rotations 90/180/270; translate via transform_region. Whole-cel offsets/clipping not equivalent.",
+      "alternatives": [
+        "transform"
+      ],
+      "source": "playbook/rules/75-rotation-and-turnarounds.md",
+      "target_tool": "transform",
+      "target_op": "rotate",
+      "implementation_tools": [
+        "transform_region"
+      ]
+    },
+    {
+      "command": "transform",
+      "op": "translate",
+      "classification": "adapter",
+      "reason": "Bounded explicit region only; flip horizontal/vertical, rotations 90/180/270; translate via transform_region. Whole-cel offsets/clipping not equivalent.",
+      "alternatives": [
+        "transform"
+      ],
+      "source": "playbook/rules/75-rotation-and-turnarounds.md",
+      "target_tool": "transform",
+      "target_op": "translate",
+      "implementation_tools": [
+        "transform_region"
+      ]
+    },
+    {
+      "command": "transform",
+      "op": "outline",
+      "classification": "new_capability",
+      "reason": "Outline side/width, integer resampling and masks need engine capabilities. resize_canvas pads/crops and is not scale.",
+      "alternatives": [
+        "transform",
+        "resize_canvas"
+      ],
+      "source": "playbook/rules/12-anti-aliasing.md",
+      "target_tool": "transform",
+      "target_op": "outline",
+      "implementation_tools": [
+        "transform_region",
+        "resize_canvas"
+      ]
+    },
+    {
+      "command": "transform",
+      "op": "scale",
+      "classification": "new_capability",
+      "reason": "Outline side/width, integer resampling and masks need engine capabilities. resize_canvas pads/crops and is not scale.",
+      "alternatives": [
+        "transform",
+        "resize_canvas"
+      ],
+      "source": "playbook/rules/12-anti-aliasing.md",
+      "target_tool": "transform",
+      "target_op": "scale",
+      "implementation_tools": [
+        "transform_region",
+        "resize_canvas"
+      ]
+    },
+    {
+      "command": "transform",
+      "op": "selectionOnly",
+      "classification": "new_capability",
+      "reason": "Outline side/width, integer resampling and masks need engine capabilities. resize_canvas pads/crops and is not scale.",
+      "alternatives": [
+        "transform",
+        "resize_canvas"
+      ],
+      "source": "playbook/rules/12-anti-aliasing.md",
+      "target_tool": "transform",
+      "target_op": "selection_only",
+      "implementation_tools": [
+        "transform_region",
+        "resize_canvas"
+      ]
+    },
+    {
+      "command": "transform",
+      "op": "allowLossy",
+      "classification": "unsupported",
+      "reason": "Fractional scaling and non-right-angle resampling are refused by v1; redraw intended poses.",
+      "alternatives": [
+        "draw"
+      ],
+      "source": "playbook/rules/92-generated-art-tells.md",
+      "target_tool": "transform",
+      "target_op": "allow_lossy",
+      "implementation_tools": [
+        "draw"
+      ]
+    },
+    {
+      "command": "select",
+      "op": "rect",
+      "classification": "new_capability",
+      "reason": "Persistent selection state and mask scoping are absent. Never ignore selectionOnly; explicit bounds are a limited native alternative.",
+      "alternatives": [
+        "read_pixels",
+        "draw"
+      ],
+      "source": "playbook/rules/13-dithering-and-texture.md",
+      "target_tool": "select",
+      "target_op": "rect",
+      "implementation_tools": [
+        "get_pixels",
+        "draw"
+      ]
+    },
+    {
+      "command": "select",
+      "op": "ellipse",
+      "classification": "new_capability",
+      "reason": "Persistent selection state and mask scoping are absent. Never ignore selectionOnly; explicit bounds are a limited native alternative.",
+      "alternatives": [
+        "read_pixels",
+        "draw"
+      ],
+      "source": "playbook/rules/13-dithering-and-texture.md",
+      "target_tool": "select",
+      "target_op": "ellipse",
+      "implementation_tools": [
+        "get_pixels",
+        "draw"
+      ]
+    },
+    {
+      "command": "select",
+      "op": "color",
+      "classification": "new_capability",
+      "reason": "Persistent selection state and mask scoping are absent. Never ignore selectionOnly; explicit bounds are a limited native alternative.",
+      "alternatives": [
+        "read_pixels",
+        "draw"
+      ],
+      "source": "playbook/rules/13-dithering-and-texture.md",
+      "target_tool": "select",
+      "target_op": "color",
+      "implementation_tools": [
+        "get_pixels",
+        "draw"
+      ]
+    },
+    {
+      "command": "select",
+      "op": "default",
+      "classification": "new_capability",
+      "reason": "Persistent selection state and mask scoping are absent. Never ignore selectionOnly; explicit bounds are a limited native alternative.",
+      "alternatives": [
+        "read_pixels",
+        "draw"
+      ],
+      "source": "playbook/rules/13-dithering-and-texture.md",
+      "target_tool": "select",
+      "target_op": "default",
+      "implementation_tools": [
+        "get_pixels",
+        "draw"
+      ]
+    },
+    {
+      "command": "tag",
+      "op": "create",
+      "classification": "new_capability",
+      "reason": "Engine preserves imported tags but exposes no MCP tag authoring operation; add metadata executor first.",
+      "alternatives": [
+        "sprite_info"
+      ],
+      "source": "playbook/skills/animate/SKILL.md",
+      "target_tool": "tag",
+      "target_op": "create",
+      "implementation_tools": [
+        "get_project_info"
+      ]
+    },
+    {
+      "command": "reference",
+      "op": "import",
+      "classification": "new_capability",
+      "reason": "Need reference ownership, panel slicing/fit, sampling and lifecycle; opening another project is not reference import.",
+      "alternatives": [
+        "look",
+        "read_pixels"
+      ],
+      "source": "playbook/skills/concept/SKILL.md",
+      "target_tool": "reference",
+      "target_op": "import",
+      "implementation_tools": [
+        "inspect_layer",
+        "get_pixels"
+      ]
+    },
+    {
+      "command": "reference",
+      "op": "list",
+      "classification": "new_capability",
+      "reason": "Need reference ownership, panel slicing/fit, sampling and lifecycle; opening another project is not reference import.",
+      "alternatives": [
+        "look",
+        "read_pixels"
+      ],
+      "source": "playbook/skills/concept/SKILL.md",
+      "target_tool": "reference",
+      "target_op": "list",
+      "implementation_tools": [
+        "inspect_layer",
+        "get_pixels"
+      ]
+    },
+    {
+      "command": "reference",
+      "op": "remove",
+      "classification": "new_capability",
+      "reason": "Need reference ownership, panel slicing/fit, sampling and lifecycle; opening another project is not reference import.",
+      "alternatives": [
+        "look",
+        "read_pixels"
+      ],
+      "source": "playbook/skills/concept/SKILL.md",
+      "target_tool": "reference",
+      "target_op": "remove",
+      "implementation_tools": [
+        "inspect_layer",
+        "get_pixels"
+      ]
+    },
+    {
+      "command": "reference",
+      "op": "sample_palette",
+      "classification": "new_capability",
+      "reason": "Need reference ownership, panel slicing/fit, sampling and lifecycle; opening another project is not reference import.",
+      "alternatives": [
+        "look",
+        "read_pixels"
+      ],
+      "source": "playbook/skills/concept/SKILL.md",
+      "target_tool": "reference",
+      "target_op": "sample_palette",
+      "implementation_tools": [
+        "inspect_layer",
+        "get_pixels"
+      ]
+    },
+    {
+      "command": "look",
+      "op": "preview",
+      "classification": "adapter",
+      "reason": "Use explicit resolved frame IDs and compatible scope; inspect_project/inspect_layer, contact sheet, onion skin and frame comparisons. Disclose compositing differences; no implicit native preview first-frame fallback.",
+      "alternatives": [
+        "look"
+      ],
+      "source": "playbook/skills/review/SKILL.md",
+      "target_tool": "look",
+      "target_op": "preview",
+      "implementation_tools": [
+        "inspect_project",
+        "inspect_layer",
+        "get_contact_sheet",
+        "get_onion_skin",
+        "compare_frames"
+      ]
+    },
+    {
+      "command": "look",
+      "op": "filmstrip",
+      "classification": "adapter",
+      "reason": "Use explicit resolved frame IDs and compatible scope; inspect_project/inspect_layer, contact sheet, onion skin and frame comparisons. Disclose compositing differences; no implicit native preview first-frame fallback.",
+      "alternatives": [
+        "look"
+      ],
+      "source": "playbook/skills/review/SKILL.md",
+      "target_tool": "look",
+      "target_op": "filmstrip",
+      "implementation_tools": [
+        "inspect_project",
+        "inspect_layer",
+        "get_contact_sheet",
+        "get_onion_skin",
+        "compare_frames"
+      ]
+    },
+    {
+      "command": "look",
+      "op": "onion",
+      "classification": "adapter",
+      "reason": "Use explicit resolved frame IDs and compatible scope; inspect_project/inspect_layer, contact sheet, onion skin and frame comparisons. Disclose compositing differences; no implicit native preview first-frame fallback.",
+      "alternatives": [
+        "look"
+      ],
+      "source": "playbook/skills/review/SKILL.md",
+      "target_tool": "look",
+      "target_op": "onion",
+      "implementation_tools": [
+        "inspect_project",
+        "inspect_layer",
+        "get_contact_sheet",
+        "get_onion_skin",
+        "compare_frames"
+      ]
+    },
+    {
+      "command": "look",
+      "op": "diff",
+      "classification": "adapter",
+      "reason": "Use explicit resolved frame IDs and compatible scope; inspect_project/inspect_layer, contact sheet, onion skin and frame comparisons. Disclose compositing differences; no implicit native preview first-frame fallback.",
+      "alternatives": [
+        "look"
+      ],
+      "source": "playbook/skills/review/SKILL.md",
+      "target_tool": "look",
+      "target_op": "diff",
+      "implementation_tools": [
+        "inspect_project",
+        "inspect_layer",
+        "get_contact_sheet",
+        "get_onion_skin",
+        "compare_frames"
+      ]
+    },
+    {
+      "command": "look",
+      "op": "ascii",
+      "classification": "new_capability",
+      "reason": "ASCII index legend/read-edit codec and reference/art side-by-side view need distinct inspection capabilities.",
+      "alternatives": [
+        "read_pixels",
+        "look"
+      ],
+      "source": "playbook/skills/fix/SKILL.md",
+      "target_tool": "look",
+      "target_op": "ascii",
+      "implementation_tools": [
+        "get_pixels",
+        "inspect_project"
+      ]
+    },
+    {
+      "command": "look",
+      "op": "compare",
+      "classification": "new_capability",
+      "reason": "ASCII index legend/read-edit codec and reference/art side-by-side view need distinct inspection capabilities.",
+      "alternatives": [
+        "read_pixels",
+        "look"
+      ],
+      "source": "playbook/skills/fix/SKILL.md",
+      "target_tool": "look",
+      "target_op": "compare",
+      "implementation_tools": [
+        "get_pixels",
+        "inspect_project"
+      ]
+    },
+    {
+      "command": "read_pixels",
+      "op": "default",
+      "classification": "adapter",
+      "reason": "Exact uncomposited indices and RGBA for an explicitly addressed cel/region; current limit 4096 pixels.",
+      "alternatives": [
+        "read_pixels"
+      ],
+      "source": "playbook/rules/90-platform-styles.md",
+      "target_tool": "read_pixels",
+      "target_op": "default",
+      "implementation_tools": [
+        "get_pixels"
+      ]
+    },
+    {
+      "command": "validate",
+      "op": "default",
+      "classification": "new_capability",
+      "reason": "Imported checks/default severity and expectations are not equivalent to native validate_artwork. Advertise each supported check; never report absent checks as passed.",
+      "alternatives": [
+        "validate",
+        "analyze_sprite",
+        "audit_animation"
+      ],
+      "source": "playbook/rules/92-generated-art-tells.md",
+      "target_tool": "validate",
+      "target_op": "default",
+      "implementation_tools": [
+        "validate_artwork",
+        "analyze_sprite",
+        "audit_animation"
+      ]
+    },
+    {
+      "command": "validate",
+      "op": "palette",
+      "classification": "new_capability",
+      "reason": "Imported checks/default severity and expectations are not equivalent to native validate_artwork. Advertise each supported check; never report absent checks as passed.",
+      "alternatives": [
+        "validate",
+        "analyze_sprite",
+        "audit_animation"
+      ],
+      "source": "playbook/rules/92-generated-art-tells.md",
+      "target_tool": "validate",
+      "target_op": "palette",
+      "implementation_tools": [
+        "validate_artwork",
+        "analyze_sprite",
+        "audit_animation"
+      ]
+    },
+    {
+      "command": "validate",
+      "op": "strays",
+      "classification": "new_capability",
+      "reason": "Imported checks/default severity and expectations are not equivalent to native validate_artwork. Advertise each supported check; never report absent checks as passed.",
+      "alternatives": [
+        "validate",
+        "analyze_sprite",
+        "audit_animation"
+      ],
+      "source": "playbook/rules/92-generated-art-tells.md",
+      "target_tool": "validate",
+      "target_op": "strays",
+      "implementation_tools": [
+        "validate_artwork",
+        "analyze_sprite",
+        "audit_animation"
+      ]
+    },
+    {
+      "command": "validate",
+      "op": "outline",
+      "classification": "new_capability",
+      "reason": "Imported checks/default severity and expectations are not equivalent to native validate_artwork. Advertise each supported check; never report absent checks as passed.",
+      "alternatives": [
+        "validate",
+        "analyze_sprite",
+        "audit_animation"
+      ],
+      "source": "playbook/rules/92-generated-art-tells.md",
+      "target_tool": "validate",
+      "target_op": "outline",
+      "implementation_tools": [
+        "validate_artwork",
+        "analyze_sprite",
+        "audit_animation"
+      ]
+    },
+    {
+      "command": "validate",
+      "op": "banding",
+      "classification": "new_capability",
+      "reason": "Imported checks/default severity and expectations are not equivalent to native validate_artwork. Advertise each supported check; never report absent checks as passed.",
+      "alternatives": [
+        "validate",
+        "analyze_sprite",
+        "audit_animation"
+      ],
+      "source": "playbook/rules/92-generated-art-tells.md",
+      "target_tool": "validate",
+      "target_op": "banding",
+      "implementation_tools": [
+        "validate_artwork",
+        "analyze_sprite",
+        "audit_animation"
+      ]
+    },
+    {
+      "command": "validate",
+      "op": "antialiasing",
+      "classification": "new_capability",
+      "reason": "Imported checks/default severity and expectations are not equivalent to native validate_artwork. Advertise each supported check; never report absent checks as passed.",
+      "alternatives": [
+        "validate",
+        "analyze_sprite",
+        "audit_animation"
+      ],
+      "source": "playbook/rules/92-generated-art-tells.md",
+      "target_tool": "validate",
+      "target_op": "antialiasing",
+      "implementation_tools": [
+        "validate_artwork",
+        "analyze_sprite",
+        "audit_animation"
+      ]
+    },
+    {
+      "command": "validate",
+      "op": "animation",
+      "classification": "new_capability",
+      "reason": "Imported checks/default severity and expectations are not equivalent to native validate_artwork. Advertise each supported check; never report absent checks as passed.",
+      "alternatives": [
+        "validate",
+        "analyze_sprite",
+        "audit_animation"
+      ],
+      "source": "playbook/rules/92-generated-art-tells.md",
+      "target_tool": "validate",
+      "target_op": "animation",
+      "implementation_tools": [
+        "validate_artwork",
+        "analyze_sprite",
+        "audit_animation"
+      ]
+    },
+    {
+      "command": "validate",
+      "op": "layers",
+      "classification": "new_capability",
+      "reason": "Imported checks/default severity and expectations are not equivalent to native validate_artwork. Advertise each supported check; never report absent checks as passed.",
+      "alternatives": [
+        "validate",
+        "analyze_sprite",
+        "audit_animation"
+      ],
+      "source": "playbook/rules/92-generated-art-tells.md",
+      "target_tool": "validate",
+      "target_op": "layers",
+      "implementation_tools": [
+        "validate_artwork",
+        "analyze_sprite",
+        "audit_animation"
+      ]
+    },
+    {
+      "command": "validate",
+      "op": "strict",
+      "classification": "new_capability",
+      "reason": "Imported checks/default severity and expectations are not equivalent to native validate_artwork. Advertise each supported check; never report absent checks as passed.",
+      "alternatives": [
+        "validate",
+        "analyze_sprite",
+        "audit_animation"
+      ],
+      "source": "playbook/rules/92-generated-art-tells.md",
+      "target_tool": "validate",
+      "target_op": "strict",
+      "implementation_tools": [
+        "validate_artwork",
+        "analyze_sprite",
+        "audit_animation"
+      ]
+    },
+    {
+      "command": "validate",
+      "op": "expect",
+      "classification": "new_capability",
+      "reason": "Imported checks/default severity and expectations are not equivalent to native validate_artwork. Advertise each supported check; never report absent checks as passed.",
+      "alternatives": [
+        "validate",
+        "analyze_sprite",
+        "audit_animation"
+      ],
+      "source": "playbook/rules/92-generated-art-tells.md",
+      "target_tool": "validate",
+      "target_op": "expect",
+      "implementation_tools": [
+        "validate_artwork",
+        "analyze_sprite",
+        "audit_animation"
+      ]
+    },
+    {
+      "command": "validate",
+      "op": "layerFrames",
+      "classification": "new_capability",
+      "reason": "Imported checks/default severity and expectations are not equivalent to native validate_artwork. Advertise each supported check; never report absent checks as passed.",
+      "alternatives": [
+        "validate",
+        "analyze_sprite",
+        "audit_animation"
+      ],
+      "source": "playbook/rules/92-generated-art-tells.md",
+      "target_tool": "validate",
+      "target_op": "layer_frames",
+      "implementation_tools": [
+        "validate_artwork",
+        "analyze_sprite",
+        "audit_animation"
+      ]
+    },
+    {
+      "command": "validate",
+      "op": "mustNotOverlap",
+      "classification": "new_capability",
+      "reason": "Imported checks/default severity and expectations are not equivalent to native validate_artwork. Advertise each supported check; never report absent checks as passed.",
+      "alternatives": [
+        "validate",
+        "analyze_sprite",
+        "audit_animation"
+      ],
+      "source": "playbook/rules/92-generated-art-tells.md",
+      "target_tool": "validate",
+      "target_op": "must_not_overlap",
+      "implementation_tools": [
+        "validate_artwork",
+        "analyze_sprite",
+        "audit_animation"
+      ]
+    },
+    {
+      "command": "export",
+      "op": "png",
+      "classification": "adapter",
+      "reason": "Standalone only, native supported output without scale/tag/atlas options; GIF timing/alpha limitations and overwrite policy remain explicit. Export never changes save destination.",
+      "alternatives": [
+        "export"
+      ],
+      "source": "playbook/skills/export/SKILL.md",
+      "target_tool": "export",
+      "target_op": "png",
+      "implementation_tools": [
+        "export_project"
+      ]
+    },
+    {
+      "command": "export",
+      "op": "gif",
+      "classification": "adapter",
+      "reason": "Standalone only, native supported output without scale/tag/atlas options; GIF timing/alpha limitations and overwrite policy remain explicit. Export never changes save destination.",
+      "alternatives": [
+        "export"
+      ],
+      "source": "playbook/skills/export/SKILL.md",
+      "target_tool": "export",
+      "target_op": "gif",
+      "implementation_tools": [
+        "export_project"
+      ]
+    },
+    {
+      "command": "export",
+      "op": "pixen",
+      "classification": "adapter",
+      "reason": "Standalone only, native supported output without scale/tag/atlas options; GIF timing/alpha limitations and overwrite policy remain explicit. Export never changes save destination.",
+      "alternatives": [
+        "export"
+      ],
+      "source": "playbook/skills/export/SKILL.md",
+      "target_tool": "export",
+      "target_op": "pixen",
+      "implementation_tools": [
+        "export_project"
+      ]
+    },
+    {
+      "command": "export",
+      "op": "scale",
+      "classification": "new_capability",
+      "reason": "Need scaled image export and packed atlas/tag/slice layout contract; preview enlargement is not scaled export. Desktop UI owns file output.",
+      "alternatives": [
+        "export"
+      ],
+      "source": "playbook/skills/export/SKILL.md",
+      "target_tool": "export",
+      "target_op": "scale",
+      "implementation_tools": [
+        "export_project"
+      ]
+    },
+    {
+      "command": "export",
+      "op": "spritesheet",
+      "classification": "new_capability",
+      "reason": "Need scaled image export and packed atlas/tag/slice layout contract; preview enlargement is not scaled export. Desktop UI owns file output.",
+      "alternatives": [
+        "export"
+      ],
+      "source": "playbook/skills/export/SKILL.md",
+      "target_tool": "export",
+      "target_op": "spritesheet",
+      "implementation_tools": [
+        "export_project"
+      ]
+    },
+    {
+      "command": "export",
+      "op": "byTag",
+      "classification": "new_capability",
+      "reason": "Need scaled image export and packed atlas/tag/slice layout contract; preview enlargement is not scaled export. Desktop UI owns file output.",
+      "alternatives": [
+        "export"
+      ],
+      "source": "playbook/skills/export/SKILL.md",
+      "target_tool": "export",
+      "target_op": "by_tag",
+      "implementation_tools": [
+        "export_project"
+      ]
+    },
+    {
+      "command": "export",
+      "op": "padding",
+      "classification": "new_capability",
+      "reason": "Need scaled image export and packed atlas/tag/slice layout contract; preview enlargement is not scaled export. Desktop UI owns file output.",
+      "alternatives": [
+        "export"
+      ],
+      "source": "playbook/skills/export/SKILL.md",
+      "target_tool": "export",
+      "target_op": "padding",
+      "implementation_tools": [
+        "export_project"
+      ]
+    },
+    {
+      "command": "tileset",
+      "op": "pack",
+      "classification": "new_capability",
+      "reason": "Need tilemap/tileset authority, deduplication tolerance, index-zero convention, blob47 validation and Tiled/Godot/JSON exporters. Normal raster tiles are still drawable.",
+      "alternatives": [
+        "draw",
+        "export"
+      ],
+      "source": "playbook/skills/tileset/SKILL.md",
+      "target_tool": "tileset",
+      "target_op": "pack",
+      "implementation_tools": [
+        "draw",
+        "export_project"
+      ]
+    },
+    {
+      "command": "tileset",
+      "op": "stamp",
+      "classification": "new_capability",
+      "reason": "Need tilemap/tileset authority, deduplication tolerance, index-zero convention, blob47 validation and Tiled/Godot/JSON exporters. Normal raster tiles are still drawable.",
+      "alternatives": [
+        "draw",
+        "export"
+      ],
+      "source": "playbook/skills/tileset/SKILL.md",
+      "target_tool": "tileset",
+      "target_op": "stamp",
+      "implementation_tools": [
+        "draw",
+        "export_project"
+      ]
+    },
+    {
+      "command": "tileset",
+      "op": "export",
+      "classification": "new_capability",
+      "reason": "Need tilemap/tileset authority, deduplication tolerance, index-zero convention, blob47 validation and Tiled/Godot/JSON exporters. Normal raster tiles are still drawable.",
+      "alternatives": [
+        "draw",
+        "export"
+      ],
+      "source": "playbook/skills/tileset/SKILL.md",
+      "target_tool": "tileset",
+      "target_op": "export",
+      "implementation_tools": [
+        "draw",
+        "export_project"
+      ]
+    },
+    {
+      "command": "resize_canvas",
+      "op": "default",
+      "classification": "adapter",
+      "reason": "Native canvas resize preserves origin/indices and pads/crops without resampling.",
+      "alternatives": [
+        "resize_canvas"
+      ],
+      "source": "playbook/rules/62-parallax-backgrounds.md",
+      "target_tool": "resize_canvas",
+      "target_op": "default",
+      "implementation_tools": [
+        "resize_canvas"
+      ]
+    },
+    {
+      "command": "draw",
+      "op": "label",
+      "classification": "new_capability",
+      "reason": "Named undo entries are not provided by the current session history API; do not claim that a label was persisted to native undo history.",
+      "alternatives": [
+        "report_activity",
+        "edit_batch"
+      ],
+      "source": "playbook/skills/fix/SKILL.md",
+      "target_tool": "draw",
+      "target_op": "label",
+      "implementation_tools": [
+        "report_activity",
+        "apply_edits"
+      ]
+    }
+  ],
+  "api_policy": {
+    "backward_compatibility_required": false,
+    "invocation": "direct_tools",
+    "discovery_tool": "preflight",
+    "legacy_dispatcher": false,
+    "argument_naming": "snake_case",
+    "implementation_status": "planned"
+  }
+}

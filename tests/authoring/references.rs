@@ -71,7 +71,7 @@ fn target_pixelorama_exports_generated_animation_with_correct_pixels_timing_tags
     let dir = Path::new(&dir);
     let doc = std::fs::read(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/skills/pixen/examples/animated.json"
+        "/playbook/skills/pixen/examples/animated.json"
     ))
     .unwrap();
     let s = schema::parse(&doc).unwrap();

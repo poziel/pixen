@@ -5,7 +5,7 @@ use std::{
 fn input() -> &'static str {
     concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/skills/pixen/examples/animated.json"
+        "/playbook/skills/pixen/examples/animated.json"
     )
 }
 fn s(p: &Path) -> &str {

@@ -1,4 +1,4 @@
-//! Split-cel ZIP authoring storage; see docs/container-format.md.
+//! Split-cel ZIP authoring storage; see docs/formats/pixen-project.md.
 #[path = "container/payload.rs"]
 mod payload;
 

@@ -7,6 +7,9 @@ use std::{
     time::Duration,
 };
 
+#[path = "mcp_compatibility.rs"]
+mod guidance_contract;
+
 struct Client {
     child: Child,
     responses: mpsc::Receiver<Value>,
@@ -32,7 +35,7 @@ fn stdio_accepts_pixel_calls_above_256_kib_and_compact_rows() {
         let schema = tool["inputSchema"].to_string();
         for variant in variants { assert!(schema.contains(variant), "{name} missing {variant}"); }
     }
-    let created = c.call("create_project", json!({"width":128,"height":128,"palette":["#00000000","#FFFFFFFF"],"output_path":root.path().join("large.pixloom")}));
+    let created = c.call("create_project", json!({"width":128,"height":128,"palette":["#00000000","#FFFFFFFF"],"output_path":root.path().join("large.pixen")}));
     let id = text(&created)["project_id"].clone();
     let pixels: Vec<_> = (0..16384).map(|i| json!({"x":i%128,"y":i/128,"palette_index":1})).collect();
     let args = json!({"project_id":id,"expected_revision":0,"operations":[{"type":"set_pixels","frame_id":"frame-1","layer_id":"layer-1","pixels":pixels}]});
@@ -51,7 +54,7 @@ fn stdio_accepts_pixel_calls_above_256_kib_and_compact_rows() {
 #[ignore = "requires the built Tauri desktop and an interactive desktop session"]
 fn tauri_managed_preview_acknowledges_updates_focus_and_shutdown() {
     let root = tempfile::tempdir().unwrap();
-    let destination = root.path().join("preview.pixloom");
+    let destination = root.path().join("preview.pixen");
     let mut client = Client::new(false);
     let created = client.call(
         "create_project",
@@ -362,7 +365,7 @@ mod graphical {
                 .any(|p| p
                     .file_name()
                     .to_string_lossy()
-                    .starts_with(".pixloom-recovery-"))
+                    .starts_with(".pixen-recovery-"))
         );
     }
     #[test]
@@ -370,7 +373,7 @@ mod graphical {
     fn file_preview_reuses_does_not_mutate_and_live_updates_do_not_activate() {
         let dir = tempfile::tempdir().unwrap();
         let source = dir.path().join("animated.pixen.json");
-        let original = include_bytes!("../../skills/pixen/examples/animated.pixloom.json");
+        let original = include_bytes!("../../playbook/skills/pixen/examples/animated.pixloom.json");
         std::fs::write(&source, original).unwrap();
         let modified = std::fs::metadata(&source).unwrap().modified().unwrap();
         let mut c = Client::new(false);
@@ -521,7 +524,7 @@ fn inspection_returns_bounded_png_and_preview_tools_validate_contracts() {
 fn standalone_resize_canvas_uses_revision_checks_and_undo() {
     let dir = tempfile::tempdir().unwrap();
     let mut client = Client::new(false);
-    let created = client.call("create_project",json!({"width":2,"height":3,"palette":["#00000000"],"output_path":dir.path().join("sized.pixloom")}));
+    let created = client.call("create_project",json!({"width":2,"height":3,"palette":["#00000000"],"output_path":dir.path().join("sized.pixen")}));
     let id = text(&created)["project_id"].clone();
     let resized = client.call(
         "resize_canvas",
@@ -642,7 +645,7 @@ fn stdio_create_draw_preview_edit_finish_and_reuse() {
         .find(|p| {
             p.file_name()
                 .to_string_lossy()
-                .starts_with(".pixloom-recovery-")
+                .starts_with(".pixen-recovery-")
         })
         .unwrap();
     pixen::schema::read_document(&std::fs::read(recovery.path()).unwrap()).unwrap();
@@ -892,7 +895,7 @@ fn activity_reporting_is_validated_and_does_not_edit_the_project() {
 #[test]
 fn project_container_palette_regions_and_animation_analysis_work_through_mcp() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("art.pixloom");
+    let path = dir.path().join("art.pixen");
     let mut c = Client::new(false);
     let created = c.call(
         "create_project",
@@ -958,7 +961,7 @@ fn project_container_palette_regions_and_animation_analysis_work_through_mcp() {
 fn review_apis_return_images_reports_and_never_edit_artwork() {
     let dir = tempfile::tempdir().unwrap();
     let mut c = Client::new(false);
-    let created=c.call("create_project",json!({"width":4,"height":4,"palette":["#00000000","#FF0000FF"],"output_path":dir.path().join("review.pixloom")}));
+    let created=c.call("create_project",json!({"width":4,"height":4,"palette":["#00000000","#FF0000FF"],"output_path":dir.path().join("review.pixen")}));
     let id = text(&created)["project_id"].clone();
     let cp = c.call(
         "manage_checkpoint",

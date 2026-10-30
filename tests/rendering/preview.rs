@@ -5,7 +5,7 @@ use std::time::Duration;
 fn supported_project_preview_is_read_only_and_crops_match_renderer() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("sample.pixen.json");
-    let original = include_bytes!("../../skills/pixen/examples/animated.pixloom.json");
+    let original = include_bytes!("../../playbook/skills/pixen/examples/animated.pixloom.json");
     std::fs::write(&path, original).unwrap();
     let before = std::fs::metadata(&path).unwrap().modified().unwrap();
     let sprite = load(&path).unwrap();
@@ -104,7 +104,7 @@ fn native_and_container_projects_use_the_same_composite_without_writes() {
     let source = dir.path().join("container.pixen.json");
     std::fs::write(
         &source,
-        include_bytes!("../../skills/pixen/examples/animated.pixloom.json"),
+        include_bytes!("../../playbook/skills/pixen/examples/animated.pixloom.json"),
     )
     .unwrap();
     let packed = dir.path().join("container.pixloom");

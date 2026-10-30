@@ -1,4 +1,4 @@
-//! Bounded exact-index JSON optimization. See docs/optimizer.md for search limits.
+//! Bounded exact-index JSON optimization. See docs/formats/optimizer.md for search limits.
 use crate::{
     encoding::{self, Kind, Placement},
     output,
@@ -260,7 +260,7 @@ mod tests {
     fn concurrent_edit_and_failed_temp_verification_leave_source_intact() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("art.pixen.json");
-        let original = include_bytes!("../../skills/pixen/examples/encodings.pixloom.json");
+        let original = include_bytes!("../../playbook/skills/pixen/examples/encodings.pixloom.json");
         fs::write(&path, original).unwrap();
         let snapshot = fs::metadata(&path).unwrap();
         let temp = output::Prepared::new(&path, |file| {

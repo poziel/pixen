@@ -6,7 +6,7 @@ use serde_json::json;
 #[test]
 fn audit_reports_holds_timing_and_loop_as_observations() {
     let mut doc = schema::read_document(include_bytes!(
-        "../../skills/pixen/examples/animated.pixloom.json"
+        "../../playbook/skills/pixen/examples/animated.pixloom.json"
     ))
     .unwrap();
     for (i, f) in doc.frames.iter_mut().enumerate() {
