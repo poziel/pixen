@@ -18,26 +18,118 @@ struct Client {
 }
 
 #[test]
+fn guidance_discovery_reads_workflows_rules_and_prompts() {
+    let mut c = Client::new(false);
+    let resources = c.request("resources/list", json!({}));
+    let entries = resources["result"]["resources"]
+        .as_array()
+        .expect("guidance resources");
+    for uri in [
+        "skill://index",
+        "skill://studio",
+        "skill://draw",
+        "rules://index",
+        "rules://00-core-principles",
+    ] {
+        assert!(
+            entries.iter().any(|r| r["uri"] == uri),
+            "missing {uri}: {resources}"
+        );
+        let read = c.request("resources/read", json!({"uri":uri}));
+        assert!(
+            !read["result"]["contents"][0]["text"]
+                .as_str()
+                .unwrap()
+                .is_empty(),
+            "{read}"
+        );
+    }
+    assert!(!resources.to_string().contains("submit"));
+    let prompts = c.request("prompts/list", json!({}));
+    assert!(
+        prompts["result"]["prompts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["name"] == "pixen:draw")
+    );
+    assert!(!prompts.to_string().contains("submit"));
+    let prompt = c.request("prompts/get", json!({"name":"pixen:draw"}));
+    assert!(
+        prompt["result"]["messages"][0]["content"]["text"]
+            .as_str()
+            .unwrap()
+            .contains("Look before you draw")
+    );
+    let tool = c.call("read_guidance", json!({"uri":"rules://00-core-principles"}));
+    assert_ne!(tool["isError"], true, "{tool}");
+    assert!(tool["content"][0]["text"].as_str().unwrap().contains("#"));
+    for uri in [
+        "rules://../LICENSE",
+        "skill://submit",
+        "file:///etc/passwd",
+        "rules://missing",
+    ] {
+        let failure = c.request("resources/read", json!({"uri":uri}));
+        assert!(failure.get("error").is_some(), "{failure}");
+        assert_eq!(c.call("read_guidance", json!({"uri":uri}))["isError"], true);
+    }
+    assert!(
+        c.request("prompts/get", json!({"name":"pixen:submit"}))
+            .get("error")
+            .is_some()
+    );
+}
+
+#[test]
 fn stdio_accepts_pixel_calls_above_256_kib_and_compact_rows() {
     let root = tempfile::tempdir().unwrap();
     let mut c = Client::new(false);
     let listed = c.request("tools/list", json!({}));
     for name in ["draw", "apply_edits"] {
-        let tool = listed["result"]["tools"].as_array().unwrap().iter().find(|t| t["name"] == name).unwrap();
-        assert!(tool["inputSchema"].to_string().contains("set_pixel_rows"), "{tool}");
+        let tool = listed["result"]["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["name"] == name)
+            .unwrap();
+        assert!(
+            tool["inputSchema"].to_string().contains("set_pixel_rows"),
+            "{tool}"
+        );
     }
     for (name, variants) in [
-        ("edit_layer", vec!["paste_cells", "clear_cells", "link_cells", "unlink_cells"]),
+        (
+            "edit_layer",
+            vec!["paste_cells", "clear_cells", "link_cells", "unlink_cells"],
+        ),
         ("edit_frame", vec!["rename_frame", "set_frame_duration"]),
-        ("apply_edits", vec!["paste_cells", "link_cells", "rename_frame", "set_pixel_rows"]),
+        (
+            "apply_edits",
+            vec![
+                "paste_cells",
+                "link_cells",
+                "rename_frame",
+                "set_pixel_rows",
+            ],
+        ),
     ] {
-        let tool = listed["result"]["tools"].as_array().unwrap().iter().find(|t| t["name"] == name).unwrap();
+        let tool = listed["result"]["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["name"] == name)
+            .unwrap();
         let schema = tool["inputSchema"].to_string();
-        for variant in variants { assert!(schema.contains(variant), "{name} missing {variant}"); }
+        for variant in variants {
+            assert!(schema.contains(variant), "{name} missing {variant}");
+        }
     }
     let created = c.call("create_project", json!({"width":128,"height":128,"palette":["#00000000","#FFFFFFFF"],"output_path":root.path().join("large.pixen")}));
     let id = text(&created)["project_id"].clone();
-    let pixels: Vec<_> = (0..16384).map(|i| json!({"x":i%128,"y":i/128,"palette_index":1})).collect();
+    let pixels: Vec<_> = (0..16384)
+        .map(|i| json!({"x":i%128,"y":i/128,"palette_index":1}))
+        .collect();
     let args = json!({"project_id":id,"expected_revision":0,"operations":[{"type":"set_pixels","frame_id":"frame-1","layer_id":"layer-1","pixels":pixels}]});
     assert!(serde_json::to_vec(&args).unwrap().len() > 256 * 1024);
     let result = c.call("apply_edits", args);
@@ -592,6 +684,7 @@ fn stdio_create_draw_preview_edit_finish_and_reuse() {
             "manage_checkpoint",
             "open_preview",
             "open_project",
+            "read_guidance",
             "redo",
             "report_activity",
             "resize_canvas",

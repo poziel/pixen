@@ -2,11 +2,13 @@
 
 Workflows an agent follows, in the order that catches mistakes while they are still cheap. Each one is a procedure, not a description.
 
-They are served from this one directory, under the same `pixen:<name>` names everywhere:
+Pixen exposes these workflows from this directory:
 
-- **Claude Code** loads them as plugin skills (`/pixen:draw`); **omp** gets the same commands from the plugin's omp extension.
-- **Any MCP client** reads them as `skill://<name>` resources and can invoke them as MCP prompts named `pixen:<name>` — so Codex, Gemini CLI and Cursor get the same workflows.
-- **The server instructions** list them, so an agent knows they exist without being told.
+- **MCP clients** discover `skill://index`, read `skill://<name>` resources and, where their host supports MCP prompts, retrieve prompts named `pixen:<name>`. A prompt supplies instructions; the agent then uses available tools.
+- **Pixen's embedded AI** reads the same catalog through the app-approved `read_guidance` tool, without shell, plugin or external filesystem access.
+- **Server instructions** advertise these entry points. Foundation bundles are resources at `skill://pixen` and `skill://pixel-art`; supporting text files use `skill://<name>/<relative-path>`.
+
+MCP prompts do not install slash commands such as `/pixen:draw`. Hosts may display prompts in a command picker or offer their own skill installation mechanism; Pixen does not ship an upstream Claude/omp plugin. Tool schemas determine which workflow operations are implemented. Read a workflow's instructions without assuming every imported tool example is executable on the running server.
 
 | Skill | Use when |
 |-------|----------|

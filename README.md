@@ -64,7 +64,7 @@ To create a Windows ZIP containing the desktop, CLI, and MCP server, run:
 bun run release
 ```
 
-This refreshes local Frame dependencies and builds all three release executables. The folder and ZIP are written under `target/portable/Pixen-<version>-<Rust-host-target>`. Keep the executables together for MCP live previews. The destination computer needs WebView2; preferences still use its application data folders by default. Create an extensionless `portable` file beside the executables to use a local `data/` folder instead. Both AI skills ship under `skills/`; see [portable storage and skill bundles](docs/portable.md). Configure your MCP client to launch the extracted `pixen-mcp.exe` with `args = ["--viewer"]`.
+This refreshes local Frame dependencies and builds all three release executables. The folder and ZIP are written under `target/portable/Pixen-<version>-<Rust-host-target>`. Keep the executables together for MCP live previews. The destination computer needs WebView2; preferences still use its application data folders by default. Create an extensionless `portable` file beside the executables to use a local `data/` folder instead. The full AI playbook ships under `playbook/` and is exposed through MCP resources and prompts; see [portable storage and guidance bundles](docs/portable.md). Configure your MCP client to launch the extracted `pixen-mcp.exe` with `args = ["--viewer"]`.
 
 To build without installing:
 

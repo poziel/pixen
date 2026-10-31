@@ -4,6 +4,8 @@ Pixen's MCP server lets an AI client inspect and edit pixel artwork through the 
 
 The [target API specification](../specs/mcp-compatibility.md) describes a future refactor. Its examples are not calls supported by today's server.
 
+The [bundled playbook](guidance.md) is available now through MCP resources, workflow prompts and the read-only `read_guidance` tool. Start with `skill://index` and `rules://index`; importing a workflow does not implement every editing capability it describes.
+
 ## Setup
 
 Build the headless executables from the repository root:

@@ -1,11 +1,11 @@
 # Rules
 
-The pixel-art craft this project encodes. One source of truth, consumed three ways:
+The shared pixel-art craft rules, indexed by `rules://index`:
 
-- **Claude Code** reads these files directly from the plugin.
-- **Every other MCP client** reads them as `rules://` resources served by the MCP server, so Codex, Gemini CLI and Cursor get the same discipline.
-- **The tools themselves** implement the mechanical parts — palette snapping, hue-shifted shading, the validation checks — so an agent that never reads a word of this still cannot casually break the palette.
+- **MCP clients** read `rules://<filename-without-extension>` resources, such as `rules://00-core-principles`.
+- **Pixen's embedded AI** uses `read_guidance` with the same URI, within the app-only tool policy.
+- **Local readers** can use these Markdown files in the installed `playbook/rules/` folder.
 
-Read `rules://index` for the list, or start at `00-core-principles.md`. Files are numbered in bands ([ADR-0011](../docs/adr/0011-pixel-art-knowledge-base.md)): `0x` core discipline, `1x` technique, `2x` colour and materials, `3x` characters, `4x` animation, `5x` creatures, `6x` environments, `7x` objects and 3D, `8x` effects and UI, `9x` style. Subject files carry ` ```grid ` templates; `node --experimental-strip-types scripts/rule-templates.ts [outDir] [code]` renders them to PNG, and `tests/rules.test.ts` holds them to the format `draw` op `grid` accepts.
+Read `rules://index` for the list, or start at [core principles](00-core-principles.md). Files are numbered in bands: `0x` core discipline, `1x` technique, `2x` colour and materials, `3x` characters, `4x` animation, `5x` creatures, `6x` environments, `7x` objects and 3D, `8x` effects and UI, `9x` style. Subject files carry ` ```grid ` templates. The upstream rule-template renderer, tests and ADR are not shipped Pixen utilities. Guidance does not enforce palette snapping, shading or validation; use the running tool schemas to establish implemented capabilities.
 
-Changing a rule here changes behaviour everywhere. Skills reference rules by name rather than restating them, so a rule has exactly one place to be wrong.
+Skills reference rules by name rather than restating them. MCP uses a build-time copy of this rulebook: rebuild and reconnect to load source changes. Editing an installed Markdown file does not change the embedded catalog.

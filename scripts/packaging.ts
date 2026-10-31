@@ -143,31 +143,32 @@ export function copyReleaseBinaries(
 }
 
 /**
- * Copies both distributed skill bundles and available license/attribution files.
+ * Copies the complete playbook, including imported workflows and source notices.
  *
- * @param projectRoot - Checkout containing playbook/skills.
+ * @param projectRoot - Checkout containing playbook/.
  * @param destination - Fresh package staging directory.
- * @throws If either bundle lacks its required SKILL.md entry point.
+ * @throws If required entry points or attribution are absent.
  */
-export function copyBundledSkills(
+export function copyPlaybook(
   projectRoot: string,
   destination: string
 ): void {
-  for (const skillName of ['pixen', 'pixel-art']) {
-    const sourcePath = join(projectRoot, 'playbook/skills', skillName);
-    if (!existsSync(join(sourcePath, 'SKILL.md'))) {
-      throw new Error(`Missing skill: ${sourcePath}`);
-    }
-    copyRequired(sourcePath, join(destination, 'skills', skillName));
-  }
-
-  // Attribution belongs beside the distributed bundles, not only in the repo.
-  for (const filename of ['LICENSE', 'NOTICE.md']) {
-    const sourcePath = join(projectRoot, 'playbook', filename);
-    if (existsSync(sourcePath)) {
-      copyRequired(sourcePath, join(destination, 'skills', filename));
+  const sourcePath = join(projectRoot, 'playbook');
+  for (const required of [
+    'skills/pixen/SKILL.md', 'skills/pixel-art/SKILL.md',
+    'skills/draw/SKILL.md', 'rules/00-core-principles.md',
+    'agents/pixel-critic.md', 'LICENSE', 'NOTICE.md',
+  ]) {
+    if (!existsSync(join(sourcePath, required))) {
+      throw new Error(`Missing playbook file: ${required}`);
     }
   }
+  for (const removed of ['submit', 'gallery']) {
+    if (existsSync(join(sourcePath, 'skills', removed))) {
+      throw new Error(`Removed workflow must not be packaged: ${removed}`);
+    }
+  }
+  copyRequired(sourcePath, join(destination, 'playbook'));
 }
 
 /**

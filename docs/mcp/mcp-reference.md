@@ -2,11 +2,11 @@
 
 For the planned refactor, see the [target MCP API contract](../specs/mcp-compatibility.md). Current tool names, schemas and response formats may be replaced without legacy aliases. This reference describes the implementation today; it is not a backward compatibility guarantee.
 
-This reference documents the current Pixen source implementation. The standalone server exposes **31 tools**; the desktop document bridge exposes **26** of them. These are MCP tool names, called through `tools/call`, rather than separate HTTP URLs. See [the MCP guide](README.md) for longer authoring workflows.
+This reference documents the current Pixen source implementation. The standalone server exposes **32 tools**; the desktop document bridge exposes **27** of them. These are MCP tool names, called through `tools/call`, rather than separate HTTP URLs. See [the MCP guide](README.md) for longer authoring workflows.
 
 ## How the server works
 
-The client launches `pixen-mcp` and communicates over standard input/output using JSON-RPC through the Rust `rmcp` SDK. Stdout carries protocol messages; stderr carries diagnostics. The server advertises tools, with JSON Schemas generated from its Rust argument types. It does not advertise MCP resources or prompts.
+The client launches `pixen-mcp` and communicates over standard input/output using JSON-RPC through the Rust `rmcp` SDK. Stdout carries protocol messages; stderr carries diagnostics. The server advertises tools, with JSON Schemas generated from its Rust argument types. It also advertises MCP resources and workflow prompts backed by the embedded playbook; see [guidance discovery](guidance.md).
 
 The normal protocol sequence is:
 
@@ -31,9 +31,9 @@ There is no public HTTP listener or REST route for each tool. The desktop uses a
 
 | Mode | Server name | Document ownership | Available tools |
 | --- | --- | --- | --- |
-| `pixen-mcp` | `pixen` | Server owns one active editing project | All 31 |
-| `pixen-mcp --viewer` | `pixen` | Same session; automatically opens a read-only desktop preview on create/open | All 31 |
-| Desktop document bridge | `pixen-desktop` | Desktop owns the active artwork, saving and project lifetime | 26 |
+| `pixen-mcp` | `pixen` | Server owns one active editing project | All 32 |
+| `pixen-mcp --viewer` | `pixen` | Same session; automatically opens a read-only desktop preview on create/open | All 32 |
+| Desktop document bridge | `pixen-desktop` | Desktop owns the active artwork, saving and project lifetime | 27 |
 
 The five standalone-only tools are `open_project`, `save_project`, `export_project`, `open_preview` and `finish_project`. The desktop filters them from discovery and rejects direct calls with “This action is managed by the Pixen application.” In desktop mode, `create_project` replaces the supplied `output_path` with the app-managed `artwork.pixen` destination. Its shared schema still requires an `output_path` argument.
 
@@ -55,6 +55,8 @@ args = []
 Add `--viewer` to `args` for automatic previews. Preview windows require the sibling Pixen desktop executable and an interactive desktop. Headless edits and PNG inspection do not require a window. Restart the MCP connection after rebuilding; `tools/list` describes the binary actually running.
 
 ## Shared argument and result conventions
+
+`read_guidance` is a read-only, document-independent tool available in both modes. Its required `uri: string` names an exact bundled resource, such as `skill://index`, `skill://studio` or `rules://00-core-principles`. It returns text content and sets `isError` for unknown URIs. It does not accept local paths or change artwork/history. The same text is available through `resources/read`; see [guidance discovery](guidance.md) for URI mapping and workflow prompts.
 
 In the tables below, fields are **required unless marked optional or given a default**. Every project tool except `create_project` and `open_project` requires `project_id: string`. Use returned IDs rather than assuming their values.
 
@@ -345,8 +347,8 @@ For desktop-bound AI, use the shared editing/inspection tools; the app handles s
 | Source | Responsibility |
 | --- | --- |
 | [`core/bin/pixen-mcp.rs`](../../core/bin/pixen-mcp.rs) | CLI flags, storage setup, standalone/proxy entry points |
-| [`core/automation/mcp.rs`](../../core/automation/mcp.rs) | All 31 tool registrations, argument wrappers, responses, viewer/activity synchronization |
-| [`core/automation/mcp_desktop.rs`](../../core/automation/mcp_desktop.rs) | 26-tool allowlist, document-bound interception, authenticated local bridge |
+| [`core/automation/mcp.rs`](../../core/automation/mcp.rs) | All 32 tool registrations, argument wrappers, responses, viewer/activity synchronization |
+| [`core/automation/mcp_desktop.rs`](../../core/automation/mcp_desktop.rs) | 27-tool allowlist, document-bound interception, authenticated local bridge |
 | [`core/automation/session.rs`](../../core/automation/session.rs) | Project lifecycle, revisions, transactions, history, save/export, inspection |
 | [`core/document/edit.rs`](../../core/document/edit.rs) | Drawing/layer/frame operation schemas and executor |
 | [`core/document/edit_extra.rs`](../../core/document/edit_extra.rs) | Palette and region operation schemas/executor |

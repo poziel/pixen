@@ -22,7 +22,15 @@ use std::{
 fn authoring_instructions(context: &str) -> String {
     format!(
         "{context} Payload budget: keep each complete JSON tool call below 200 KiB (UTF-8 bytes); some AI clients reject calls around 256 KiB before they reach Pixen. Prefer rectangle/line/ellipse/fill for geometric regions and set_pixel_rows (x, y, rows of palette indices) for dense artwork instead of thousands of set_pixels objects. Split larger artwork into bounded row strips or sparse batches, read each returned revision and use it as the next expected_revision. Each batch is atomic and a separate undo step; earlier batches remain if a later one fails. Do not retry an oversized call unchanged. Use cropped get_pixels/inspect_project and selected contact-sheet frames to keep inspection responses small. Tool schemas describe the currently supported layer, frame, palette, region and canvas operations."
-    )
+    ) + "\n\n"
+        + crate::guidance::INSTRUCTIONS
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct ReadGuidance {
+    /// Exact bundled resource URI, e.g. skill://index, skill://draw, rules://index.
+    uri: String,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -584,6 +592,15 @@ fn result(value: anyhow::Result<serde_json::Value>) -> CallToolResult {
 #[tool_router]
 impl Server {
     #[tool(
+        description = "Read Pixen's bundled skills/rules without filesystem access. Start with skill://index or rules://index, then skill://studio and relevant subject rules. Accepts only exact catalog URIs, never external paths. Does not run workflows or register agents."
+    )]
+    fn read_guidance(&self, Parameters(args): Parameters<ReadGuidance>) -> CallToolResult {
+        match crate::guidance::find(&args.uri) {
+            Ok(entry) => CallToolResult::success(vec![Content::text(entry.text)]),
+            Err(error) => CallToolResult::error(vec![Content::text(error.to_string())]),
+        }
+    }
+    #[tool(
         description = "Read-only multi-scale color/silhouette/grayscale PNG review with neutral labels, opaque backgrounds and source-space panel metadata. Defaults display_scale=1, enlarged_scale=8. May synchronize the inspector while Follow AI is on."
     )]
     fn get_review_sheet(&self, Parameters(args): Parameters<ReviewSheetArgs>) -> CallToolResult {
@@ -1019,8 +1036,36 @@ impl Server {
 }
 #[tool_handler]
 impl ServerHandler for Server {
+    async fn list_resources(
+        &self,
+        request: Option<rmcp::model::PaginatedRequestParams>,
+        _: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> Result<rmcp::model::ListResourcesResult, rmcp::ErrorData> {
+        crate::guidance::list_resources(request)
+    }
+    async fn read_resource(
+        &self,
+        request: rmcp::model::ReadResourceRequestParams,
+        _: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> Result<rmcp::model::ReadResourceResponse, rmcp::ErrorData> {
+        crate::guidance::read_resource(&request.uri).map(Into::into)
+    }
+    async fn list_prompts(
+        &self,
+        request: Option<rmcp::model::PaginatedRequestParams>,
+        _: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> Result<rmcp::model::ListPromptsResult, rmcp::ErrorData> {
+        crate::guidance::list_prompts(request)
+    }
+    async fn get_prompt(
+        &self,
+        request: rmcp::model::GetPromptRequestParams,
+        _: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> Result<rmcp::model::GetPromptResponse, rmcp::ErrorData> {
+        crate::guidance::get_prompt(request).map(Into::into)
+    }
     fn get_info(&self) -> ServerConfig {
-        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
+        ServerConfig::new(ServerCapabilities::builder().enable_tools().enable_resources().enable_prompts().build())
             .with_server_info(Implementation::new("pixen", env!("CARGO_PKG_VERSION")))
             .with_instructions(authoring_instructions("Pixen pixel-art authoring. Use report_activity with a brief user-facing description when starting a meaningful task (busy=true) and when finishing it (busy=false). An animation request means multiple visually distinct frames with intentional motion, not a static sprite in a multi-frame document. Workflow: block out, review, create keyframes, add useful intermediates, inspect get_contact_sheet and playback, correct, finish/save, export the full timeline (CLI --loop for looping GIF/WebP/APNG), open user preview. get_preview shows only the first frame; inspect_project targets a specific stable frame ID. Use get_project_info/get_pixels for exact inspection; edit_layer/edit_frame/draw or mixed apply_edits batches for atomic revision-checked changes; undo/redo for transaction history. inspect_project returns actual PNG content; open_preview only shows the user a read-only window. Viewer selection never changes explicit editing targets. Prefer .pixen project destinations. open_project accepts all supported inspector inputs, save_project checkpoints without ending a session, and finish_project saves/releases it. Both refuse external file changes. export_project explicitly writes native or image formats. edit_palette/copy_region/transform_region share apply_edits transactions. get_onion_skin/compare_frames/inspect_layer return actual PNG review and sync an open Follow AI viewer without editing artwork. Use get_review_sheet for multi-scale silhouette/grayscale evidence, manage_checkpoint/compare_checkpoint for independent baselines, analyze_sprite for measurements, validate_artwork for caller rules and audit_animation for motion evidence. Read-only reviews never change artwork/history and do not score artistic quality or run critic agents. Checkpoints are session-local; follow report revisions and truncation flags."))
     }

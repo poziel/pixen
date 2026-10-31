@@ -118,6 +118,8 @@ fn bridge_edits_the_desktop_document_and_filters_file_actions() {
         serde_json::json!({"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test","version":"1"}}),
     );
     assert!(init.get("error").is_none(), "{init}");
+    assert!(init["result"]["capabilities"].get("resources").is_some());
+    assert!(init["result"]["capabilities"].get("prompts").is_some());
     writeln!(
         socket.get_mut(),
         "{}",
@@ -125,6 +127,56 @@ fn bridge_edits_the_desktop_document_and_filters_file_actions() {
     )
     .unwrap();
     let tools = request(&mut socket, 2, "tools/list", serde_json::json!({}));
+    assert!(
+        tools["result"]["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["name"] == "read_guidance")
+    );
+    // Guidance remains available before an artwork exists and cannot touch files.
+    for (id, method, params) in [
+        (100, "resources/list", serde_json::json!({})),
+        (
+            101,
+            "resources/read",
+            serde_json::json!({"uri":"skill://studio"}),
+        ),
+        (
+            102,
+            "resources/read",
+            serde_json::json!({"uri":"rules://00-core-principles"}),
+        ),
+        (103, "prompts/list", serde_json::json!({})),
+        (104, "prompts/get", serde_json::json!({"name":"pixen:draw"})),
+        (
+            105,
+            "tools/call",
+            serde_json::json!({"name":"read_guidance","arguments":{"uri":"rules://index"}}),
+        ),
+    ] {
+        let response = request(&mut socket, id, method, params);
+        assert!(response.get("error").is_none(), "{response}");
+        assert_ne!(response["result"]["isError"], true, "{response}");
+        assert!(response["result"].to_string().len() > 100, "{response}");
+    }
+    let failure = request(
+        &mut socket,
+        106,
+        "tools/call",
+        serde_json::json!({"name":"read_guidance","arguments":{"uri":"file:///external.txt"}}),
+    );
+    assert_eq!(failure["result"]["isError"], true);
+    assert!(
+        desktop
+            .server
+            .state
+            .lock()
+            .unwrap()
+            .session
+            .active_id()
+            .is_none()
+    );
     assert!(
         tools["result"]["tools"]
             .as_array()

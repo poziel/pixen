@@ -17,7 +17,7 @@ import {
 } from 'node:fs';
 import {join} from 'node:path';
 import {
-  copyBundledSkills,
+  copyPlaybook,
   copyReleaseBinaries,
   copyRequired,
   createPackageArchive,
@@ -84,7 +84,7 @@ export async function packageRelease(
     copyRequired(
       join(projectRoot, 'LICENSE'), join(packageDirectory, 'LICENSE')
     );
-    copyBundledSkills(projectRoot, packageDirectory);
+    copyPlaybook(projectRoot, packageDirectory);
     writeThemeFiles(projectRoot, packageDirectory);
     writeReleaseReadme(packageDirectory, manifest.version, target, useZip);
 
@@ -162,7 +162,7 @@ Storage modes are available in Settings > Installation:
 
 Apply and restart transfers preferences and unfinished artwork, backing up destination conflicts. Original files are retained; undo history and AI conversations reset. Close other Pixen windows and MCP connections first. Manually changing the marker selects storage without transferring data. Keep data/, portable, custom themes, and backups when updating.
 
-Keyboard shortcuts use keybindings.json beside settings.json. AI providers require separately installed and authenticated tools. Install the bundled skills/pixen and skills/pixel-art through your AI client; bundling does not register them globally. Video export requires FFmpeg.
+Keyboard shortcuts use keybindings.json beside settings.json. AI providers require separately installed and authenticated tools. Pixen MCP exposes the bundled playbook as skill:// and rules:// resources and pixen:<workflow> prompts. Embedded AI reads it through read_guidance within the app-only policy. The readable playbook/ folder includes skills, rules, agent descriptions and source notices; bundling does not install host slash commands or register specialists. Video export requires FFmpeg.
 
 Configure your MCP client to launch the absolute path to ${useZip ? 'pixen-mcp.exe' : 'pixen-mcp'}, optionally with --viewer. Do not start a second server manually for the same connection.
 `);

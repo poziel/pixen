@@ -26,7 +26,7 @@ Updating the application means replacing the shipped executable/resource files; 
 
 Explicit project/export destinations remain where you choose them. External AI provider tools, their sign-ins, and the WebView2 runtime remain external prerequisites; portable mode does not redirect their homes or credentials.
 
-The release includes the complete `skills/pixen/` and `skills/pixel-art/` folders, with references and examples. Install or reference them through your AI client's skill mechanism. Copying them into the release does not register them globally.
+The release includes the complete `playbook/` tree: foundation bundles, imported workflows, shared rules, specialist descriptions, references, examples, MIT license and attribution. Pixen also embeds its skills/rules catalog in the executables, so MCP reads do not depend on the checkout or working directory. Discover `skill://index` and `rules://index` through MCP resources; workflow prompts are named `pixen:<name>`. Embedded AI uses `read_guidance` within its app-only tool policy. Bundling does not install host slash commands or register specialists. See [guidance discovery](mcp/guidance.md) for protocol examples and the packaged-install smoke check.
 
 Release archives are assembled in a fresh staging directory and include only shipped application files. They never include an existing portable `data/` folder, a user's custom themes, or the optional marker from a previous extracted release.
 

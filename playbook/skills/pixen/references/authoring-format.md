@@ -148,6 +148,6 @@ Author convenient valid encodings, then run `pixen-cli optimize INPUT --in-place
 
 ## Container storage
 
-The external JSON schema stays self-contained. `.pixloom` packages the same Document fields into `document.json`, replacing each cel with an explicit `{ "id": "body", "payload": "cels/body.json" }` reference. Each payload uses that cel's existing encoding schema without `id`. Frames/timelines stay together; row/tile dictionaries remain local. All definitions, including unused ones, are retained. See [exact container schema](../../../workspace/docs/container-format.md).
+The external JSON schema stays self-contained. `.pixloom` packages the same Document fields into `document.json`, replacing each cel with an explicit `{ "id": "body", "payload": "cels/body.json" }` reference. Each payload uses that cel's existing encoding schema without `id`. Frames/timelines stay together; row/tile dictionaries remain local. All definitions, including unused ones, are retained. See [exact container schema](https://github.com/poziel/pixen/blob/main/docs/formats/pixen-project.md).
 
 Pack without optimization to retain encoding choices. `pack --optimize` invokes the lossless JSON optimizer before packaging; JSON size does not predict smallest ZIP. Validate/build/export accept either format. Use unpack to reconstruct embedded payloads in `.pixloom.json` before standalone optimization.

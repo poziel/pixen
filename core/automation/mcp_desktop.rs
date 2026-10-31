@@ -480,6 +480,7 @@ impl Desktop {
 /// Tools exposed by the document-bound app bridge; also used for provider allowlists.
 pub fn artwork_tool_names() -> &'static [&'static str] {
     &[
+        "read_guidance",
         "create_project",
         "get_project_info",
         "get_pixels",
@@ -513,8 +514,36 @@ fn allowed(name: &str) -> bool {
 }
 
 impl ServerHandler for Desktop {
+    async fn list_resources(
+        &self,
+        request: Option<PaginatedRequestParams>,
+        _: RequestContext<RoleServer>,
+    ) -> Result<ListResourcesResult, ErrorData> {
+        crate::guidance::list_resources(request)
+    }
+    async fn read_resource(
+        &self,
+        request: ReadResourceRequestParams,
+        _: RequestContext<RoleServer>,
+    ) -> Result<ReadResourceResponse, ErrorData> {
+        crate::guidance::read_resource(&request.uri).map(Into::into)
+    }
+    async fn list_prompts(
+        &self,
+        request: Option<PaginatedRequestParams>,
+        _: RequestContext<RoleServer>,
+    ) -> Result<ListPromptsResult, ErrorData> {
+        crate::guidance::list_prompts(request)
+    }
+    async fn get_prompt(
+        &self,
+        request: GetPromptRequestParams,
+        _: RequestContext<RoleServer>,
+    ) -> Result<GetPromptResponse, ErrorData> {
+        crate::guidance::get_prompt(request).map(Into::into)
+    }
     fn get_info(&self) -> ServerConfig {
-        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
+        ServerConfig::new(ServerCapabilities::builder().enable_tools().enable_resources().enable_prompts().build())
             .with_server_info(Implementation::new("pixen-desktop", env!("CARGO_PKG_VERSION")))
             .with_instructions(authoring_instructions("Edit the active Pixen canvas using explicit stable frame/layer IDs and revision-checked transactions. The desktop owns saving, project lifetime and the visible canvas. Do not finish, export, open another project or viewer. create_project creates a recoverable temporary project at the app-managed destination. Use get_project_info for current revision, inspect_project for actual PNG evidence, get_contact_sheet to inspect distinct animation poses, and report_activity for concise progress. Compose deliberate pixel clusters, editable layers and a controlled #RRGGBBAA palette; inspect and refine the result. Undo/redo and checkpoints are session-local. Review tools measure evidence, not artistic quality."))
     }

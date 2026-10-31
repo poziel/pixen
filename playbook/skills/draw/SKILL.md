@@ -76,7 +76,7 @@ Pick one style from `rules://04-outlines-and-edges` and apply it consistently. S
 
 ### 6b. Text, if the art has words
 
-`draw` op kind `text` lays out a string from a bitmap font and draws it in the same batch as everything else. Pass `measureOnly: true` with only `text` ops first to get the ink bounds back without touching the sprite — that is how you centre a label or size a panel around it before committing to a position. See [TOOLS.md](../../docs/TOOLS.md#font-format) for the font format.
+`draw` op kind `text` lays out a string from a bitmap font and draws it in the same batch as everything else. Pass `measureOnly: true` with only `text` ops first to get the ink bounds back without touching the sprite — that is how you centre a label or size a panel around it before committing to a position. This is an imported workflow: the upstream font-format documentation is not shipped here. Use only bitmap-text capabilities and font schemas advertised by the running Pixen server; otherwise report the missing capability.
 
 ### 7. Verify precisely
 

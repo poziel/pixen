@@ -8,7 +8,7 @@
 import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {
-  copyBundledSkills,
+  copyPlaybook,
   copyReleaseBinaries,
   copyRequired,
   createPackageArchive,
@@ -54,13 +54,13 @@ export async function packageTools(
     copyRequired(
       join(projectRoot, 'LICENSE'), join(packageDirectory, 'LICENSE')
     );
-    copyBundledSkills(projectRoot, packageDirectory);
+    copyPlaybook(projectRoot, packageDirectory);
     writeFileSync(join(packageDirectory, 'README.txt'), `Pixen headless tools
 
 pixen-cli: file commands and exports; use --help for commands.
 pixen-mcp: stdio MCP server, launched by your MCP client.
 This package does not contain the desktop editor. Install the matching pixen executable beside these tools before requesting desktop previews. PNG inspection and headless editing remain available.
-Video export requires FFmpeg. AI skills are included in skills/.
+Video export requires FFmpeg. The full AI playbook and notices are included in playbook/. MCP exposes skill://index, rules://index and pixen:<workflow> prompts; clients without resource access can use read_guidance. This does not install host slash commands or register specialists.
 `);
 
     // Install the archive only after the complete staged tree is available.

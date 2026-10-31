@@ -13,7 +13,9 @@ Run scripts with Bun from the repository root. PowerShell and Python are not req
 | `bun scripts/check-release-dependencies.ts` | Check published dependency configuration, lockfile consistency, and release versions in CI. |
 | `bun scripts/prepare-release-config.ts` | Generate Tauri's platform packaging configuration after CI creates the icons. |
 
-`packaging.ts` contains shared file-copy, checksum, archive, and command helpers. Packages read the two bundled skills from `playbook/skills/` and include their available license and attribution files. Generated packages are written under `target/portable/` or `target/packages/`. Repeated application packaging creates a separate folder when one already exists, preserving existing portable profiles and running installations.
+`packaging.ts` contains shared file-copy, checksum, archive, and command helpers. Packages include the complete `playbook/` tree with workflows, rules, agent descriptions, MIT license and source notices. Generated packages are written under `target/portable/` or `target/packages/`. Repeated application packaging creates a separate folder when one already exists, preserving existing portable profiles and running installations.
+
+On Windows, run `bun scripts/smoke-guidance.ts --archive <path.zip>` against a built application or tools package. It extracts an isolated installation and checks resource, prompt and tool reads from its MCP executable running in an unrelated empty working directory. See [guidance discovery](../docs/mcp/guidance.md).
 
 Run `bun run check:scripts` for TypeScript checks and `bun test tests/scripts` for packaging tests. `bun run test` includes both frontend and script tests. CI runs packaging checks on Windows, Linux, and macOS.
 

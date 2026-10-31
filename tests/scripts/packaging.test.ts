@@ -8,12 +8,16 @@ function fixture() {
   mkdirSync('target', { recursive: true });
   const root = mkdtempSync(resolve('target/packaging-test-'));
   roots.push(root);
-  for (const path of ['target/release', 'assets/themes', 'playbook/skills/pixen', 'playbook/skills/pixel-art']) mkdirSync(join(root, path), { recursive: true });
+  for (const path of ['target/release', 'assets/themes', 'playbook/skills/pixen', 'playbook/skills/pixel-art', 'playbook/skills/draw', 'playbook/rules', 'playbook/agents']) mkdirSync(join(root, path), { recursive: true });
   writeFileSync(join(root, 'package.json'), JSON.stringify({ version: '0.2.0' }));
   writeFileSync(join(root, 'LICENSE'), 'license');
   writeFileSync(join(root, 'assets/themes/pixen.yaml'), 'id: pixen\nname: Pixen\n');
   for (const name of ['pixen', 'pixen-cli', 'pixen-mcp']) for (const suffix of ['', '.exe']) writeFileSync(join(root, 'target/release', name + suffix), name, { mode: 0o755 });
   for (const name of ['pixen', 'pixel-art']) writeFileSync(join(root, 'playbook/skills', name, 'SKILL.md'), '# Skill\n');
+  writeFileSync(join(root, 'playbook/skills/draw/SKILL.md'), '# Draw\n');
+  writeFileSync(join(root, 'playbook/rules/00-core-principles.md'), '# Core principles\n');
+  writeFileSync(join(root, 'playbook/agents/pixel-critic.md'), '# Pixel critic\n');
+  for (const name of ['LICENSE', 'NOTICE.md', 'README.md']) writeFileSync(join(root, 'playbook', name), name);
   return root;
 }
 afterEach(() => {
@@ -34,7 +38,9 @@ test('Windows release includes desktop, tools, skills, and hashes without packag
   const result = await packageRelease({ root, target: 'x86_64-pc-windows-msvc', packageOnly: true });
   const entries = unzipSync(readFileSync(result.archive));
   expect(Object.keys(entries).filter(name => name.endsWith('.exe'))).toHaveLength(3);
-  expect(Object.keys(entries).some(name => name.endsWith('/skills/pixen/SKILL.md'))).toBe(true);
+  for (const path of ['skills/pixen/SKILL.md', 'skills/draw/SKILL.md', 'rules/00-core-principles.md', 'agents/pixel-critic.md', 'LICENSE', 'NOTICE.md']) {
+    expect(Object.keys(entries).some(name => name.endsWith('/playbook/' + path))).toBe(true);
+  }
   expect(Object.keys(entries).some(name => name.includes('/data/') || name.endsWith('/portable'))).toBe(false);
   expect(readFileSync(join(existing, 'data/settings.json'), 'utf8')).toBe('personal');
   expect(result.directory).not.toBe(existing);
@@ -51,7 +57,9 @@ test('tools package excludes desktop and packages both binaries with their skill
   expect(files.filter(name => name.endsWith('.exe'))).toHaveLength(2);
   expect(files.some(name => name.endsWith('/pixen.exe'))).toBe(false);
   expect(files.some(name => name.endsWith('/LICENSE'))).toBe(true);
-  expect(files.some(name => name.endsWith('/skills/pixel-art/SKILL.md'))).toBe(true);
+  for (const path of ['skills/pixel-art/SKILL.md', 'skills/draw/SKILL.md', 'rules/00-core-principles.md', 'agents/pixel-critic.md', 'LICENSE', 'NOTICE.md']) {
+    expect(files.some(name => name.endsWith('/playbook/' + path))).toBe(true);
+  }
   const listing = Bun.spawnSync(['tar', '-tf', archive]);
   expect(listing.exitCode).toBe(0);
   expect(listing.stdout.toString()).toContain('/pixen-cli.exe');
@@ -102,4 +110,15 @@ test('packaging rejects invalid targets and missing binaries', async () => {
   await expect(packageTools({ root, target: '../escape' })).rejects.toThrow('target');
   rmSync(join(root, 'target/release/pixen-mcp.exe'));
   await expect(packageTools({ root, target: 'x86_64-pc-windows-msvc' })).rejects.toThrow('pixen-mcp.exe');
+});
+
+test('packaging requires attribution and rejects removed gallery workflows', async () => {
+  const { packageTools } = await import('../../scripts/package-tools');
+  const root = fixture();
+  const notice = join(root, 'playbook/NOTICE.md');
+  rmSync(notice);
+  await expect(packageTools({ root, target: 'x86_64-pc-windows-msvc' })).rejects.toThrow('NOTICE.md');
+  writeFileSync(notice, 'notice');
+  mkdirSync(join(root, 'playbook/skills/submit'));
+  await expect(packageTools({ root, target: 'x86_64-pc-windows-msvc' })).rejects.toThrow('Removed workflow');
 });

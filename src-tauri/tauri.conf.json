@@ -29,6 +29,7 @@
   },
   "bundle": {
     "active": false,
+    "resources": { "../playbook/": "playbook/" },
     "icon": [
       "../assets/pixen.ico"
     ]

@@ -37,6 +37,8 @@ pub mod container;
 pub mod edit;
 #[path = "document/edit_extra.rs"]
 pub mod edit_extra;
+#[path = "automation/guidance.rs"]
+pub mod guidance;
 #[path = "io/import.rs"]
 pub mod import;
 #[path = "io/input.rs"]
