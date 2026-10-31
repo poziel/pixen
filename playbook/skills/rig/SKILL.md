@@ -24,14 +24,14 @@ shadow       ← ground contact, if the style has one
 
 Add `weapon`, `cape`, `hair-front`, `hair-back` as the design needs. Keep names stable — every later call refers to them by name.
 
-Two limbs with the same name — `arm-near` inside two different groups, say — make later calls ambiguous: passing just the name fails, naming every match, until you pass a `group/child` path (e.g. `torso/arm-near`) instead.
+Two layers with the same exact name make later calls ambiguous. Inspect sprite_info and supply a stable layer_id. Pixen currently has flat layers; slash characters are literal names, and groups or cross-project copies are unavailable.
 
 ## Building it fresh
 
 One batch, one undo step:
 
 ```
-layer batch=[
+layer op="batch" expected_revision=<current revision> ops=[
   {op:"create", name:"shadow"},
   {op:"create", name:"leg-far"},
   {op:"create", name:"arm-far"},

@@ -10,7 +10,7 @@ fn resizing_canvas_preserves_indices_and_is_atomic_and_undoable() {
             width: 2,
             height: 2,
             palette: vec!["#FFFFFFFF".into(), "#FFFFFFFF".into()],
-            output_path: dir.path().join("resize.pixloom"),
+            output_path: dir.path().join("resize.pixen"),
         })
         .unwrap();
     session
@@ -87,10 +87,9 @@ fn batches_are_atomic_and_revisions_and_coordinates_are_checked() {
     assert!(recovery.exists());
     s.finish(id).unwrap();
     assert!(!recovery.exists());
-    let doc = pixen::schema::read_document(
-        &std::fs::read(dir.path().join("sprite.pixen.json")).unwrap(),
-    )
-    .unwrap();
+    let doc =
+        pixen::schema::read_document(&std::fs::read(dir.path().join("sprite.pixen.json")).unwrap())
+            .unwrap();
     let pixels = pixen::schema::decode_indices(&doc).unwrap();
     assert_eq!(pixels["cel-1"][0][0], 0);
     assert_ne!(pixels["cel-1"][0][1], 0);

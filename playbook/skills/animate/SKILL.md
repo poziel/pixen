@@ -6,6 +6,8 @@ description: Build an idle, walk, run or attack cycle from key poses, set timing
 
 # Animate a cycle
 
+Call preflight and sprite_info first. Mutations require the current expected_revision. Frame positions are one-based; retain stable IDs returned in structuredContent.resolved_targets. Add, duplicate and bulk timing commit once per call. Consult preflight for later cel, tag, reference and inspection capabilities before using the procedure below.
+
 ## Before you start
 
 The sprite must be rigged onto named layers — see `pixen:rig`. Animating a flattened sprite means redrawing every frame by hand.
@@ -32,7 +34,7 @@ Idle: 2–4 frames, a breath — chest rises a pixel, shoulders follow one frame
 ### 2. Create the frames
 
 ```
-frame op="add" count=7
+frame op="add" expected_revision=<current revision> count=7
 ```
 
 Already done if a storyboard was imported in step 0 — the import needs them.
@@ -79,7 +81,7 @@ cel op="oscillate" layer="hair-back" fromFrame=1 toFrame=8 amplitudeY=1 period=8
 ### 6. Set timing
 
 ```
-frame op="set_duration" durations=[150,100,100,150,150,100,100,150]
+frame op="set_duration" expected_revision=<current revision> durations=[150,100,100,150,150,100,100,150]
 ```
 
 Hold contact poses longer than pass poses. Uniform timing reads mechanical no matter how good the drawings are. Typical ranges are in `rules://05-animation`.

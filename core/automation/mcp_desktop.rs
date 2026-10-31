@@ -377,7 +377,7 @@ impl Desktop {
         match state.session.active_id() {
             Some(id) => state.session.info(id),
             None => Ok(
-                serde_json::json!({"project_id":null,"message":"No artwork yet. Use create_project; its destination is managed by Pixen."}),
+                serde_json::json!({"project_id":null,"message":"No artwork yet. Use sprite_manage; its destination is managed by Pixen."}),
             ),
         }
     }
@@ -481,15 +481,16 @@ impl Desktop {
 pub fn artwork_tool_names() -> &'static [&'static str] {
     &[
         "read_guidance",
-        "create_project",
-        "get_project_info",
+        "preflight",
+        "sprite_manage",
+        "sprite_info",
         "get_pixels",
         "get_preview",
-        "apply_edits",
+        "edit_batch",
         "resize_canvas",
         "draw",
-        "edit_layer",
-        "edit_frame",
+        "layer",
+        "frame",
         "edit_palette",
         "copy_region",
         "transform_region",
@@ -545,7 +546,7 @@ impl ServerHandler for Desktop {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().enable_resources().enable_prompts().build())
             .with_server_info(Implementation::new("pixen-desktop", env!("CARGO_PKG_VERSION")))
-            .with_instructions(authoring_instructions("Edit the active Pixen canvas using explicit stable frame/layer IDs and revision-checked transactions. The desktop owns saving, project lifetime and the visible canvas. Do not finish, export, open another project or viewer. create_project creates a recoverable temporary project at the app-managed destination. Use get_project_info for current revision, inspect_project for actual PNG evidence, get_contact_sheet to inspect distinct animation poses, and report_activity for concise progress. Compose deliberate pixel clusters, editable layers and a controlled #RRGGBBAA palette; inspect and refine the result. Undo/redo and checkpoints are session-local. Review tools measure evidence, not artistic quality."))
+            .with_instructions(authoring_instructions("Edit the active Pixen canvas using explicit stable frame/layer IDs and revision-checked transactions. The desktop owns saving, project lifetime and the visible canvas. Do not finish, export, open another project or viewer. sprite_manage creates a recoverable temporary project at the app-managed destination. Use sprite_info for current revision, inspect_project for actual PNG evidence, get_contact_sheet to inspect distinct animation poses, and report_activity for concise progress. Compose deliberate pixel clusters, editable layers and a controlled #RRGGBBAA palette; inspect and refine the result. Undo/redo and checkpoints are session-local. Review tools measure evidence, not artistic quality."))
     }
 
     async fn list_tools(
@@ -555,6 +556,16 @@ impl ServerHandler for Desktop {
     ) -> Result<ListToolsResult, ErrorData> {
         let mut result = self.server.list_tools(request, context).await?;
         result.tools.retain(|tool| allowed(&tool.name));
+        for tool in &mut result.tools {
+            if tool.name == "sprite_manage" {
+                let schema = Arc::make_mut(&mut tool.input_schema);
+                if let Some(properties) =
+                    schema.get_mut("properties").and_then(Value::as_object_mut)
+                {
+                    properties.remove("output_path");
+                }
+            }
+        }
         Ok(result)
     }
 
@@ -564,33 +575,69 @@ impl ServerHandler for Desktop {
         context: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, ErrorData> {
         if !allowed(&request.name) {
-            return Ok(CallToolResult::error(vec![Content::text(
-                "This action is managed by the Pixen application.",
-            )])
+            return Ok(workflows::application_owned(
+                &self.server.state.lock().unwrap(),
+                &request.name,
+                "default",
+            )
             .into());
         }
-        if request.name == "create_project" {
+        if request.name == "sprite_manage"
+            && request
+                .arguments
+                .as_ref()
+                .and_then(|a| a.get("op"))
+                .and_then(Value::as_str)
+                == Some("new")
+        {
+            if request
+                .arguments
+                .as_ref()
+                .is_some_and(|args| args.contains_key("output_path"))
+            {
+                return Ok(workflows::application_owned(
+                    &self.server.state.lock().unwrap(),
+                    "sprite_manage",
+                    "new",
+                )
+                .into());
+            }
             request.arguments.get_or_insert_default().insert(
                 "output_path".into(),
                 serde_json::json!(self.root.join("artwork.pixen")),
             );
         }
-        let creating = request.name == "create_project";
-        let mutating = matches!(
-            request.name.as_ref(),
-            "create_project"
-                | "apply_edits"
-                | "resize_canvas"
-                | "draw"
-                | "edit_layer"
-                | "edit_frame"
-                | "edit_palette"
-                | "copy_region"
-                | "transform_region"
-                | "undo"
-                | "redo"
-        );
-        let response = self.server.call_tool(request, context).await?;
+        let creating = request.name == "sprite_manage"
+            && request
+                .arguments
+                .as_ref()
+                .and_then(|a| a.get("op"))
+                .and_then(Value::as_str)
+                == Some("new");
+        let read_only_structure = matches!(request.name.as_ref(), "layer" | "frame")
+            && request
+                .arguments
+                .as_ref()
+                .and_then(|a| a.get("op"))
+                .and_then(Value::as_str)
+                == Some("list");
+        let mutating = !read_only_structure
+            && matches!(
+                request.name.as_ref(),
+                "sprite_manage"
+                    | "edit_batch"
+                    | "resize_canvas"
+                    | "draw"
+                    | "layer"
+                    | "frame"
+                    | "edit_palette"
+                    | "copy_region"
+                    | "transform_region"
+                    | "undo"
+                    | "redo"
+            );
+        let mut response = self.server.call_tool(request, context).await?;
+        let mut persistence_warnings = Vec::new();
         if matches!(&response, CallToolResponse::Complete(result) if result.is_error != Some(true))
         {
             let mut state = self.server.state.lock().unwrap();
@@ -601,20 +648,24 @@ impl ServerHandler for Desktop {
                     if let Some(turn) = self.turns.lock().unwrap().last_mut()
                         && turn.document.is_none()
                     {
-                        turn.document = blank
-                            .map(|bytes| store_turn_snapshot(&self.root, &bytes))
-                            .transpose()
-                            .map_err(|e| {
-                                ErrorData::internal_error(
-                                    format!("Cannot checkpoint the new artwork: {e:#}"),
-                                    None,
-                                )
-                            })?;
+                        match blank.map(|bytes| store_turn_snapshot(&self.root, &bytes)).transpose() {
+                            Ok(document) => turn.document = document,
+                            Err(error) => persistence_warnings.push(format!("Artwork was created, but the turn checkpoint could not be stored: {error:#}")),
+                        }
                     }
                 }
                 if mutating && let Err(error) = self.save_temporary(&mut state) {
-                    return Ok(CallToolResult::error(vec![Content::text(format!("Artwork is recovered, but the temporary container could not be updated: {error:#}"))]).into());
+                    persistence_warnings.push(format!("Artwork edit committed and is recovered, but the temporary container could not be updated: {error:#}"));
                 }
+            }
+        }
+        if !persistence_warnings.is_empty() {
+            if let CallToolResponse::Complete(result) = &mut response {
+                let warning = persistence_warnings.join("\n");
+                if let Some(metadata) = &mut result.structured_content {
+                    metadata["result"]["persistence_warning"] = serde_json::json!(warning);
+                }
+                result.content.push(Content::text(warning));
             }
         }
         Ok(response)

@@ -21,6 +21,8 @@ One loop is 870 ms. Every composite differs. The falling pose receives a frame-t
 
 Individual frame PNGs and the initial blockout review are also in `output/`. The transcript records this run's absolute paths; regeneration uses your chosen fresh output directory. This example is separate from existing user artwork.
 
+The script uses the current `sprite_manage`, `frame`, `layer`, `edit_batch` and `sprite_info` commands and reads structured metadata. The checked-in output/transcript is historical evidence from the recorded run, not executable input for the revised API. New runs save `bounce.pixen.json`.
+
 ## Reproduce
 
 From the repository root, with Rust 1.89+ and Python 3:

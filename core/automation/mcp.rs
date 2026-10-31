@@ -1,6 +1,8 @@
 use crate::session::{CreateProject, Operation, Session};
 #[path = "mcp_desktop.rs"]
 pub mod desktop;
+#[path = "mcp_workflows.rs"]
+mod workflows;
 use base64::Engine;
 pub use desktop::proxy as desktop_proxy;
 use rmcp::{
@@ -33,13 +35,6 @@ struct ReadGuidance {
     uri: String,
 }
 
-#[derive(Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-struct ApplyEdits {
-    project_id: String,
-    expected_revision: u64,
-    operations: Vec<Operation>,
-}
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ProjectId {
@@ -94,20 +89,6 @@ fn first_frame() -> String {
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-struct Revision {
-    project_id: String,
-    expected_revision: u64,
-}
-#[derive(Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-struct ResizeCanvas {
-    project_id: String,
-    expected_revision: u64,
-    width: u32,
-    height: u32,
-}
-#[derive(Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 struct PixelRegion {
     project_id: String,
     frame_id: String,
@@ -122,20 +103,6 @@ struct Draw {
     frame_id: String,
     layer_id: String,
     operation: crate::edit::Drawing,
-}
-#[derive(Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-struct EditLayer {
-    project_id: String,
-    expected_revision: u64,
-    operation: crate::edit::LayerOperation,
-}
-#[derive(Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-struct EditFrame {
-    project_id: String,
-    expected_revision: u64,
-    operation: crate::edit::FrameOperation,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -591,6 +558,35 @@ fn result(value: anyhow::Result<serde_json::Value>) -> CallToolResult {
 
 #[tool_router]
 impl Server {
+    #[tool(output_schema = workflows::output_schema(), description = "Discover real connection readiness, ownership, versions and per-operation capabilities. Does not create artwork.")]
+    fn preflight(&self, Parameters(args): Parameters<workflows::Discovery>) -> CallToolResult {
+        workflows::discovery(&self.state.lock().unwrap(), args)
+    }
+    #[tool(output_schema = workflows::output_schema(), description = "Inspect the attached project, revision, stable layer/frame IDs, timeline and exact palette-index semantics. project_id may be omitted for the single active project.")]
+    fn sprite_info(&self, Parameters(args): Parameters<workflows::Info>) -> CallToolResult {
+        workflows::info(&self.state.lock().unwrap(), args)
+    }
+    #[tool(output_schema = workflows::output_schema(), description = "Create artwork with op:new, width, height, explicit palette and standalone output_path. Desktop supplies its own temporary destination. Other lifecycle operations are unavailable or application-owned; read preflight.")]
+    fn sprite_manage(&self, Parameters(args): Parameters<workflows::Manage>) -> CallToolResult {
+        workflows::manage(&mut self.state.lock().unwrap(), args)
+    }
+    #[tool(output_schema = workflows::output_schema(), input_schema = workflows::structure_schema("layer"), description = "Flat-layer commands: list, create(name, optional layer_id/index), duplicate(layer/layer_id, name, optional new_layer_id/index), delete, rename(name), reorder(index), set(visible/opacity). Exact case-sensitive names, explicit stable IDs on ambiguity. op:batch with ops applies one atomic undo step. Mutations require expected_revision; no groups or cross-project copies.")]
+    fn layer(&self, Parameters(args): Parameters<workflows::Structure>) -> CallToolResult {
+        workflows::structure(&mut self.state.lock().unwrap(), "layer", args)
+    }
+    #[tool(output_schema = workflows::output_schema(), input_schema = workflows::structure_schema("frame"), description = "Frame commands: list, add(count/duration_ms/index), duplicate(frame/frame_id, count/index), set_duration(frame/frame_id or frames:one-based positions, duration_ms), delete, rename(name), reorder(index). Optional explicit new IDs; otherwise allocated. op:batch with ops is one undo step. expected_revision required; index is zero-based; frame positions one-based and bound before edits.")]
+    fn frame(&self, Parameters(args): Parameters<workflows::Structure>) -> CallToolResult {
+        workflows::structure(&mut self.state.lock().unwrap(), "frame", args)
+    }
+    #[tool(input_schema = workflows::batch_schema(), output_schema = workflows::output_schema(), description = "One atomic revision-checked transaction: operations:[{tool,arguments}]. Nested arguments omit project_id/expected_revision. Supports layer/frame single operations and the advertised draw, edit_palette, copy_region, transform_region schemas. No nested batches, lifecycle actions or resize. At most 10000 expanded executor operations; failure changes neither document nor history nor ID allocation.")]
+    fn edit_batch(&self, Parameters(args): Parameters<workflows::Batch>) -> CallToolResult {
+        workflows::batch(&mut self.state.lock().unwrap(), args)
+    }
+    #[tool(input_schema = workflows::revision_schema::<workflows::Resize>(), output_schema = workflows::output_schema(), description = "Revision-checked canvas crop/pad anchored at top left, one undo step; width and height are positive integers. Preserves stable IDs, timing and palette indices; does not scale pixels.")]
+    fn resize_canvas(&self, Parameters(args): Parameters<workflows::Resize>) -> CallToolResult {
+        workflows::resize(&mut self.state.lock().unwrap(), args)
+    }
+
     #[tool(
         description = "Read Pixen's bundled skills/rules without filesystem access. Start with skill://index or rules://index, then skill://studio and relevant subject rules. Accepts only exact catalog URIs, never external paths. Does not run workflows or register agents."
     )]
@@ -769,73 +765,6 @@ impl Server {
     }
 
     #[tool(
-        description = "Create one transparent pixel-art project with one frame and layer. Palette entries are #RRGGBBAA, indexed from zero. Finish it before creating another."
-    )]
-    fn create_project(&self, Parameters(args): Parameters<CreateProject>) -> CallToolResult {
-        let mut state = self.state.lock().unwrap();
-        let created = state.session.create(args);
-        if created.is_ok() {
-            state.last_inspection = None;
-            state.last_review = None;
-            state.custom_activity = None;
-        }
-        if created.is_ok() && state.show_viewer {
-            let path = state.session.recovery_path().unwrap().to_owned();
-            if let Err(e) = state.open(path) {
-                eprintln!("pixen: viewer unavailable: {e:#}");
-            }
-        }
-        result(created)
-    }
-
-    #[tool(
-        description = "Resize the active canvas as one revision-checked undo step. Preserve exact palette indices, layer/frame IDs and timing. Anchor pixels at the top left; smaller bounds crop all cels, larger bounds pad with transparency. Does not scale artwork. Invalid dimensions or stale revisions leave document and history unchanged."
-    )]
-    fn resize_canvas(&self, Parameters(args): Parameters<ResizeCanvas>) -> CallToolResult {
-        let mut state = self.state.lock().unwrap();
-        let mut activity = crate::viewer::Activity {
-            label: "Resizing canvas…".into(),
-            busy: true,
-            frame_id: None,
-            layer_id: None,
-        };
-        state.publish_activity(&activity);
-        let resized = state.session.resize_canvas(
-            &args.project_id,
-            args.expected_revision,
-            args.width,
-            args.height,
-        );
-        activity.busy = false;
-        activity.label = if resized.is_ok() {
-            "Canvas resized"
-        } else {
-            "Canvas resize failed · project unchanged"
-        }
-        .into();
-        state.publish_activity(&activity);
-        result(resized)
-    }
-
-    #[tool(
-        description = "Apply one atomic transaction at expected_revision containing typed drawing, layer and/or frame operations. Drawing operations explicitly target frame_id and layer_id; structural operations carry the relevant stable ID. Coordinates are zero-based and strictly bounded; shapes have positive dimensions; fill is four-connected equal-index replacement. Invalid or stale batches change nothing, including undo history. One successful batch is one undo step. Returns revision, drawing changed bounds/target changes or conservative full-canvas structural bounds. No PNG is generated."
-    )]
-    fn apply_edits(&self, Parameters(args): Parameters<ApplyEdits>) -> CallToolResult {
-        result(self.state.lock().unwrap().apply(
-            &args.project_id,
-            args.expected_revision,
-            args.operations,
-        ))
-    }
-
-    #[tool(
-        description = "Inspect an active editing project without rendering an image: canvas dimensions, zero-based #RRGGBBAA palette, ordered layers and frames with stable IDs and durations, cel/link references, revision and undo/redo availability. IDs survive reorder and undo; viewer selection never changes editing targets."
-    )]
-    fn get_project_info(&self, Parameters(args): Parameters<ProjectId>) -> CallToolResult {
-        result(self.state.lock().unwrap().session.info(&args.project_id))
-    }
-
-    #[tool(
         description = "Inspect at most 4096 exact uncomposited pixels in a bounded region of an explicit project/layer/frame. Returns each source x/y, zero-based palette_index and exact #RRGGBBAA value. Layer visibility/opacity and cel opacity are not applied. Positive region dimensions, zero-based coordinates; out-of-bounds regions are rejected, never clipped. Read-only."
     )]
     fn get_pixels(&self, Parameters(args): Parameters<PixelRegion>) -> CallToolResult {
@@ -848,7 +777,7 @@ impl Server {
     }
 
     #[tool(
-        description = "Draw one typed operation on an explicit project/layer/frame at expected_revision. Supports compact set_pixel_rows (x,y,rows: equal-width arrays of palette indices; non-empty, strict bounds, all entries including transparent indices overwrite pixels), sparse set_pixels, inclusive-endpoint Bresenham line, positive origin/dimension rectangle or ellipse (filled/outlined), four-connected equal-index fill, erase_region (transparent), clear_cel (transparent), and legacy clear with palette_index. All bounds and indices are strict; no clipping or implicit palette creation except a transparent entry if required. Ellipses test pixel centres inside the bounding ellipse; outlines are four-neighbour boundaries. Uses the same atomic executor as apply_edits and one undo step. No image is generated. Explicit link groups share edits; unlinked reused cels detach."
+        description = "Draw one typed operation on an explicit project/layer/frame at expected_revision. Supports compact set_pixel_rows (x,y,rows: equal-width arrays of palette indices; non-empty, strict bounds, all entries including transparent indices overwrite pixels), sparse set_pixels, inclusive-endpoint Bresenham line, positive origin/dimension rectangle or ellipse (filled/outlined), four-connected equal-index fill, erase_region (transparent), clear_cel (transparent), and legacy clear with palette_index. All bounds and indices are strict; no clipping or implicit palette creation except a transparent entry if required. Ellipses test pixel centres inside the bounding ellipse; outlines are four-neighbour boundaries. Uses the same atomic executor as edit_batch and one undo step. No image is generated. Explicit link groups share edits; unlinked reused cels detach."
     )]
     fn draw(&self, Parameters(args): Parameters<Draw>) -> CallToolResult {
         result(self.state.lock().unwrap().apply(
@@ -862,50 +791,14 @@ impl Server {
         ))
     }
 
-    #[tool(
-        description = "Atomically add/remove/duplicate/rename/reorder a layer, update visibility/opacity, or paste/clear/link/unlink timeline cells, at expected_revision. See the operation schema for current variants. Use explicit stable layer IDs; add_layer requires a new never-used ID and a name. Indices are zero-based final positions, bottom-to-top compositing order. New layers are transparent on every frame. duplicate_layer copies all cels independently under a new never-used new_layer_id and name. Opacity is 0..1. Removing a layer is destructive but undoable; the last layer cannot be removed. Uses apply_edits' executor; no image is generated."
-    )]
-    fn edit_layer(&self, Parameters(args): Parameters<EditLayer>) -> CallToolResult {
-        result(self.state.lock().unwrap().apply(
-            &args.project_id,
-            args.expected_revision,
-            vec![Operation::Layer(args.operation)],
-        ))
+    #[tool(input_schema = workflows::revision_schema::<workflows::InfoRevision>(), output_schema = workflows::output_schema(), description = "Undo one whole transaction at expected_revision. Revision advances monotonically. Uses the attached project's shared bounded history.")]
+    fn undo(&self, Parameters(args): Parameters<workflows::InfoRevision>) -> CallToolResult {
+        workflows::history(&mut self.state.lock().unwrap(), args, false)
     }
 
-    #[tool(
-        description = "Atomically add/remove/duplicate/rename/reorder a frame or set its positive finite duration_ms, at expected_revision. Explicit stable frame IDs survive reorder; additions require a never-used ID. Indices are zero-based final positions. New frames are transparent. duplicate_frame copies all layer cels and clears duplicate links: editing it cannot modify its source. Removing a frame is destructive but undoable; the last frame cannot be removed. Existing tag membership is retained; non-contiguous tag results are rejected. Uses apply_edits' executor; no image is generated. Duplication alone creates an identical hold, not motion: draw visually distinct keyframes and useful intermediate poses, then review get_contact_sheet and playback."
-    )]
-    fn edit_frame(&self, Parameters(args): Parameters<EditFrame>) -> CallToolResult {
-        result(self.state.lock().unwrap().apply(
-            &args.project_id,
-            args.expected_revision,
-            vec![Operation::Frame(args.operation)],
-        ))
-    }
-
-    #[tool(
-        description = "Undo one whole committed transaction at expected_revision; one apply_edits batch is one step. Revision increases monotonically, and the live viewer updates. History is bounded to 32 snapshots/64 MiB total and is not persisted. Empty history or stale revision changes nothing; no PNG is generated."
-    )]
-    fn undo(&self, Parameters(args): Parameters<Revision>) -> CallToolResult {
-        result(
-            self.state
-                .lock()
-                .unwrap()
-                .history(&args.project_id, args.expected_revision, false),
-        )
-    }
-
-    #[tool(
-        description = "Redo one previously undone transaction at expected_revision. Revision increases and live preview updates. A new mutation clears redo. Empty history or stale revision changes nothing; no PNG is generated."
-    )]
-    fn redo(&self, Parameters(args): Parameters<Revision>) -> CallToolResult {
-        result(
-            self.state
-                .lock()
-                .unwrap()
-                .history(&args.project_id, args.expected_revision, true),
-        )
+    #[tool(input_schema = workflows::revision_schema::<workflows::InfoRevision>(), output_schema = workflows::output_schema(), description = "Redo one whole transaction at expected_revision. Revision advances monotonically. Uses the attached project's shared bounded history.")]
+    fn redo(&self, Parameters(args): Parameters<workflows::InfoRevision>) -> CallToolResult {
+        workflows::history(&mut self.state.lock().unwrap(), args, true)
     }
 
     #[tool(
@@ -1067,7 +960,7 @@ impl ServerHandler for Server {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().enable_resources().enable_prompts().build())
             .with_server_info(Implementation::new("pixen", env!("CARGO_PKG_VERSION")))
-            .with_instructions(authoring_instructions("Pixen pixel-art authoring. Use report_activity with a brief user-facing description when starting a meaningful task (busy=true) and when finishing it (busy=false). An animation request means multiple visually distinct frames with intentional motion, not a static sprite in a multi-frame document. Workflow: block out, review, create keyframes, add useful intermediates, inspect get_contact_sheet and playback, correct, finish/save, export the full timeline (CLI --loop for looping GIF/WebP/APNG), open user preview. get_preview shows only the first frame; inspect_project targets a specific stable frame ID. Use get_project_info/get_pixels for exact inspection; edit_layer/edit_frame/draw or mixed apply_edits batches for atomic revision-checked changes; undo/redo for transaction history. inspect_project returns actual PNG content; open_preview only shows the user a read-only window. Viewer selection never changes explicit editing targets. Prefer .pixen project destinations. open_project accepts all supported inspector inputs, save_project checkpoints without ending a session, and finish_project saves/releases it. Both refuse external file changes. export_project explicitly writes native or image formats. edit_palette/copy_region/transform_region share apply_edits transactions. get_onion_skin/compare_frames/inspect_layer return actual PNG review and sync an open Follow AI viewer without editing artwork. Use get_review_sheet for multi-scale silhouette/grayscale evidence, manage_checkpoint/compare_checkpoint for independent baselines, analyze_sprite for measurements, validate_artwork for caller rules and audit_animation for motion evidence. Read-only reviews never change artwork/history and do not score artistic quality or run critic agents. Checkpoints are session-local; follow report revisions and truncation flags."))
+            .with_instructions(authoring_instructions("Pixen pixel-art authoring. Use report_activity with a brief user-facing description when starting a meaningful task (busy=true) and when finishing it (busy=false). An animation request means multiple visually distinct frames with intentional motion, not a static sprite in a multi-frame document. Workflow: block out, review, create keyframes, add useful intermediates, inspect get_contact_sheet and playback, correct, finish/save, export the full timeline (CLI --loop for looping GIF/WebP/APNG), open user preview. get_preview shows only the first frame; inspect_project targets a specific stable frame ID. Use sprite_info/get_pixels for exact inspection; layer/frame/draw or mixed edit_batch batches for atomic revision-checked changes; undo/redo for transaction history. inspect_project returns actual PNG content; open_preview only shows the user a read-only window. Viewer selection never changes explicit editing targets. Prefer .pixen project destinations. open_project accepts all supported inspector inputs, save_project checkpoints without ending a session, and finish_project saves/releases it. Both refuse external file changes. export_project explicitly writes native or image formats. edit_palette/copy_region/transform_region share edit_batch transactions. get_onion_skin/compare_frames/inspect_layer return actual PNG review and sync an open Follow AI viewer without editing artwork. Use get_review_sheet for multi-scale silhouette/grayscale evidence, manage_checkpoint/compare_checkpoint for independent baselines, analyze_sprite for measurements, validate_artwork for caller rules and audit_animation for motion evidence. Read-only reviews never change artwork/history and do not score artistic quality or run critic agents. Checkpoints are session-local; follow report revisions and truncation flags."))
     }
 }
 

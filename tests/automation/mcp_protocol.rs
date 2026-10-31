@@ -18,6 +18,73 @@ struct Client {
 }
 
 #[test]
+fn project_workflows_use_discovery_named_targets_and_atomic_history() {
+    let root = tempfile::tempdir().unwrap();
+    let mut c = Client::new(false);
+    let discovery = c.call("preflight", json!({}));
+    assert_eq!(
+        discovery["structuredContent"]["result"]["ready"], true,
+        "{discovery}"
+    );
+    assert_eq!(
+        discovery["structuredContent"]["result"]["has_project"],
+        false
+    );
+    let created = c.call("sprite_manage", json!({"op":"new","width":4,"height":4,"palette":["#FFFFFFFF","#00000000"],"output_path":root.path().join("workflow.pixen")}));
+    let id = created["structuredContent"]["project_id"].clone();
+    assert!(id.is_string(), "{created}");
+    let batch = c.call(
+        "edit_batch",
+        json!({"project_id":id,"expected_revision":0,"operations":[
+            {"tool":"layer","arguments":{"op":"create","name":"base"}},
+            {"tool":"layer","arguments":{"op":"rename","layer":"base","name":"ink"}},
+            {"tool":"frame","arguments":{"op":"add","count":2,"duration_ms":80}},
+            {"tool":"frame","arguments":{"op":"set_duration","frames":[1],"duration_ms":80}}
+        ]}),
+    );
+    assert_eq!(batch["structuredContent"]["revision"], 1, "{batch}");
+    assert_eq!(batch["structuredContent"]["result"]["undo_steps"], 1);
+    let info = c.call("sprite_info", json!({}))["structuredContent"].clone();
+    assert_eq!(info["result"]["frames"].as_array().unwrap().len(), 3);
+    assert_eq!(info["result"]["index_zero_is_transparent"], false);
+    let failed = c.call(
+        "edit_batch",
+        json!({"expected_revision":1,"operations":[
+            {"tool":"layer","arguments":{"op":"create","name":"rollback"}},
+            {"tool":"layer","arguments":{"op":"delete","layer":"missing"}}
+        ]}),
+    );
+    assert_eq!(
+        failed["structuredContent"]["error"]["code"], "target_not_found",
+        "{failed}"
+    );
+    assert_eq!(c.call("sprite_info", json!({}))["structuredContent"], info);
+    let missing = c.call("layer", json!({"op":"create","name":"required"}));
+    assert_eq!(
+        missing["structuredContent"]["error"]["code"],
+        "revision_required"
+    );
+    let stale = c.call("frame", json!({"op":"add","expected_revision":0}));
+    assert_eq!(
+        stale["structuredContent"]["error"]["code"],
+        "stale_revision"
+    );
+    assert_ne!(
+        c.call("undo", json!({"project_id":id,"expected_revision":1}))["isError"],
+        true
+    );
+    let info = c.call("sprite_info", json!({}));
+    assert_eq!(info["structuredContent"]["revision"], 2);
+    assert_eq!(
+        info["structuredContent"]["result"]["frames"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[test]
 fn guidance_discovery_reads_workflows_rules_and_prompts() {
     let mut c = Client::new(false);
     let resources = c.request("resources/list", json!({}));
@@ -86,7 +153,7 @@ fn stdio_accepts_pixel_calls_above_256_kib_and_compact_rows() {
     let root = tempfile::tempdir().unwrap();
     let mut c = Client::new(false);
     let listed = c.request("tools/list", json!({}));
-    for name in ["draw", "apply_edits"] {
+    for name in ["draw"] {
         let tool = listed["result"]["tools"]
             .as_array()
             .unwrap()
@@ -99,20 +166,8 @@ fn stdio_accepts_pixel_calls_above_256_kib_and_compact_rows() {
         );
     }
     for (name, variants) in [
-        (
-            "edit_layer",
-            vec!["paste_cells", "clear_cells", "link_cells", "unlink_cells"],
-        ),
-        ("edit_frame", vec!["rename_frame", "set_frame_duration"]),
-        (
-            "apply_edits",
-            vec![
-                "paste_cells",
-                "link_cells",
-                "rename_frame",
-                "set_pixel_rows",
-            ],
-        ),
+        ("layer", vec!["create", "delete", "paste_cells"]),
+        ("frame", vec!["add", "set_duration", "count", "frames"]),
     ] {
         let tool = listed["result"]["tools"]
             .as_array()
@@ -120,19 +175,19 @@ fn stdio_accepts_pixel_calls_above_256_kib_and_compact_rows() {
             .iter()
             .find(|t| t["name"] == name)
             .unwrap();
-        let schema = tool["inputSchema"].to_string();
         for variant in variants {
-            assert!(schema.contains(variant), "{name} missing {variant}");
+            assert!(tool["inputSchema"].to_string().contains(variant), "{tool}");
         }
+        assert!(tool.get("outputSchema").is_some());
     }
-    let created = c.call("create_project", json!({"width":128,"height":128,"palette":["#00000000","#FFFFFFFF"],"output_path":root.path().join("large.pixen")}));
+    let created = c.call("sprite_manage", json!({"op":"new","width":128,"height":128,"palette":["#00000000","#FFFFFFFF"],"output_path":root.path().join("large.pixen")}));
     let id = text(&created)["project_id"].clone();
     let pixels: Vec<_> = (0..16384)
         .map(|i| json!({"x":i%128,"y":i/128,"palette_index":1}))
         .collect();
-    let args = json!({"project_id":id,"expected_revision":0,"operations":[{"type":"set_pixels","frame_id":"frame-1","layer_id":"layer-1","pixels":pixels}]});
+    let args = json!({"project_id":id,"expected_revision":0,"operations":[{"tool":"draw","arguments":{"frame_id":"frame-1","layer_id":"layer-1","operation":{"type":"set_pixels","pixels":pixels}}}]});
     assert!(serde_json::to_vec(&args).unwrap().len() > 256 * 1024);
-    let result = c.call("apply_edits", args);
+    let result = c.call("edit_batch", args);
     assert_ne!(result["isError"], true, "{result}");
     assert_eq!(text(&result)["revision"], 1);
     let args = json!({"project_id":id,"expected_revision":1,"frame_id":"frame-1","layer_id":"layer-1","operation":{"type":"set_pixel_rows","x":0,"y":0,"rows":vec![vec![0;128];128]}});
@@ -148,15 +203,13 @@ fn tauri_managed_preview_acknowledges_updates_focus_and_shutdown() {
     let root = tempfile::tempdir().unwrap();
     let destination = root.path().join("preview.pixen");
     let mut client = Client::new(false);
-    let created = client.call(
-        "create_project",
-        json!({"width":4,"height":4,"palette":["#00000000","#FF0000FF"],"output_path":destination}),
+    let created = client.call("sprite_manage", json!({"op":"new","width":4,"height":4,"palette":["#00000000","#FF0000FF"],"output_path":destination}),
     );
     let id = text(&created)["project_id"].clone();
     let opened = client.call("open_preview", json!({"project_id":id}));
     assert_eq!(text(&opened)["opened"], true, "{opened}");
     let pid = text(&opened)["pid"].clone();
-    let edit = client.call("apply_edits",json!({"project_id":id,"expected_revision":0,"operations":[{"type":"set_pixels","frame_id":"frame-1","layer_id":"layer-1","pixels":[{"x":1,"y":1,"palette_index":1}]}]}));
+    let edit = client.call("edit_batch", json!({"project_id":id,"expected_revision":0,"operations":[{"tool":"draw","arguments":{"frame_id":"frame-1","layer_id":"layer-1","operation":{"type":"set_pixels","pixels":[{"x":1,"y":1,"palette_index":1}]}}}]}));
     assert_eq!(text(&edit)["revision"], 1);
     let activity = client.call("report_activity",json!({"project_id":id,"message":"Checking Tauri preview","busy":true,"frame_id":"frame-1","layer_id":"layer-1"}));
     assert_ne!(activity["isError"], true, "{activity}");
@@ -380,9 +433,7 @@ mod graphical {
         let dir = tempfile::tempdir().unwrap();
         let mut c = Client::new(true);
         let path = dir.path().join("view.pixen.json");
-        let created = c.call(
-            "create_project",
-            json!({"width":8,"height":8,"palette":["#FF0000FF","#00FF00FF"],"output_path":path}),
+        let created = c.call("sprite_manage", json!({"op":"new","width":8,"height":8,"palette":["#FF0000FF","#00FF00FF"],"output_path":path}),
         );
         let id = text(&created)["project_id"].clone();
         let hwnd = window(&c);
@@ -404,7 +455,7 @@ mod graphical {
         wait_for(|| unsafe { IsIconic(hwnd) == 0 });
         wait_for(|| center(hwnd) == 0xc0c0c0);
         for (revision, index, expected) in [(0, 0, 0x0000ff), (1, 1, 0x00ff00)] {
-            let drawn=c.call("apply_edits",json!({"project_id":id,"expected_revision":revision,"operations":[{"type":"clear","frame_id":"frame-1","layer_id":"layer-1","palette_index":index}]}));
+            let drawn=c.call("edit_batch", json!({"project_id":id,"expected_revision":revision,"operations":[{"tool":"draw","arguments":{"frame_id":"frame-1","layer_id":"layer-1","operation":{"type":"clear","palette_index":index}}}]}));
             assert_ne!(drawn["isError"], true, "{drawn}");
             wait_for(|| center(hwnd) == expected);
         }
@@ -428,7 +479,7 @@ mod graphical {
             true
         );
         assert_eq!(unsafe { IsWindow(hwnd) }, 0);
-        let second=c.call("create_project",json!({"width":8,"height":8,"palette":["#FFFFFFFF"],"output_path":dir.path().join("manual.pixen.json")}));
+        let second=c.call("sprite_manage", json!({"op":"new","width":8,"height":8,"palette":["#FFFFFFFF"],"output_path":dir.path().join("manual.pixen.json")}));
         let hwnd = window(&c);
         unsafe {
             PostMessageW(hwnd, 0x0010, 0, 0);
@@ -443,7 +494,7 @@ mod graphical {
             c.call("finish_project", json!({"project_id":id}))["isError"],
             true
         );
-        let third=c.call("create_project",json!({"width":8,"height":8,"palette":["#FFFFFFFF"],"output_path":dir.path().join("crash.pixen.json")}));
+        let third=c.call("sprite_manage", json!({"op":"new","width":8,"height":8,"palette":["#FFFFFFFF"],"output_path":dir.path().join("crash.pixen.json")}));
         assert_ne!(third["isError"], true);
         let hwnd = window(&c);
         c.child.kill().unwrap();
@@ -469,7 +520,7 @@ mod graphical {
         std::fs::write(&source, original).unwrap();
         let modified = std::fs::metadata(&source).unwrap().modified().unwrap();
         let mut c = Client::new(false);
-        let created=c.call("create_project",json!({"width":8,"height":8,"palette":["#FFFFFFFF"],"output_path":dir.path().join("live.pixen.json")}));
+        let created=c.call("sprite_manage", json!({"op":"new","width":8,"height":8,"palette":["#FFFFFFFF"],"output_path":dir.path().join("live.pixen.json")}));
         let id = text(&created)["project_id"].clone();
         assert_eq!(
             text(&c.call("open_preview", json!({"project_id":id})))["opened"],
@@ -484,7 +535,7 @@ mod graphical {
         assert!(text(&opened)["revision"].is_null());
         let existing = window(&c);
         let focused = unsafe { GetForegroundWindow() };
-        let edit=c.call("apply_edits",json!({"project_id":id,"expected_revision":0,"operations":[{"type":"clear","frame_id":"frame-1","layer_id":"layer-1","palette_index":0}]}));
+        let edit=c.call("edit_batch", json!({"project_id":id,"expected_revision":0,"operations":[{"tool":"draw","arguments":{"frame_id":"frame-1","layer_id":"layer-1","operation":{"type":"clear","palette_index":0}}}]}));
         assert_eq!(text(&edit)["revision"], 1);
         std::thread::sleep(Duration::from_millis(250));
         assert_eq!(
@@ -530,6 +581,17 @@ mod graphical {
     }
 }
 fn text(result: &Value) -> Value {
+    if let Some(envelope) = result.get("structuredContent") {
+        let mut metadata = envelope["result"].clone();
+        if let Some(object) = metadata.as_object_mut() {
+            for key in ["project_id", "revision"] {
+                if let Some(value) = envelope.get(key) {
+                    object.insert(key.into(), value.clone());
+                }
+            }
+        }
+        return metadata;
+    }
     serde_json::from_str(
         result["content"]
             .as_array()
@@ -564,9 +626,9 @@ fn inspection_returns_bounded_png_and_preview_tools_validate_contracts() {
         true
     );
     assert_eq!(std::fs::read(&unsupported).unwrap(), b"unchanged");
-    let created=c.call("create_project",json!({"width":4,"height":3,"palette":["#FF0000FF"],"output_path":dir.path().join("crop.pixen.json")}));
+    let created=c.call("sprite_manage", json!({"op":"new","width":4,"height":3,"palette":["#FF0000FF"],"output_path":dir.path().join("crop.pixen.json")}));
     let id = text(&created)["project_id"].clone();
-    let edit=c.call("apply_edits",json!({"project_id":id,"expected_revision":0,"operations":[{"type":"set_pixels","frame_id":"frame-1","layer_id":"layer-1","pixels":[{"x":1,"y":1,"palette_index":0}]}]}));
+    let edit=c.call("edit_batch", json!({"project_id":id,"expected_revision":0,"operations":[{"tool":"draw","arguments":{"frame_id":"frame-1","layer_id":"layer-1","operation":{"type":"set_pixels","pixels":[{"x":1,"y":1,"palette_index":0}]}}}]}));
     assert_eq!(text(&edit)["revision"], 1);
     let crop = json!({"x":1,"y":1,"width":2,"height":1});
     let preview = c.call(
@@ -616,7 +678,7 @@ fn inspection_returns_bounded_png_and_preview_tools_validate_contracts() {
 fn standalone_resize_canvas_uses_revision_checks_and_undo() {
     let dir = tempfile::tempdir().unwrap();
     let mut client = Client::new(false);
-    let created = client.call("create_project",json!({"width":2,"height":3,"palette":["#00000000"],"output_path":dir.path().join("sized.pixen")}));
+    let created = client.call("sprite_manage", json!({"op":"new","width":2,"height":3,"palette":["#00000000"],"output_path":dir.path().join("sized.pixen")}));
     let id = text(&created)["project_id"].clone();
     let resized = client.call(
         "resize_canvas",
@@ -638,7 +700,7 @@ fn standalone_resize_canvas_uses_revision_checks_and_undo() {
     assert_eq!(stale["isError"], true);
     let undone = client.call("undo", json!({"project_id":id,"expected_revision":1}));
     assert_ne!(undone["isError"], true);
-    let info = text(&client.call("get_project_info", json!({"project_id":id})));
+    let info = text(&client.call("sprite_info", json!({"project_id":id})));
     assert_eq!(
         (info["width"].as_u64(), info["height"].as_u64()),
         (Some(2), Some(3))
@@ -657,53 +719,31 @@ fn stdio_create_draw_preview_edit_finish_and_reuse() {
         .map(|t| t["name"].as_str().unwrap())
         .collect();
     names.sort();
-    assert_eq!(
-        names,
-        [
-            "analyze_sprite",
-            "apply_edits",
-            "audit_animation",
-            "compare_checkpoint",
-            "compare_frames",
-            "copy_region",
-            "create_project",
-            "draw",
-            "edit_frame",
-            "edit_layer",
-            "edit_palette",
-            "export_project",
-            "finish_project",
-            "get_contact_sheet",
-            "get_onion_skin",
-            "get_pixels",
-            "get_preview",
-            "get_project_info",
-            "get_review_sheet",
-            "inspect_layer",
-            "inspect_project",
-            "manage_checkpoint",
-            "open_preview",
-            "open_project",
-            "read_guidance",
-            "redo",
-            "report_activity",
-            "resize_canvas",
-            "save_project",
-            "transform_region",
-            "undo",
-            "validate_artwork"
-        ]
-    );
+    for name in [
+        "preflight",
+        "sprite_manage",
+        "sprite_info",
+        "layer",
+        "frame",
+        "edit_batch",
+    ] {
+        assert!(names.contains(&name));
+    }
+    for name in [
+        "create_project",
+        "get_project_info",
+        "edit_layer",
+        "edit_frame",
+        "apply_edits",
+    ] {
+        assert!(!names.contains(&name));
+    }
     let path = dir.path().join("sprite.pixen.json");
-    let created=c.call("create_project",json!({"width":8,"height":8,"palette":["#FF0000FF","#00FF00FF","#0000FFFF"],"output_path":path}));
+    let created=c.call("sprite_manage", json!({"op":"new","width":8,"height":8,"palette":["#FF0000FF","#00FF00FF","#0000FFFF"],"output_path":path}));
     assert_ne!(created["isError"], true, "{created}");
     let project = text(&created);
     let id = &project["project_id"];
-    let draw=c.call("apply_edits",json!({"project_id":id,"expected_revision":0,"operations":[
-        {"type":"rectangle","frame_id":"frame-1","layer_id":"layer-1","x":1,"y":1,"width":6,"height":6,"filled":true,"palette_index":0},
-        {"type":"line","frame_id":"frame-1","layer_id":"layer-1","x1":1,"y1":1,"x2":6,"y2":6,"palette_index":1},
-        {"type":"set_pixels","frame_id":"frame-1","layer_id":"layer-1","pixels":[{"x":3,"y":2,"palette_index":2}]}
-    ]}));
+    let draw=c.call("edit_batch", json!({"project_id":id,"expected_revision":0,"operations":[{"tool":"draw","arguments":{"frame_id":"frame-1","layer_id":"layer-1","operation":{"type":"rectangle","x":1,"y":1,"width":6,"height":6,"filled":true,"palette_index":0}}},{"tool":"draw","arguments":{"frame_id":"frame-1","layer_id":"layer-1","operation":{"type":"line","x1":1,"y1":1,"x2":6,"y2":6,"palette_index":1}}},{"tool":"draw","arguments":{"frame_id":"frame-1","layer_id":"layer-1","operation":{"type":"set_pixels","pixels":[{"x":3,"y":2,"palette_index":2}]}}}]}));
     assert_ne!(draw["isError"], true, "{draw}");
     assert_eq!(text(&draw)["revision"], 1);
     let preview = c.call("get_preview", json!({"project_id":id}));
@@ -720,15 +760,15 @@ fn stdio_create_draw_preview_edit_finish_and_reuse() {
     assert_eq!(image.get_pixel(24, 16).0, [0, 0, 255, 255]);
     assert_eq!(image.get_pixel(16, 8).0, [255, 0, 0, 255]);
     assert_eq!(text(&preview), json!({"revision":1,"width":8,"height":8}));
-    let stale=c.call("apply_edits",json!({"project_id":id,"expected_revision":0,"operations":[{"type":"clear","frame_id":"frame-1","layer_id":"layer-1","palette_index":0}]}));
+    let stale=c.call("edit_batch", json!({"project_id":id,"expected_revision":0,"operations":[{"tool":"draw","arguments":{"frame_id":"frame-1","layer_id":"layer-1","operation":{"type":"clear","palette_index":0}}}]}));
     assert_eq!(stale["isError"], true);
-    let edit=c.call("apply_edits",json!({"project_id":id,"expected_revision":1,"operations":[{"type":"fill","frame_id":"frame-1","layer_id":"layer-1","x":0,"y":0,"palette_index":2}]}));
+    let edit=c.call("edit_batch", json!({"project_id":id,"expected_revision":1,"operations":[{"tool":"draw","arguments":{"frame_id":"frame-1","layer_id":"layer-1","operation":{"type":"fill","x":0,"y":0,"palette_index":2}}}]}));
     assert_eq!(text(&edit)["revision"], 2);
     let finished = c.call("finish_project", json!({"project_id":id}));
     assert_eq!(text(&finished)["revision"], 2);
     pixen::schema::parse(&std::fs::read(&path).unwrap()).unwrap();
     assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
-    let second=c.call("create_project",json!({"width":1,"height":1,"palette":["#FFFFFFFF"],"output_path":dir.path().join("second.pixen.json")}));
+    let second=c.call("sprite_manage", json!({"op":"new","width":1,"height":1,"palette":["#FFFFFFFF"],"output_path":dir.path().join("second.pixen.json")}));
     assert_ne!(second["isError"], true);
     c.child.kill().unwrap();
     c.child.wait().unwrap();
@@ -749,14 +789,17 @@ fn stdio_create_draw_preview_edit_finish_and_reuse() {
 fn focused_tools_and_mixed_apply_share_one_revision_and_history_path() {
     let dir = tempfile::tempdir().unwrap();
     let mut c = Client::new(false);
-    let created=c.call("create_project",json!({"width":5,"height":5,"palette":["#00000000","#FF0000FF"],"output_path":dir.path().join("tools.pixen.json")}));
+    let created=c.call("sprite_manage", json!({"op":"new","width":5,"height":5,"palette":["#00000000","#FF0000FF"],"output_path":dir.path().join("tools.pixen.json")}));
     let id = text(&created)["project_id"].clone();
-    let info = c.call("get_project_info", json!({"project_id":id}));
+    let info = c.call("sprite_info", json!({"project_id":id}));
     assert_eq!(text(&info)["frames"][0]["id"], "frame-1");
-    let layer=c.call("edit_layer",json!({"project_id":id,"expected_revision":0,"operation":{"type":"add_layer","layer_id":"ink","name":"Ink"}}));
+    let layer = c.call(
+        "layer",
+        json!({"project_id":id,"expected_revision":0,"op":"create","layer_id":"ink","name":"Ink"}),
+    );
     assert_ne!(layer["isError"], true, "{layer}");
     assert_eq!(text(&layer)["revision"], 1);
-    let frame=c.call("edit_frame",json!({"project_id":id,"expected_revision":1,"operation":{"type":"add_frame","frame_id":"next","duration_ms":250}}));
+    let frame=c.call("frame", json!({"project_id":id,"expected_revision":1,"op":"add","frame_id":"next","duration_ms":250}));
     assert_ne!(frame["isError"], true, "{frame}");
     assert_eq!(text(&frame)["revision"], 2);
     let draw=c.call("draw",json!({"project_id":id,"expected_revision":2,"frame_id":"next","layer_id":"ink","operation":{"type":"ellipse","x":0,"y":0,"width":5,"height":5,"palette_index":1,"filled":true}}));
@@ -782,13 +825,13 @@ fn focused_tools_and_mixed_apply_share_one_revision_and_history_path() {
     assert_eq!(text(&review)["frame_id"], "next");
     let stale=c.call("draw",json!({"project_id":id,"expected_revision":2,"frame_id":"next","layer_id":"ink","operation":{"type":"clear_cel"}}));
     assert_eq!(stale["isError"], true);
-    let batch=c.call("apply_edits",json!({"project_id":id,"expected_revision":3,"operations":[{"type":"duplicate_frame","frame_id":"next","new_frame_id":"copy"},{"type":"erase_region","frame_id":"copy","layer_id":"ink","x":2,"y":2,"width":1,"height":1}]}));
+    let batch=c.call("edit_batch", json!({"project_id":id,"expected_revision":3,"operations":[{"tool":"frame","arguments":{"op":"duplicate","frame_id":"next","new_frame_id":"copy"}},{"tool":"draw","arguments":{"frame_id":"copy","layer_id":"ink","operation":{"type":"erase_region","x":2,"y":2,"width":1,"height":1}}}]}));
     assert_ne!(batch["isError"], true, "{batch}");
     assert_eq!(text(&batch)["revision"], 4);
     let undone = c.call("undo", json!({"project_id":id,"expected_revision":4}));
     assert_eq!(text(&undone)["revision"], 5);
     assert_eq!(
-        text(&c.call("get_project_info", json!({"project_id":id})))["frames"]
+        text(&c.call("sprite_info", json!({"project_id":id})))["frames"]
             .as_array()
             .unwrap()
             .len(),
@@ -797,7 +840,7 @@ fn focused_tools_and_mixed_apply_share_one_revision_and_history_path() {
     let redone = c.call("redo", json!({"project_id":id,"expected_revision":5}));
     assert_eq!(text(&redone)["revision"], 6);
     assert_eq!(
-        text(&c.call("get_project_info", json!({"project_id":id})))["frames"]
+        text(&c.call("sprite_info", json!({"project_id":id})))["frames"]
             .as_array()
             .unwrap()
             .len(),
@@ -818,23 +861,25 @@ fn animation_review_save_reopen_and_looping_export_preserve_the_timeline() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("motion.pixen.json");
     let mut c = Client::new(false);
-    let created = text(&c.call("create_project", json!({"width":4,"height":3,"palette":["#00000000","#FF0000FF","#00FF00FF"],"output_path":path})));
+    let created = text(&c.call("sprite_manage", json!({"op":"new","width":4,"height":3,"palette":["#00000000","#FF0000FF","#00FF00FF"],"output_path":path})));
     let id = created["project_id"].clone();
-    let mut ops = vec![json!({"type":"set_frame_duration","frame_id":"frame-1","duration_ms":180})];
+    let mut ops = vec![
+        json!({"tool":"frame","arguments":{"op":"set_duration","frame_id":"frame-1","duration_ms":180}}),
+    ];
     for i in 2..=4 {
-        ops.push(json!({"type":"add_frame","frame_id":format!("pose-{i}"),"duration_ms":80*i}));
+        ops.push(json!({"tool":"frame","arguments":{"op":"add","frame_id":format!("pose-{i}"),"duration_ms":80*i}}));
     }
     for (i, frame) in ["frame-1", "pose-2", "pose-3", "pose-4"].iter().enumerate() {
-        ops.push(json!({"type":"set_pixels","frame_id":frame,"layer_id":"layer-1","pixels":[{"x":i,"y":1,"palette_index":1+i%2}]}));
+        ops.push(json!({"tool":"draw","arguments":{"frame_id":frame,"layer_id":"layer-1","operation":{"type":"set_pixels","pixels":[{"x":i,"y":1,"palette_index":1+i%2}]}}}));
     }
     assert_eq!(
         text(&c.call(
-            "apply_edits",
+            "edit_batch",
             json!({"project_id":id,"expected_revision":0,"operations":ops})
         ))["revision"],
         1
     );
-    let before = text(&c.call("get_project_info", json!({"project_id":id})));
+    let before = text(&c.call("sprite_info", json!({"project_id":id})));
     let sheet = c.call(
         "get_contact_sheet",
         json!({"project_id":id,"scale":4,"columns":2}),
@@ -898,7 +943,7 @@ fn animation_review_save_reopen_and_looping_export_preserve_the_timeline() {
         );
     }
     assert_eq!(
-        text(&c.call("get_project_info", json!({"project_id":id}))),
+        text(&c.call("sprite_info", json!({"project_id":id}))),
         before
     );
     assert_ne!(
@@ -947,15 +992,10 @@ fn animation_review_save_reopen_and_looping_export_preserve_the_timeline() {
 fn activity_reporting_is_validated_and_does_not_edit_the_project() {
     let dir = tempfile::tempdir().unwrap();
     let mut c = Client::new(false);
-    let created = text(&c.call(
-        "create_project",
-        json!({
-            "width":4,"height":4,"palette":["#00000000"],
-            "output_path":dir.path().join("activity.pixen.json")
-        }),
+    let created = text(&c.call("sprite_manage", json!({"op":"new","width":4,"height":4,"palette":["#00000000"],"output_path":dir.path().join("activity.pixen.json")}),
     ));
     let id = &created["project_id"];
-    let before = text(&c.call("get_project_info", json!({"project_id":id})));
+    let before = text(&c.call("sprite_info", json!({"project_id":id})));
     let report = c.call(
         "report_activity",
         json!({
@@ -980,7 +1020,7 @@ fn activity_reporting_is_validated_and_does_not_edit_the_project() {
         true
     );
     assert_eq!(
-        text(&c.call("get_project_info", json!({"project_id":id}))),
+        text(&c.call("sprite_info", json!({"project_id":id}))),
         before
     );
 }
@@ -990,9 +1030,7 @@ fn project_container_palette_regions_and_animation_analysis_work_through_mcp() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("art.pixen");
     let mut c = Client::new(false);
-    let created = c.call(
-        "create_project",
-        json!({"width":4,"height":4,"palette":["#00000000","#FF0000FF"],"output_path":path}),
+    let created = c.call("sprite_manage", json!({"op":"new","width":4,"height":4,"palette":["#00000000","#FF0000FF"],"output_path":path}),
     );
     assert_ne!(created["isError"], true, "{created}");
     let id = text(&created)["project_id"].as_str().unwrap().to_owned();
@@ -1007,7 +1045,7 @@ fn project_container_palette_regions_and_animation_analysis_work_through_mcp() {
     let pixels = text(&c.call("get_pixels", json!({"project_id":id,"frame_id":"frame-1","layer_id":"layer-1","region":{"x":1,"y":1,"width":2,"height":1}})));
     assert_eq!(pixels["pixels"][0]["palette_index"], 2);
     assert_eq!(pixels["pixels"][1]["palette_index"], 1);
-    let r = c.call("edit_frame", json!({"project_id":id,"expected_revision":4,"operation":{"type":"add_frame","frame_id":"next","duration_ms":100}}));
+    let r = c.call("frame", json!({"project_id":id,"expected_revision":4,"op":"add","frame_id":"next","duration_ms":100}));
     assert_ne!(r["isError"], true, "{r}");
     let compared = c.call(
         "compare_frames",
@@ -1028,7 +1066,7 @@ fn project_container_palette_regions_and_animation_analysis_work_through_mcp() {
     );
     assert_ne!(onion["isError"], true, "{onion}");
     assert_eq!(
-        text(&c.call("get_project_info", json!({"project_id":id})))["revision"],
+        text(&c.call("sprite_info", json!({"project_id":id})))["revision"],
         5
     );
     let saved = c.call("save_project", json!({"project_id":id}));
@@ -1039,7 +1077,7 @@ fn project_container_palette_regions_and_animation_analysis_work_through_mcp() {
     let reopened = c.call("open_project", json!({"path":path}));
     assert_ne!(reopened["isError"], true, "{reopened}");
     let reopened_id = text(&reopened)["project_id"].as_str().unwrap().to_owned();
-    let info = text(&c.call("get_project_info", json!({"project_id":reopened_id})));
+    let info = text(&c.call("sprite_info", json!({"project_id":reopened_id})));
     assert_eq!(info["palette"][2], "#00FF00FF");
     assert_eq!(info["frames"][1]["id"], "next");
     let export = c.call(
@@ -1054,7 +1092,7 @@ fn project_container_palette_regions_and_animation_analysis_work_through_mcp() {
 fn review_apis_return_images_reports_and_never_edit_artwork() {
     let dir = tempfile::tempdir().unwrap();
     let mut c = Client::new(false);
-    let created=c.call("create_project",json!({"width":4,"height":4,"palette":["#00000000","#FF0000FF"],"output_path":dir.path().join("review.pixen")}));
+    let created=c.call("sprite_manage", json!({"op":"new","width":4,"height":4,"palette":["#00000000","#FF0000FF"],"output_path":dir.path().join("review.pixen")}));
     let id = text(&created)["project_id"].clone();
     let cp = c.call(
         "manage_checkpoint",
@@ -1095,7 +1133,162 @@ fn review_apis_return_images_reports_and_never_edit_artwork() {
     assert_ne!(r["isError"], true);
     assert_eq!(text(&r)["passed"], false);
     assert_eq!(
-        text(&c.call("get_project_info", json!({"project_id":id})))["revision"],
+        text(&c.call("sprite_info", json!({"project_id":id})))["revision"],
         0
     );
+}
+#[test]
+fn structural_workflows_reject_ambiguity_options_and_oversized_expansions() {
+    let root = tempfile::tempdir().unwrap();
+    let mut c = Client::new(false);
+    assert_eq!(
+        c.call("sprite_info", json!({}))["structuredContent"]["error"]["code"],
+        "no_project"
+    );
+    assert_eq!(
+        c.call("preflight", json!({"mode":"live"}))["structuredContent"]["error"]["code"],
+        "mode_mismatch"
+    );
+    c.call("sprite_manage",json!({"op":"new","width":2,"height":2,"palette":["#FFFFFFFF"],"output_path":root.path().join("guards.pixen")}));
+    let setup = c.call("layer",json!({"op":"batch","expected_revision":0,"ops":[
+        {"op":"create","name":"arm"},{"op":"create","name":"arm"},{"op":"create","name":"left/arm"}
+    ]}));
+    assert_eq!(setup["structuredContent"]["revision"], 1, "{setup}");
+    let before = c.call("sprite_info", json!({}))["structuredContent"].clone();
+    for (tool, args, code) in [
+        (
+            "layer",
+            json!({"op":"delete","expected_revision":1,"layer":"arm"}),
+            "ambiguous_target",
+        ),
+        (
+            "layer",
+            json!({"op":"delete","expected_revision":1,"layer":"Arm"}),
+            "target_not_found",
+        ),
+        (
+            "layer",
+            json!({"op":"duplicate","expected_revision":1,"layer":"left/arm","name":"copy","to_sprite":"other"}),
+            "unsupported_option",
+        ),
+        (
+            "layer",
+            json!({"op":"groups","expected_revision":1}),
+            "capability_unavailable",
+        ),
+        (
+            "frame",
+            json!({"op":"add","expected_revision":1,"count":10001}),
+            "resource_limit",
+        ),
+        (
+            "frame",
+            json!({"op":"duplicate","expected_revision":1,"frame":0}),
+            "target_not_found",
+        ),
+        (
+            "frame",
+            json!({"op":"duplicate","expected_revision":1,"frame":1,"frame_id":"frame-1"}),
+            "invalid_arguments",
+        ),
+        (
+            "sprite_info",
+            json!({"project_id":"other"}),
+            "project_mismatch",
+        ),
+        (
+            "edit_batch",
+            json!({"expected_revision":1,"operations":[{"tool":"sprite_manage","arguments":{"op":"new"}}]}),
+            "unsupported_operation",
+        ),
+    ] {
+        let failure = c.call(tool, args);
+        assert_eq!(
+            failure["structuredContent"]["error"]["code"], code,
+            "{failure}"
+        );
+        assert_eq!(
+            c.call("sprite_info", json!({}))["structuredContent"],
+            before
+        );
+    }
+    let deleted = c.call(
+        "layer",
+        json!({"op":"delete","expected_revision":1,"layer":"left/arm"}),
+    );
+    assert_eq!(deleted["structuredContent"]["revision"], 2, "{deleted}");
+}
+
+#[test]
+fn bulk_timing_and_frame_positions_bind_at_the_guarded_revision() {
+    let root = tempfile::tempdir().unwrap();
+    let mut c = Client::new(false);
+    c.call("sprite_manage",json!({"op":"new","width":2,"height":2,"palette":["#FFFFFFFF"],"output_path":root.path().join("timing.pixen")}));
+    c.call("frame", json!({"op":"add","expected_revision":0,"count":2}));
+    let timing = c.call(
+        "frame",
+        json!({"op":"set_duration","expected_revision":1,"durations":[150,100,200]}),
+    );
+    assert_eq!(timing["structuredContent"]["revision"], 2, "{timing}");
+    assert_eq!(timing["structuredContent"]["result"]["undo_steps"], 2);
+    let reorder = c.call(
+        "frame",
+        json!({"op":"batch","expected_revision":2,"ops":[
+            {"op":"reorder","frame":1,"index":2},
+            {"op":"set_duration","frame":1,"duration_ms":250}
+        ]}),
+    );
+    assert_eq!(reorder["structuredContent"]["revision"], 3, "{reorder}");
+    let frames = c.call("sprite_info", json!({}))["structuredContent"]["result"]["frames"].clone();
+    assert_eq!(frames[2]["id"], "frame-1");
+    assert_eq!(frames[2]["duration_ms"], 250.0);
+    assert_eq!(frames[0]["duration_ms"], 100.0);
+    let failed = c.call(
+        "frame",
+        json!({"op":"set_duration","expected_revision":3,"durations":[1,0,2]}),
+    );
+    assert_eq!(failed["isError"], true);
+    assert_eq!(
+        c.call("sprite_info", json!({}))["structuredContent"]["result"]["frames"],
+        frames
+    );
+    let resized = c.call(
+        "resize_canvas",
+        json!({"expected_revision":3,"width":2,"height":2}),
+    );
+    assert_eq!(resized["structuredContent"]["revision"], 4, "{resized}");
+    assert_eq!(resized["structuredContent"]["result"]["undo_steps"], 4);
+}
+#[test]
+fn implicit_targets_and_duplicate_order_are_stable_within_batches() {
+    let root = tempfile::tempdir().unwrap();
+    let mut c = Client::new(false);
+    c.call("sprite_manage",json!({"op":"new","width":1,"height":1,"palette":["#FFFFFFFF"],"output_path":root.path().join("binding.pixen")}));
+    let batch=c.call("frame",json!({"op":"batch","expected_revision":0,"ops":[{"op":"add"},{"op":"set_duration","duration_ms":200}]}));
+    assert_eq!(batch["structuredContent"]["revision"], 1, "{batch}");
+    let before = c.call("sprite_info", json!({}))["structuredContent"].clone();
+    let failed=c.call("frame",json!({"op":"batch","expected_revision":1,"ops":[{"op":"delete","frame":2},{"op":"set_duration","duration_ms":250}]}));
+    assert_eq!(
+        failed["structuredContent"]["error"]["code"], "ambiguous_target",
+        "{failed}"
+    );
+    assert_eq!(
+        c.call("sprite_info", json!({}))["structuredContent"],
+        before
+    );
+    let copies = c.call(
+        "frame",
+        json!({"op":"duplicate","expected_revision":1,"frame":1,"count":3}),
+    );
+    let created = copies["structuredContent"]["resolved_targets"]
+        .as_array()
+        .unwrap();
+    let listed = c.call("frame", json!({"op":"list"}));
+    let frames = listed["structuredContent"]["result"]["frames"]
+        .as_array()
+        .unwrap();
+    for i in 0..3 {
+        assert_eq!(frames[i + 1]["id"], created[i]["frame_id"]);
+    }
+    assert_eq!(frames[0]["frame"], 1);
 }

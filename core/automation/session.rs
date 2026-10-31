@@ -232,7 +232,12 @@ impl Session {
             self.project(id)?.doc.canvas.height,
         ) == (width, height)
         {
-            return self.info(id);
+            let bytes = self.document_snapshot()?;
+            self.restore_document(&bytes)?;
+            let mut info = self.info(id)?;
+            info["changed_bounds"] = Value::Null;
+            info["changes"] = json!([]);
+            return Ok(info);
         }
         let mut doc = schema::read_document(&self.document_snapshot()?)?;
         schema::pixel_bytes(width, height)?;
@@ -282,8 +287,12 @@ impl Session {
             .collect();
         doc.canvas.width = width;
         doc.canvas.height = height;
+        let (bounds, changes) = changed(self.current_document()?, &doc, true)?;
         self.restore_document(&serde_json::to_vec(&doc)?)?;
-        self.info(id)
+        let mut info = self.info(id)?;
+        info["changed_bounds"] = json!(bounds);
+        info["changes"] = json!(changes);
+        Ok(info)
     }
 
     pub fn save_as(&mut self, id: &str, destination: &Path) -> Result<Value> {
@@ -443,6 +452,16 @@ impl Session {
         Ok((png, metadata))
     }
 
+    /// Private planning snapshot. Translation uses the real executor without committing
+    /// or consuming IDs; callers hold their session lock until apply completes.
+    pub(crate) fn planning_state(
+        &self,
+        id: &str,
+    ) -> Result<(schema::Document, BTreeSet<String>, u64)> {
+        let p = self.project(id)?;
+        Ok(((*p.doc).clone(), p.used_ids.clone(), p.next_cel))
+    }
+
     pub fn apply(&mut self, id: &str, expected: u64, operations: Vec<Operation>) -> Result<Value> {
         let p = self.project(id)?;
         ensure!(
@@ -490,7 +509,7 @@ impl Session {
             json!({"project_id":p.id,"revision":p.revision,"width":p.doc.canvas.width,"height":p.doc.canvas.height,
             "output_path":p.output,"palette":p.doc.palette,"palette_semantics":"zero-based indices; exact #RRGGBBAA values, including duplicate colours; uncomposited cel pixels",
             "layers":p.doc.layers.iter().enumerate().map(|(index,l)|json!({"id":l.id,"index":index,"name":l.name,"visible":l.visible,"opacity":l.opacity,"locked":l.locked,"timeline":l.timeline})).collect::<Vec<_>>(),
-            "frames":p.doc.frames.iter().enumerate().map(|(index,f)|json!({"id":crate::edit::frame_id(f),"index":index,"duration_ms":f.duration_ms})).collect::<Vec<_>>(),
+            "frames":p.doc.frames.iter().enumerate().map(|(index,f)|json!({"id":crate::edit::frame_id(f),"index":index,"name":f.annotations.metadata.get("pixen.frame_name"),"duration_ms":f.duration_ms})).collect::<Vec<_>>(),
             "undo_steps":p.undo.len(),"redo_steps":p.redo.len(),"history_max_steps":HISTORY_STEPS,"history_max_bytes":HISTORY_BYTES}),
         )
     }

@@ -2,7 +2,7 @@
 
 Pixen's MCP server lets an AI client inspect and edit pixel artwork through the same Rust document engine used by the desktop. See the [tool reference](mcp-reference.md) for the currently implemented arguments, results, limits, and standalone/desktop availability.
 
-The [target API specification](../specs/mcp-compatibility.md) describes a future refactor. Its examples are not calls supported by today's server.
+The [API specification](../specs/mcp-compatibility.md) defines the roadmap contract. Project, layer, frame, batch and discovery commands are implemented; use `preflight` for remaining capability gaps.
 
 The [bundled playbook](guidance.md) is available now through MCP resources, workflow prompts and the read-only `read_guidance` tool. Start with `skill://index` and `rules://index`; importing a workflow does not implement every editing capability it describes.
 
@@ -28,9 +28,9 @@ The client starts the server; do not launch a second copy for the same connectio
 
 ## Project lifecycle
 
-1. Call `create_project` with canvas size, palette, and a new absolute output path ending in `.pixen` or `.pixen.json`; or call `open_project` for existing artwork. The parent folder must exist.
+1. Call `preflight` after `tools/list`. Call `sprite_manage op:"new"` with canvas size, palette, and a new absolute output path ending in `.pixen` or `.pixen.json`; or call `open_project` for existing artwork. The parent folder must exist.
 2. Retain the returned project, layer, and frame IDs and current revision.
-3. Use `draw`, `apply_edits`, or structural editing tools with `expected_revision`. Each successful mutation reports the current revision for the next request.
+3. Use `draw`, `edit_batch` (`operations:[{tool,arguments}]`), or direct `layer`/`frame` commands with `expected_revision`. Each successful mutation reports the current revision for the next request.
 4. Inspect PNG results with `inspect_project` or `get_contact_sheet`.
 5. Call `save_project` to persist and continue, or `finish_project` to save and end the session. `export_project` writes a separate supported output without changing the project's save destination. Video uses the CLI.
 
@@ -50,16 +50,16 @@ A standalone server can open a managed preview with `open_preview`. The preview 
 
 An animation request means multiple **visually distinct frames with intentional motion**, not just a static sprite saved in an animation-capable project. Frame creation/duplication does not invent motion or tween pixels. Duplicate frames are useful holds or starting points; draw the changed poses explicitly.
 
-Recommended sequence: **block out → review → create keyframes → add useful intermediates → inspect contact sheet and playback → correct → save/export → open user preview**. Keep one revision-checked `apply_edits` batch per logical transaction. `edit_frame` uses that same executor. `add_frame` appends by default; `duplicate_frame` inserts immediately after its source by default. Specify zero-based `index` explicitly when assembling an ordered timeline. Duplication copies all layers into independent cels; subsequent drawing cannot alter its source. Reordering preserves stable IDs. Durations are positive finite ms.
+Recommended sequence: **block out → review → create keyframes → add useful intermediates → inspect contact sheet and playback → correct → save/export → open user preview**. Keep one revision-checked `edit_batch` batch per logical transaction. `frame` uses that same executor. `add_frame` appends by default; `duplicate_frame` inserts immediately after its source by default. Specify zero-based `index` explicitly when assembling an ordered timeline. Duplication copies all layers into independent cels; subsequent drawing cannot alter its source. Reordering preserves stable IDs. Durations are positive finite ms.
 
 Compact MCP sequence (substitute returned project/revision IDs):
 
 ```text
-get_project_info(project_id)                         # discover frames/layers
+sprite_info(project_id)                         # discover frames/layers
 inspect_project(project_id, frame_id="frame-1")      # review blockout PNG
-edit_frame(project_id, expected_revision,
+frame(project_id, expected_revision,
   operation={type:"duplicate_frame", frame_id:"frame-1", new_frame_id:"rise", index:1})
-apply_edits(project_id, expected_revision, operations=[
+edit_batch(project_id, expected_revision, operations=[
   {type:"clear_cel", frame_id:"rise", layer_id:"layer-1"},
   {type:"ellipse", frame_id:"rise", layer_id:"layer-1",
    x:9,y:10,width:6,height:9,palette_index:2,filled:true},
@@ -67,7 +67,7 @@ apply_edits(project_id, expected_revision, operations=[
 # Repeat with distinct apex/fall/landing poses, then:
 get_contact_sheet(project_id, scale=8, columns=3)
 inspect_project(project_id, frame_id="fall", scale=8) # targeted image review
-apply_edits(project_id, expected_revision, operations=[...targeted correction...])
+edit_batch(project_id, expected_revision, operations=[...targeted correction...])
 open_preview(project_id)                            # inspect local playback
 finish_project(project_id)                          # editable source, no overwrite
 # Export saved source with the existing CLI (below).
@@ -93,7 +93,7 @@ The reproducible [six-pose bouncing-orb example](../../examples/mcp-animation/RE
 
 Keep complete JSON tool calls below **200 KiB in UTF-8**, including the tool name, arguments and protocol envelope. Some AI clients reject calls around 256 KiB before they reach Pixen. This is a compatibility budget, not a Pixen transport limit. Instructions guide the model; they cannot enforce a provider's output size.
 
-Prefer `rectangle`, `line`, `ellipse` and `fill` for geometry. For dense arbitrary pixels, use `set_pixel_rows` through `draw` or `apply_edits`:
+Prefer `rectangle`, `line`, `ellipse` and `fill` for geometry. For dense arbitrary pixels, use `set_pixel_rows` through `draw` or `edit_batch`:
 
 ```json
 {"type":"set_pixel_rows","x":4,"y":6,"rows":[[1,2,1],[2,0,2]]}

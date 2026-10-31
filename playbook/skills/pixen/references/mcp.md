@@ -4,11 +4,11 @@
 
 Use the connected server's tool descriptions and input schemas for exact arguments; this reference explains tool choice and sequencing. Host prefixes may change tool names. Inspect available tools before relying on a capability: a running server retains its old implementation until the client reconnects to a rebuilt binary. If a tool is missing, report that limitation rather than inventing a call.
 
-Use `open_project` for existing artwork or `create_project` for new artwork. Use absolute paths and an existing destination parent. Prefer a `.pixloom` destination; other supported project inputs can be opened, with non-Pixen inputs defaulting to a sibling `.pixloom` destination. Read returned IDs and revision; use `get_project_info` to discover stable frame/layer IDs and timing. Do not guess IDs or use timeline positions as IDs.
+Call `preflight` after discovery. Use `open_project` for existing standalone artwork or `sprite_manage` with `op:"new"`, width, height and an explicit palette for new artwork. Desktop creation omits output_path; the app owns the destination. Use absolute paths and an existing destination parent. Prefer a `.pixen` destination; other supported project inputs can be opened, with non-Pixen inputs defaulting to a sibling `.pixen` destination. Read returned IDs and revision; use `sprite_info` to discover stable frame/layer IDs and timing. Do not guess IDs or use timeline positions as IDs.
 
 ## Edit deliberately
 
-Use `draw` for one drawing operation and `apply_edits` for a coherent atomic batch. Use `edit_layer`, `edit_frame`, `edit_palette`, `copy_region`, and `transform_region` for focused changes. Mutation calls use `expected_revision`; carry forward the returned revision. On stale-revision errors, refresh state and reconsider the edit before retrying. Invalid batches apply no partial changes.
+Use `draw` for one drawing operation and `edit_batch` with `operations:[{tool,arguments}]` for a coherent atomic batch. Nested arguments omit project_id and expected_revision. Layer and frame tools take op directly, not an operation wrapper. Name-based layer selectors are exact and ambiguous names require layer_id. Frame positions are one-based; structural index is zero-based. Read new tool metadata from structuredContent; result contains operation data and the top-level revision guards subsequent edits. Use `layer`, `frame`, `edit_palette`, `copy_region`, and `transform_region` for focused changes. Mutation calls use `expected_revision`; carry forward the returned revision. On stale-revision errors, refresh state and reconsider the edit before retrying. Invalid batches apply no partial changes.
 
 Keep the complete UTF-8 JSON tool call below 200 KiB, including its envelope. Some AI clients reject calls around 256 KiB before Pixen receives them. Prefer geometric operations for shapes. For dense arbitrary pixels, use `set_pixel_rows` with `x`, `y`, and equal-width non-empty `rows` of palette indices. Every entry writes a pixel, including transparent colors; outside pixels remain. Split larger patches into row strips and carry forward each returned revision. Each strip is a separate undo step; a later failure retains earlier edits. Do not retry an oversized call unchanged. Crop large inspections too.
 
@@ -27,7 +27,7 @@ Choose evidence appropriate to the problem rather than running every review tool
 | Explicit technical constraints | `validate_artwork`; supply rules from the brief, such as size, palette, alpha, or protected baseline regions. `passed:false` is a completed check, not a tool failure. |
 | Animation timing and transitions | `audit_animation`; include last-to-first for loops and choose thresholds only when justified. |
 
-Create a checkpoint before substantial revisions. Checkpoint create/delete calls require the current revision but do not advance artwork revision. Snapshots survive undo and save, but end on `finish_project` or server exit. Save/export a separate `.pixloom` copy for a durable baseline. At capacity, deliberately delete an unneeded snapshot or use a file baseline; never assume checkpoints persist on disk.
+Create a checkpoint before substantial revisions. Checkpoint create/delete calls require the current revision but do not advance artwork revision. Snapshots survive undo and save, but end on `finish_project` or server exit. Save/export a separate `.pixen` copy for a durable baseline. At capacity, deliberately delete an unneeded snapshot or use a file baseline; never assume checkpoints persist on disk.
 
 After a focused correction, request fresh images and relevant comparisons/rules. Reports describe their inspected revision; older evidence is not a check of new artwork. Fewer changed pixels, fewer colors, isolated components, and identical animation endpoints are not universal quality goals. Separate measured constraints from subjective readability and style judgments. Limit correction rounds according to the task and stop to report unresolved issues when progress stalls.
 
@@ -35,7 +35,7 @@ Review evidence can be large. Crop/isolate, reduce scales, or select fewer frame
 
 ## Animate and inspect
 
-Block out the subject, create distinct keyframes, add useful intermediate poses, then inspect the contact sheet and playback before correcting and exporting. `edit_frame` duplicates start as identical independent copies: draw changed poses. Specify insertion `index` when timeline order matters and set `duration_ms` deliberately, including intentional holds. There is no automatic tweening.
+Block out the subject, create distinct keyframes, add useful intermediate poses, then inspect the contact sheet and playback before correcting and exporting. `frame` duplicates start as identical independent copies: draw changed poses. Specify insertion `index` when timeline order matters and set `duration_ms` deliberately, including intentional holds. There is no automatic tweening.
 
 Use `get_contact_sheet` to examine pose order and timing; `audit_animation` adds holds, distinct poses, bounds/centroids, and transition evidence. Use `get_onion_skin` for neighboring poses and `compare_frames` for pairwise changes. A static sprite repeated across frames does not satisfy an animation request. `get_preview` shows only the first ordered frame.
 
@@ -43,7 +43,7 @@ PNG tool results provide AI visual feedback. `open_preview` opens the user's ins
 
 ## Save and deliver
 
-Use `save_project` to save without ending the session; `finish_project` saves and releases it, ending its review checkpoints. Both refuse external disk changes. Use `export_project` for explicit `.aseprite`, `.pxo`, `.pixloom`, JSON, or supported image outputs without changing the project's save destination. Preserve originals.
+Use `save_project` to save without ending the session; `finish_project` saves and releases it, ending its review checkpoints. Both refuse external disk changes. Use `export_project` for explicit `.aseprite`, `.pxo`, `.pixen`, JSON, or supported image outputs without changing the project's save destination. Preserve originals.
 
 Animated image exports use all frames unless a stable `frame_id` selects a still. Set MCP `loop_animation:true` for indefinite looping; the CLI equivalent is `--loop`. GIF may quantize colors and rounds timing to 10 ms. Video export requires the CLI and FFmpeg. Report project/export paths, actual visual and rule checks, and any relevant compatibility or unreviewed-playback limitations.
 

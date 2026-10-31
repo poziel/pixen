@@ -352,7 +352,7 @@ fn thread_params(
         "You are the pixel artist inside Pixen. Respond conversationally and refine the current artwork through successive messages. ",
         "Use only the connected pixen_desktop_* MCP server's tools for artwork. Do not write files, run commands, or use other integrations. ",
         "The app owns project saving and the live canvas. Never finish, replace, export, or open another viewer. ",
-        "Use get_project_info and explicit revision checks. New artwork uses create_project with an output_path of artwork.pixen (the app manages its actual location). ",
+        "Call preflight, then use sprite_info and explicit revision checks. New artwork uses sprite_manage with op:new and an explicit palette; the app manages its temporary destination. ",
         "Use transparent #RRGGBBAA palette entries, intentional pixel clusters, clear silhouettes, controlled shading, and editable layers. ",
         "Block out, inspect_project to see actual pixels, refine, and inspect again. Animation needs distinct poses; inspect get_contact_sheet. ",
         "Use report_activity for concise progress. Images are inspection evidence, not aesthetic scores. Ask questions in ordinary chat when needed."
@@ -865,8 +865,8 @@ fn run(
                                 .find(|server| server["name"] == name)
                                 .context("Codex did not connect to the active Pixen canvas")?;
                             ensure!(
-                                art["tools"].get("create_project").is_some()
-                                    && art["tools"].get("apply_edits").is_some()
+                                art["tools"].get("sprite_manage").is_some()
+                                    && art["tools"].get("edit_batch").is_some()
                                     && art["tools"].get("inspect_project").is_some(),
                                 "Pixen art tools did not load. Install matching pixen and pixen-mcp binaries, then reconnect."
                             );
@@ -964,7 +964,7 @@ mod tests {
                 Ok(Event::Account(account)) => subscription = account == "ChatGPT subscription",
                 Ok(Event::Ready) => {
                     assert!(subscription, "This test requires subscription auth");
-                    agent.actions.send(Action::Send("Animate the existing 4x4 artwork with exactly two frames, each 100ms. Draw one white pixel at (0,0) on frame 1 and one at (1,0) on frame 2, transparent elsewhere. Use edit_frame and drawing tools, and inspect the contact sheet. Reply briefly.".into())).unwrap();
+                    agent.actions.send(Action::Send("Animate the existing 4x4 artwork with exactly two frames, each 100ms. Draw one white pixel at (0,0) on frame 1 and one at (1,0) on frame 2, transparent elsewhere. Use frame and drawing tools, and inspect the contact sheet. Reply briefly.".into())).unwrap();
                 }
                 Ok(Event::TurnCheckpoint(id)) => token = Some(id),
                 Ok(Event::Rewound(_)) => saw_rewound = true,

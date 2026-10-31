@@ -16,11 +16,11 @@ parser.add_argument("--output", type=Path, required=True)
 parser.add_argument("--preview", action="store_true")
 parser.add_argument("--bridge", type=Path, help=argparse.SUPPRESS)
 args = parser.parse_args()
-exe = args.pixloom.resolve()
+exe = args.pixen.resolve()
 mcp = exe.with_name("pixen-mcp" + exe.suffix)
 out = args.output.resolve()
 out.mkdir(parents=True, exist_ok=True)
-project = out / "bounce.pixloom.json"
+project = out / "bounce.pixen.json"
 if project.exists():
     raise SystemExit(f"Refusing to replace {project}; choose a fresh output directory")
 log = (out / "mcp-stderr.log").open("w")
@@ -49,9 +49,9 @@ def call(name, arguments, image_path=None):
     reply = request("tools/call", dict(name=name, arguments=arguments))
     if reply.get("isError"):
         raise RuntimeError(reply)
-    metadata = None
+    metadata = reply.get("structuredContent")
     for content in reply["content"]:
-        if content["type"] == "text":
+        if content["type"] == "text" and name not in {"preflight", "sprite_manage", "sprite_info", "frame", "layer", "edit_batch"}:
             metadata = json.loads(content["text"])
         elif content["type"] == "image" and image_path:
             image_path.write_bytes(base64.b64decode(content["data"]))
@@ -63,55 +63,49 @@ try:
                                clientInfo=dict(name="pixen-animation-example", version="1")))
     server.stdin.write('{"jsonrpc":"2.0","method":"notifications/initialized"}\n')
     server.stdin.flush()
-    created = call("create_project", dict(width=24, height=24,
-                   palette=["#00000000", "#15243AFF", "#36A9D6FF", "#8CE7E5FF", "#F6E6A6FF", "#42536CFF"],
-                   output_path=str(project)))
+    tools = request("tools/list", {})
+    assert any(tool["name"] == "preflight" for tool in tools["tools"])
+    assert call("preflight", {})["result"]["ready"]
+    created = call('sprite_manage', {'op': 'new', 'width': 24, 'height': 24, 'palette': ['#00000000', '#15243AFF', '#36A9D6FF', '#8CE7E5FF', '#F6E6A6FF', '#42536CFF'], 'output_path': str(project)})
     pid = created["project_id"]
     revision = created["revision"]
 
     def batch(operations):
         global revision
-        revision = call("apply_edits", dict(project_id=pid, expected_revision=revision,
-                                             operations=operations))["revision"]
+        revision = call('edit_batch', dict(project_id=pid, expected_revision=revision, operations=operations))["revision"]
 
     # Block out a squash pose; review before creating the remaining poses.
-    batch([dict(type="rename_layer", layer_id="layer-1", name="Orb"),
-           dict(type="add_layer", layer_id="ground", name="Ground", index=0),
-           dict(type="set_frame_duration", frame_id="frame-1", duration_ms=200),
-           dict(type="rectangle", frame_id="frame-1", layer_id="ground", x=3, y=21,
-                width=18, height=1, palette_index=5, filled=True),
-           dict(type="ellipse", frame_id="frame-1", layer_id="layer-1", x=7, y=15,
-                width=10, height=6, palette_index=1, filled=True),
-           dict(type="ellipse", frame_id="frame-1", layer_id="layer-1", x=8, y=16,
-                width=8, height=4, palette_index=2, filled=True)])
+    batch([{'tool': 'layer', 'arguments': {'op': 'rename', 'layer_id': 'layer-1', 'name': 'Orb'}},
+           {'tool': 'layer', 'arguments': {'op': 'create', 'layer_id': 'ground', 'name': 'Ground', 'index': 0}},
+           {'tool': 'frame', 'arguments': {'op': 'set_duration', 'frame_id': 'frame-1', 'duration_ms': 200}},
+           {'tool': 'draw', 'arguments': {'frame_id': 'frame-1', 'layer_id': 'ground', 'operation': {'type': 'rectangle', 'x': 3, 'y': 21, 'width': 18, 'height': 1, 'palette_index': 5, 'filled': True}}},
+           {'tool': 'draw', 'arguments': {'frame_id': 'frame-1', 'layer_id': 'layer-1', 'operation': {'type': 'ellipse', 'x': 7, 'y': 15, 'width': 10, 'height': 6, 'palette_index': 1, 'filled': True}}},
+           {'tool': 'draw', 'arguments': {'frame_id': 'frame-1', 'layer_id': 'layer-1', 'operation': {'type': 'ellipse', 'x': 8, 'y': 16, 'width': 8, 'height': 4, 'palette_index': 2, 'filled': True}}}])
     call("inspect_project", dict(project_id=pid, frame_id="frame-1", scale=10), out / "blockout.png")
     # Six distinct poses, matching ascent/descent with unequal holds and squash/stretch.
     poses = [("frame-1", 200, 7, 15, 10, 6), ("rise", 100, 9, 10, 6, 9),
              ("apex-in", 140, 8, 4, 8, 8), ("apex-out", 220, 8, 3, 8, 8),
              ("fall", 90, 9, 8, 6, 10), ("land", 120, 8, 13, 8, 8)]
     for index, (frame, duration, *_) in enumerate(poses[1:], start=1):
-        revision = call("edit_frame", dict(project_id=pid, expected_revision=revision,
-                         operation=dict(type="duplicate_frame", frame_id="frame-1", new_frame_id=frame, index=index)))["revision"]
-        revision = call("edit_frame", dict(project_id=pid, expected_revision=revision,
-                         operation=dict(type="set_frame_duration", frame_id=frame, duration_ms=duration)))["revision"]
+        revision = call('frame', {'project_id': pid, 'expected_revision': revision, 'op': 'duplicate', 'frame_id': 'frame-1', 'new_frame_id': frame, 'index': index})["revision"]
+        revision = call('frame', {'project_id': pid, 'expected_revision': revision, 'op': 'set_duration', 'frame_id': frame, 'duration_ms': duration})["revision"]
     operations = []
     for frame, duration, x, y, w, h in poses:
         common = dict(frame_id=frame, layer_id="layer-1")
-        operations += [dict(type="clear_cel", **common),
-            dict(type="ellipse", x=x, y=y, width=w, height=h, palette_index=1, filled=True, **common),
-            dict(type="ellipse", x=x+1, y=y+1, width=w-2, height=h-2, palette_index=2, filled=True, **common),
-            dict(type="line", x1=x+2, y1=y+1, x2=x+w-3, y2=y+1, palette_index=3, **common),
-            dict(type="set_pixels", pixels=[dict(x=x+w-3, y=y+max(2,h//2), palette_index=4)], **common)]
+        operations += [{'tool': 'draw', 'arguments': {**common, 'operation': {'type': 'clear_cel'}}},
+            {'tool': 'draw', 'arguments': {**common, 'operation': {'type': 'ellipse', 'x': x, 'y': y, 'width': w, 'height': h, 'palette_index': 1, 'filled': True}}},
+            {'tool': 'draw', 'arguments': {**common, 'operation': {'type': 'ellipse', 'x': x + 1, 'y': y + 1, 'width': w - 2, 'height': h - 2, 'palette_index': 2, 'filled': True}}},
+            {'tool': 'draw', 'arguments': {**common, 'operation': {'type': 'line', 'x1': x + 2, 'y1': y + 1, 'x2': x + w - 3, 'y2': y + 1, 'palette_index': 3}}},
+            {'tool': 'draw', 'arguments': {**common, 'operation': {'type': 'set_pixels', 'pixels': [dict(x=x + w - 3, y=y + max(2, h // 2), palette_index=4)]}}}]
     batch(operations)
     sheet = call("get_contact_sheet", dict(project_id=pid, scale=8, columns=3), out / "contact-sheet.png")
     assert sheet["distinct_composites"] == len(poses)
     # Targeted correction: a second eye on the stretched falling pose only.
-    batch([dict(type="set_pixels", frame_id="fall", layer_id="layer-1",
-                pixels=[dict(x=10, y=13, palette_index=4)])])
+    batch([{'tool': 'draw', 'arguments': {'frame_id': 'fall', 'layer_id': 'layer-1', 'operation': {'type': 'set_pixels', 'pixels': [dict(x=10, y=13, palette_index=4)]}}}])
     for frame, *_ in poses:
         call("inspect_project", dict(project_id=pid, frame_id=frame, scale=10), out / f"{frame}.png")
     call("get_contact_sheet", dict(project_id=pid, scale=8, columns=3), out / "contact-sheet.png")
-    info = call("get_project_info", dict(project_id=pid))
+    info = call('sprite_info', dict(project_id=pid))
     call("finish_project", dict(project_id=pid))
     # Export reloads and validates the saved editable source; it does not invoke CLI edits.
     subprocess.run([str(exe), "validate", str(project)], check=True)

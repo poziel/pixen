@@ -8,8 +8,9 @@
         "revision": 0
       },
       "current_call": {
-        "name": "create_project",
+        "name": "sprite_manage",
         "arguments": {
+          "op": "new",
           "width": 4,
           "height": 4,
           "palette": [
@@ -55,7 +56,8 @@
         "contract": "pixen-mcp/v1",
         "tool": "sprite_manage",
         "revision": 0
-      }
+      },
+      "execute_target": true
     },
     {
       "id": "rig-one-transaction",
@@ -64,20 +66,26 @@
         "undo_steps": 1
       },
       "current_call": {
-        "name": "apply_edits",
+        "name": "edit_batch",
         "arguments": {
           "project_id": "$project_id",
           "expected_revision": 0,
           "operations": [
             {
-              "type": "add_layer",
-              "layer_id": "base-id",
-              "name": "base"
+              "tool": "layer",
+              "arguments": {
+                "op": "create",
+                "layer_id": "base-id",
+                "name": "base"
+              }
             },
             {
-              "type": "add_layer",
-              "layer_id": "shade-id",
-              "name": "shading"
+              "tool": "layer",
+              "arguments": {
+                "op": "create",
+                "layer_id": "shade-id",
+                "name": "shading"
+              }
             }
           ]
         }
@@ -100,13 +108,16 @@
       "target": {
         "name": "layer",
         "arguments": {
-          "batch": [
+          "op": "batch",
+          "ops": [
             {
               "op": "create",
+              "layer_id": "base-id",
               "name": "base"
             },
             {
               "op": "create",
+              "layer_id": "shade-id",
               "name": "shading"
             }
           ],
@@ -121,7 +132,8 @@
         "result": {
           "undo_steps": 1
         }
-      }
+      },
+      "execute_target": true
     },
     {
       "id": "exact-duplicate-color-index",
@@ -521,34 +533,44 @@
       "id": "invalid-batch-rolls-back",
       "error_contains": "out of bounds",
       "current_call": {
-        "name": "apply_edits",
+        "name": "edit_batch",
         "arguments": {
           "project_id": "$project_id",
           "expected_revision": 4,
           "operations": [
             {
-              "frame_id": "$frame_id",
-              "layer_id": "base-id",
-              "type": "set_pixels",
-              "pixels": [
-                {
-                  "x": 0,
-                  "y": 0,
-                  "palette_index": 0
+              "tool": "draw",
+              "arguments": {
+                "frame_id": "$frame_id",
+                "layer_id": "base-id",
+                "operation": {
+                  "type": "set_pixels",
+                  "pixels": [
+                    {
+                      "x": 0,
+                      "y": 0,
+                      "palette_index": 0
+                    }
+                  ]
                 }
-              ]
+              }
             },
             {
-              "frame_id": "$frame_id",
-              "layer_id": "base-id",
-              "type": "set_pixels",
-              "pixels": [
-                {
-                  "x": 4,
-                  "y": 0,
-                  "palette_index": 1
+              "tool": "draw",
+              "arguments": {
+                "frame_id": "$frame_id",
+                "layer_id": "base-id",
+                "operation": {
+                  "type": "set_pixels",
+                  "pixels": [
+                    {
+                      "x": 4,
+                      "y": 0,
+                      "palette_index": 1
+                    }
+                  ]
                 }
-              ]
+              }
             }
           ]
         }
@@ -711,16 +733,14 @@
         "undo_steps": 5
       },
       "current_call": {
-        "name": "edit_frame",
+        "name": "frame",
         "arguments": {
           "project_id": "$project_id",
           "expected_revision": 4,
-          "operation": {
-            "type": "duplicate_frame",
-            "frame_id": "$frame_id",
-            "new_frame_id": "pose-b",
-            "index": 0
-          }
+          "op": "duplicate",
+          "frame_id": "$frame_id",
+          "new_frame_id": "pose-b",
+          "index": 0
         }
       },
       "source_guidance": {
@@ -738,7 +758,8 @@
           "frame": 1,
           "index": 0,
           "project_id": "$project_id",
-          "expected_revision": 4
+          "expected_revision": 4,
+          "new_frame_id": "pose-b"
         }
       },
       "target_expected": {
@@ -748,7 +769,8 @@
         "result": {
           "undo_steps": 5
         }
-      }
+      },
+      "execute_target": true
     },
     {
       "id": "one-based-frame-after-insertion",
@@ -901,20 +923,26 @@
         "undo_steps": 7
       },
       "current_call": {
-        "name": "apply_edits",
+        "name": "edit_batch",
         "arguments": {
           "project_id": "$project_id",
           "expected_revision": 6,
           "operations": [
             {
-              "type": "set_frame_duration",
-              "frame_id": "pose-b",
-              "duration_ms": 150
+              "tool": "frame",
+              "arguments": {
+                "op": "set_duration",
+                "frame_id": "pose-b",
+                "duration_ms": 150
+              }
             },
             {
-              "type": "set_frame_duration",
-              "frame_id": "$frame_id",
-              "duration_ms": 100
+              "tool": "frame",
+              "arguments": {
+                "op": "set_duration",
+                "frame_id": "$frame_id",
+                "duration_ms": 100
+              }
             }
           ]
         }
@@ -948,7 +976,8 @@
         "result": {
           "undo_steps": 7
         }
-      }
+      },
+      "execute_target": true
     },
     {
       "id": "undo-is-monotonic",
@@ -979,7 +1008,8 @@
           "undo_steps": 6,
           "redo_steps": 1
         }
-      }
+      },
+      "execute_target": true
     },
     {
       "id": "redo-is-monotonic",
@@ -1010,7 +1040,8 @@
           "undo_steps": 7,
           "redo_steps": 0
         }
-      }
+      },
+      "execute_target": true
     },
     {
       "id": "save-standalone",

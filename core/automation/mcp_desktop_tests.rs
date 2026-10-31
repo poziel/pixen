@@ -49,7 +49,7 @@ fn manual_canvas_resize_preserves_indices_and_pads_without_scaling() {
 #[test]
 fn failed_revert_retains_its_baseline_for_retry() {
     let dir = tempfile::tempdir().unwrap();
-    let source = dir.path().join("source.pixloom");
+    let source = dir.path().join("source.pixen");
     let mut session = Session::default();
     session
         .create(CreateProject {
@@ -188,7 +188,7 @@ fn bridge_edits_the_desktop_document_and_filters_file_actions() {
         &mut socket,
         3,
         "tools/call",
-        serde_json::json!({"name":"create_project","arguments":{"width":2,"height":2,"palette":["#00000000","#FFFFFFFF"],"output_path":"ignored.pixloom"}}),
+        serde_json::json!({"name":"sprite_manage","arguments":{"op":"new","width":2,"height":2,"palette":["#00000000","#FFFFFFFF"]}}),
     );
     assert_ne!(created["result"]["isError"], true, "{created}");
     assert!(
@@ -199,7 +199,7 @@ fn bridge_edits_the_desktop_document_and_filters_file_actions() {
         &mut socket,
         4,
         "tools/call",
-        serde_json::json!({"name":"apply_edits","arguments":{"project_id":"project-1","expected_revision":0,"operations":[{"type":"set_pixels","frame_id":"frame-1","layer_id":"layer-1","pixels":[{"x":0,"y":0,"palette_index":1}]}]}}),
+        serde_json::json!({"name":"edit_batch","arguments":{"project_id":"project-1","expected_revision":0,"operations":[{"tool":"draw","arguments":{"frame_id":"frame-1","layer_id":"layer-1","operation":{"type":"set_pixels","pixels":[{"x":0,"y":0,"palette_index":1}]}}}]}}),
     );
     assert_ne!(edit["result"]["isError"], true, "{edit}");
     assert_eq!(desktop.begin_turn().unwrap()["revision"], 1);
@@ -307,7 +307,7 @@ fn bridge_accepts_pixel_payload_above_256_kib() {
     let pixels: Vec<_> = (0..16384)
         .map(|i| serde_json::json!({"x":i%128,"y":i/128,"palette_index":1}))
         .collect();
-    let params = serde_json::json!({"name":"apply_edits","arguments":{"project_id":"project-1","expected_revision":0,"operations":[{"type":"set_pixels","frame_id":"frame-1","layer_id":"layer-1","pixels":pixels}]}});
+    let params = serde_json::json!({"name":"edit_batch","arguments":{"project_id":"project-1","expected_revision":0,"operations":[{"tool":"draw","arguments":{"frame_id":"frame-1","layer_id":"layer-1","operation":{"type":"set_pixels","pixels":pixels}}}]}});
     assert!(serde_json::to_vec(&params).unwrap().len() > 256 * 1024);
     let result = request(&mut socket, 2, "tools/call", params);
     assert_ne!(result["result"]["isError"], true, "{result}");
@@ -342,4 +342,143 @@ fn message_checkpoints_restore_artwork_and_discard_later_checkpoints() {
     let (_, sprite, _) = desktop.snapshot(None).unwrap();
     assert_eq!((sprite.width, sprite.height), (2, 2));
     assert!(desktop.rewind_count(first).is_err());
+}
+#[test]
+fn desktop_discovery_owns_paths_and_stops_connected_clients_with_the_app() {
+    let dir = tempfile::tempdir().unwrap();
+    let desktop = Desktop::new(dir.path().to_owned(), None).unwrap();
+    let bridge = Bridge::start(desktop.clone()).unwrap();
+    let mut socket = std::net::TcpStream::connect(bridge.address).unwrap();
+    socket
+        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+        .unwrap();
+    writeln!(socket, "{}", bridge.token).unwrap();
+    let mut socket = BufReader::new(socket);
+    request(
+        &mut socket,
+        1,
+        "initialize",
+        serde_json::json!({"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"ownership-test","version":"1"}}),
+    );
+    writeln!(
+        socket.get_mut(),
+        "{}",
+        serde_json::json!({"jsonrpc":"2.0","method":"notifications/initialized"})
+    )
+    .unwrap();
+    let preflight = request(
+        &mut socket,
+        2,
+        "tools/call",
+        serde_json::json!({"name":"preflight","arguments":{}}),
+    );
+    let result = &preflight["result"]["structuredContent"]["result"];
+    assert_eq!(result["mode"], "desktop");
+    assert_eq!(result["ready"], true);
+    assert_eq!(result["has_project"], false);
+    let path = dir.path().join("unauthorized.pixen");
+    for (id, name, args) in [
+        (
+            3,
+            "sprite_manage",
+            serde_json::json!({"op":"new","width":1,"height":1,"palette":["#FFFFFFFF"],"output_path":path}),
+        ),
+        (4, "sprite_manage", serde_json::json!({"op":"save"})),
+    ] {
+        let denied = request(
+            &mut socket,
+            id,
+            "tools/call",
+            serde_json::json!({"name":name,"arguments":args}),
+        );
+        assert_eq!(
+            denied["result"]["structuredContent"]["error"]["code"], "application_owned",
+            "{denied}"
+        );
+    }
+    assert!(!path.exists());
+    assert!(
+        desktop
+            .server
+            .state
+            .lock()
+            .unwrap()
+            .session
+            .active_id()
+            .is_none()
+    );
+    let created = request(
+        &mut socket,
+        5,
+        "tools/call",
+        serde_json::json!({"name":"sprite_manage","arguments":{"op":"new","width":1,"height":1,"palette":["#FFFFFFFF"]}}),
+    );
+    assert_eq!(
+        created["result"]["structuredContent"]["revision"], 0,
+        "{created}"
+    );
+    let renamed = request(
+        &mut socket,
+        6,
+        "tools/call",
+        serde_json::json!({"name":"frame","arguments":{"op":"rename","expected_revision":0,"name":"pose"}}),
+    );
+    assert_eq!(
+        renamed["result"]["structuredContent"]["revision"], 1,
+        "{renamed}"
+    );
+    let listed = request(
+        &mut socket,
+        7,
+        "tools/call",
+        serde_json::json!({"name":"frame","arguments":{"op":"list"}}),
+    );
+    assert_eq!(
+        listed["result"]["structuredContent"]["result"]["frames"][0]["name"],
+        "pose"
+    );
+    drop(bridge);
+    let mut line = String::new();
+    assert_eq!(
+        socket.read_line(&mut line).unwrap_or(0),
+        0,
+        "client remained connected after application shutdown"
+    );
+}
+#[test]
+fn temporary_container_failure_reports_a_committed_edit_as_success() {
+    let dir = tempfile::tempdir().unwrap();
+    let desktop = Desktop::new(dir.path().to_owned(), None).unwrap();
+    desktop.create_artwork(1, 1).unwrap();
+    std::fs::remove_file(dir.path().join("artwork.pixen")).unwrap();
+    std::fs::create_dir(dir.path().join("artwork.pixen")).unwrap();
+    let bridge = Bridge::start(desktop.clone()).unwrap();
+    let mut socket = std::net::TcpStream::connect(bridge.address).unwrap();
+    socket
+        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+        .unwrap();
+    writeln!(socket, "{}", bridge.token).unwrap();
+    let mut socket = BufReader::new(socket);
+    request(
+        &mut socket,
+        1,
+        "initialize",
+        serde_json::json!({"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"persistence-test","version":"1"}}),
+    );
+    writeln!(
+        socket.get_mut(),
+        "{}",
+        serde_json::json!({"jsonrpc":"2.0","method":"notifications/initialized"})
+    )
+    .unwrap();
+    let edited = request(
+        &mut socket,
+        2,
+        "tools/call",
+        serde_json::json!({"name":"layer","arguments":{"op":"create","name":"ink","expected_revision":0}}),
+    );
+    assert_ne!(edited["result"]["isError"], true, "{edited}");
+    assert_eq!(edited["result"]["structuredContent"]["revision"], 1);
+    assert!(edited["result"]["structuredContent"]["result"]["persistence_warning"].is_string());
+    assert_eq!(desktop.begin_turn().unwrap()["revision"], 1);
 }

@@ -86,7 +86,14 @@ fn workflow_document_safety_oracle() {
     let fixture = scenarios();
     assert_eq!(fixture["runner"], "current-executor-oracle");
     for step in fixture["steps"].as_array().unwrap() {
-        let current = substitute(&step["current_call"], &bindings);
+        let current = substitute(
+            if step["execute_target"] == true {
+                &step["target"]
+            } else {
+                &step["current_call"]
+            },
+            &bindings,
+        );
         let tool = current["name"].as_str().unwrap();
         let args = current["arguments"].clone();
         if let Some(target) = step.get("target") {
@@ -94,7 +101,7 @@ fn workflow_document_safety_oracle() {
                 && target["arguments"].get("layer").is_some()
             {
                 let info = text(&client.call(
-                    "get_project_info",
+                    "sprite_info",
                     json!({
                         "project_id":bindings["$project_id"]
                     }),
@@ -113,7 +120,7 @@ fn workflow_document_safety_oracle() {
         if let Some(message) = step["error_contains"].as_str() {
             // Compare document state AND exact pixel evidence around rejected edits.
             let project = bindings["$project_id"].clone();
-            let before = client.call("get_project_info", json!({"project_id":project}));
+            let before = client.call("sprite_info", json!({"project_id":project}));
             let read = json!({"project_id":project,"frame_id":bindings["$frame_id"],
                 "layer_id":"base-id","region":{"x":0,"y":0,"width":4,"height":4}});
             let pixels = client.call("get_pixels", read.clone());
@@ -125,18 +132,21 @@ fn workflow_document_safety_oracle() {
                 step["id"]
             );
             assert_eq!(
-                client.call("get_project_info", json!({"project_id":project})),
+                client.call("sprite_info", json!({"project_id":project})),
                 before
             );
             assert_eq!(client.call("get_pixels", read), pixels);
         } else {
             let result = client.call(tool, args);
             assert_ne!(result["isError"], true, "{}: {result}", step["id"]);
+            if step["execute_target"] == true {
+                assert_subset(&result["structuredContent"], &step["target_expected"]);
+            }
             let metadata = text(&result);
             if let Some(expected) = step.get("expected") {
                 assert_subset(&metadata, expected);
             }
-            if tool == "create_project" {
+            if tool == "sprite_manage" {
                 for (binding, field) in [
                     ("$project_id", "project_id"),
                     ("$frame_id", "frame_id"),
@@ -160,24 +170,13 @@ fn workflow_document_safety_oracle() {
 fn addressing_oracle_rejects_ambiguous_names_and_preserves_literal_paths() {
     let root = tempfile::tempdir().unwrap();
     let mut client = Client::new(false);
-    let created = text(&client.call(
-        "create_project",
-        json!({"width":2,"height":2,
-        "palette":["#00000000"],"output_path":root.path().join("addressing.pixen")}),
+    let created = text(&client.call("sprite_manage", json!({"op":"new","width":2,"height":2,"palette":["#00000000"],"output_path":root.path().join("addressing.pixen")}),
     ));
     let project = &created["project_id"];
-    let setup = client.call(
-        "apply_edits",
-        json!({"project_id":project,"expected_revision":0,
-        "operations":[
-            {"type":"add_layer","layer_id":"left-arm","name":"arm"},
-            {"type":"add_layer","layer_id":"right-arm","name":"arm"},
-            {"type":"add_layer","layer_id":"literal-path","name":"left/arm"},
-            {"type":"add_frame","frame_id":"pose-b","duration_ms":100,"index":0}
-        ]}),
+    let setup = client.call("edit_batch", json!({"project_id":project,"expected_revision":0,"operations":[{"tool":"layer","arguments":{"op":"create","layer_id":"left-arm","name":"arm"}},{"tool":"layer","arguments":{"op":"create","layer_id":"right-arm","name":"arm"}},{"tool":"layer","arguments":{"op":"create","layer_id":"literal-path","name":"left/arm"}},{"tool":"frame","arguments":{"op":"add","frame_id":"pose-b","duration_ms":100,"index":0}}]}),
     );
     assert_ne!(setup["isError"], true, "{setup}");
-    let info = text(&client.call("get_project_info", json!({"project_id":project})));
+    let info = text(&client.call("sprite_info", json!({"project_id":project})));
     assert_eq!(layer_id(&info, "arm"), Err("ambiguous_target"));
     assert_eq!(layer_id(&info, "Arm"), Err("target_not_found"));
     assert_eq!(layer_id(&info, "right/arm"), Err("target_not_found"));

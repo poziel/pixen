@@ -1,8 +1,8 @@
 # MCP server and tool reference
 
-For the planned refactor, see the [target MCP API contract](../specs/mcp-compatibility.md). Current tool names, schemas and response formats may be replaced without legacy aliases. This reference describes the implementation today; it is not a backward compatibility guarantee.
+For the full roadmap contract, see the [target MCP API contract](../specs/mcp-compatibility.md). Current tool names, schemas and response formats may be replaced without legacy aliases. This reference describes the implementation today; it is not a backward compatibility guarantee.
 
-This reference documents the current Pixen source implementation. The standalone server exposes **32 tools**; the desktop document bridge exposes **27** of them. These are MCP tool names, called through `tools/call`, rather than separate HTTP URLs. See [the MCP guide](README.md) for longer authoring workflows.
+This reference documents the current Pixen source implementation. Tool availability and per-operation readiness are discovered through `tools/list` and `preflight`. Project, structure and batch commands implement `pixen-mcp/v1`; drawing, inspection and delivery families migrate in later roadmap issues. These are MCP tool names, called through `tools/call`, rather than separate HTTP URLs. See [the MCP guide](README.md) for longer authoring workflows.
 
 ## How the server works
 
@@ -22,7 +22,7 @@ For example, after initialization:
 ```
 
 ```json
-{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_project_info","arguments":{"project_id":"project-1"}}}
+{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"sprite_info","arguments":{"project_id":"project-1"}}}
 ```
 
 There is no public HTTP listener or REST route for each tool. The desktop uses an internal authenticated TCP bridge on `127.0.0.1` with a dynamically assigned port. Its proxy authenticates with a random token before forwarding MCP traffic. This is an app-managed connection, not an HTTP API to configure manually.
@@ -31,11 +31,11 @@ There is no public HTTP listener or REST route for each tool. The desktop uses a
 
 | Mode | Server name | Document ownership | Available tools |
 | --- | --- | --- | --- |
-| `pixen-mcp` | `pixen` | Server owns one active editing project | All 32 |
-| `pixen-mcp --viewer` | `pixen` | Same session; automatically opens a read-only desktop preview on create/open | All 32 |
-| Desktop document bridge | `pixen-desktop` | Desktop owns the active artwork, saving and project lifetime | 27 |
+| `pixen-mcp` | `pixen` | Server owns one active editing project | All advertised tools |
+| `pixen-mcp --viewer` | `pixen` | Same session; automatically opens a read-only desktop preview on create/open | All advertised tools |
+| Desktop document bridge | `pixen-desktop` | Desktop owns the active artwork, saving and project lifetime | Document tools |
 
-The five standalone-only tools are `open_project`, `save_project`, `export_project`, `open_preview` and `finish_project`. The desktop filters them from discovery and rejects direct calls with “This action is managed by the Pixen application.” In desktop mode, `create_project` replaces the supplied `output_path` with the app-managed `artwork.pixen` destination. Its shared schema still requires an `output_path` argument.
+The standalone-only file tools are `open_project`, `save_project`, `export_project`, `open_preview` and `finish_project`. Desktop excludes them from discovery and returns structured `application_owned` errors for direct calls. Desktop `sprite_manage op:"new"` omits `output_path`; Pixen supplies its temporary destination. Supplying a path on desktop is rejected. Creation is legal only without existing artwork. A bridge remains bound to that document and stops with its owning application; tab changes never retarget queued requests.
 
 ### Setup
 
@@ -58,7 +58,7 @@ Add `--viewer` to `args` for automatic previews. Preview windows require the sib
 
 `read_guidance` is a read-only, document-independent tool available in both modes. Its required `uri: string` names an exact bundled resource, such as `skill://index`, `skill://studio` or `rules://00-core-principles`. It returns text content and sets `isError` for unknown URIs. It does not accept local paths or change artwork/history. The same text is available through `resources/read`; see [guidance discovery](guidance.md) for URI mapping and workflow prompts.
 
-In the tables below, fields are **required unless marked optional or given a default**. Every project tool except `create_project` and `open_project` requires `project_id: string`. Use returned IDs rather than assuming their values.
+In the tables below, fields are **required unless marked optional or given a default**. The revised project/structure/batch/history tools allow omitted `project_id` for the connection's single active document; an explicit ID must match. Other tool schemas still require it. `sprite_manage op:"new"` and `open_project` do not address an existing project. Use returned IDs rather than assuming their values.
 
 | Value | Meaning |
 | --- | --- |
@@ -71,27 +71,25 @@ In the tables below, fields are **required unless marked optional or given a def
 
 Coordinates start at the top left, with x increasing right and y increasing down. There is no silent clipping. Opacity is a finite number from 0 through 1; durations are positive finite milliseconds. New frame/layer IDs must satisfy Pixen identifier validation (1–128 ASCII letters, digits, underscores or hyphens) and must never have been used in that project, including IDs removed or undone. Renaming/reordering does not change stable IDs.
 
-Successful non-image tools return an MCP text content block containing JSON. Image tools return actual `image/png` MCP image content plus a text JSON metadata block. Parse the text content to obtain revisions and IDs; do not assume a top-level `structuredContent` response. Tool failures set `isError: true` and include an explanation. Invalid protocol requests/arguments can also produce SDK protocol errors. Most argument types reject unknown fields; follow the discovered schema rather than supplying arbitrary extra keys.
+The revised tools (`preflight`, `sprite_info`, `sprite_manage`, `layer`, `frame`, `edit_batch`, `resize_canvas`, `undo`, `redo`) return metadata in MCP `structuredContent`, described by `outputSchema`. Read `{contract,tool,op,project_id,revision,resolved_targets,result}` directly. The `result` object contains operation data, including mutation bounds/change records and history counts. Errors set `isError:true` and carry `error:{code,message,tool,op,capability,mode,retryable,alternatives,details}` plus known project/revision. Missing revisions, stale edits, ambiguous/missing targets, unavailable capabilities and unsupported options fail explicitly. SDK-invalid parameter types may produce protocol errors.
 
-Edits operate on a candidate document under a shared state lock. A successful transaction commits atomically and creates one undo step; an invalid/stale transaction leaves artwork and history unchanged. Revisions increase even on undo/redo. Read the returned revision before the next edit. A successful `apply_edits` batch advances once even for a pixel no-op; `resize_canvas` with unchanged dimensions returns current info without advancing.
+Remaining drawing, inspection, review and standalone file tools retain their currently advertised schemas and text metadata until their roadmap migrations. Image tools return actual PNG MCP content. Do not send future drawing/grid schemas to the current `draw` tool; preflight marks those target operations unavailable.
+
+Edits resolve under the session lock, execute against a candidate and commit once. A successful transaction, including a no-op, creates one undo step and advances revision once. Failure leaves document, recovery, used-ID allocation and history unchanged. Undo/redo advance monotonically. Original name and frame-position selectors bind to the guarded revision; a unique layer name created earlier in the same batch may address that new layer. Nested commands may not override project/revision.
 
 Drawing mutations usually return `revision`, `changed_bounds`, `changes`, `undo_steps` and `redo_steps`. Drawing bounds describe actual changed indices, including linked targets; structural operations use conservative canvas bounds. History operations return revision, canvas bounds and history counts. No mutation automatically generates an inspection PNG.
 
-Standalone transactions persist recovery before acknowledgement. The desktop can defer recovery to its background worker; it also updates its temporary container after bridge mutations. A desktop temporary-container error can occur after the in-memory edit has committed: inspect `get_project_info` before retrying.
+Standalone transactions persist recovery before acknowledgement. The desktop can defer recovery to its background worker; it also updates its temporary container after bridge mutations. If updating a desktop temporary container or turn checkpoint fails after commit, the tool remains successful and reports `result.persistence_warning`; the returned revision identifies the applied edit. Preserve the work and use application Save/Save As rather than replaying that edit.
 
 ## Project lifecycle tools
 
-### `create_project`
+### `preflight`
 
-Create a transparent project with one frame and one layer. There must be no active project already.
+Optional `mode:"headless"` for standalone or `mode:"live"` for desktop must match the connection. Returns readiness separately from `has_project`, mode, Pixen/contract versions, coordinate base 0, frame base 1, exact-index palette semantics, revision requirement, viewer configuration and operation records. Each record reports actual availability, classification, constraints, ownership, reason and alternatives. Absent roadmap capabilities remain unavailable even when a current native tool provides a narrower alternative.
 
-| Argument | Type / behavior |
-| --- | --- |
-| `width`, `height` | Positive integers within document limits |
-| `palette` | Array of `#RRGGBBAA` strings; indices remain stable; a transparent entry is appended if needed |
-| `output_path` | String path ending in `.pixen` or `.pixen.json`; parent must exist and destination must be new; desktop overrides it |
+### `sprite_manage`
 
-Returns `project_id`, `revision: 0`, `frame_id` and `layer_id`. Creates a recovery snapshot; the final destination is published by save/finish. `.pixen` is the native container; `.pixen.json` is explicit authoring JSON.
+`op:"new"` requires positive `width`, `height` and an explicit `palette` of `#RRGGBBAA` entries. Standalone also requires a new `output_path` ending in `.pixen` or `.pixen.json`, with an existing parent; desktop owns the destination and rejects that field. A transparent slot is appended if needed. Creates one transparent frame/layer and returns stable IDs at revision 0. There must be no active project. No RGB/indexed-mode emulation is exposed. File operations in this family remain unavailable pending the delivery issue; desktop reports `application_owned` for them. The existing standalone file tools below remain available meanwhile.
 
 ### `open_project` — standalone only
 
@@ -123,9 +121,17 @@ Arguments: `project_id`. Save using the same protections as `save_project`, then
 
 ## Editing tools
 
-### `apply_edits`
+### `edit_batch`
 
-Arguments: `project_id`, `expected_revision`, `operations: object[]`. Execute 1–10,000 operations in order as one atomic transaction. Operations use a `type` discriminator and the fields in the operation tables below. Drawing entries carry `frame_id` and `layer_id` directly; do not nest them under `operation`. Layer/frame/palette/region operations can be mixed in the same batch.
+Arguments: optional `project_id`, required `expected_revision`, and `operations:[{tool,arguments}]`. Nested arguments are the direct tool arguments without project/revision. Supports single `layer`/`frame` edits and current `draw`, `edit_palette`, `copy_region`, `transform_region` arguments. Lifecycle/file actions, resize, list operations and nested batches are rejected. Expand to 1–10,000 engine operations and commit once; never split implicitly. Keep requests below the recommended 200 KiB UTF-8 budget.
+
+```json
+{"expected_revision":0,"operations":[
+  {"tool":"layer","arguments":{"op":"create","name":"ink"}},
+  {"tool":"frame","arguments":{"op":"add","count":2,"duration_ms":100}},
+  {"tool":"layer","arguments":{"op":"set","layer":"ink","opacity":0.8}}
+]}
+```
 
 ### `draw`
 
@@ -145,40 +151,39 @@ Arguments: `project_id`, `expected_revision`, `frame_id`, `layer_id`, `operation
 
 Drawing rejects locked layers and out-of-range colors/bounds. Explicit cel link groups share edits; unlinked reused cel storage detaches before writing. Transparency operations append a transparent palette entry only if necessary.
 
-### `edit_layer`
+### `layer`
 
-Arguments: `project_id`, `expected_revision`, `operation: LayerOperation`.
+Common arguments: optional `project_id`, `expected_revision` required for edits, and `op`. Targets use exact, case-sensitive `layer` names or explicit `layer_id`, mutually exclusively. Omit a target only with one eligible layer. Ambiguous names return candidate IDs/names. Slash characters are literal names; groups and cross-project duplication are unavailable.
 
-| Operation `type` | Fields beyond `type` | Effect |
+| `op` | Fields | Behavior |
 | --- | --- | --- |
-| `add_layer` | New `layer_id`, nonblank `name`, optional `index` | Add transparent layer; default append |
-| `duplicate_layer` | Source `layer_id`, new `new_layer_id`, nonblank `name`, optional `index` | Independent copy of layer/cels; default inserts at source index, below source |
-| `remove_layer` | `layer_id` | Remove layer/timeline; cannot remove last layer |
-| `rename_layer` | `layer_id`, nonblank `name` | Change display name |
-| `reorder_layer` | `layer_id`, `index` | Move to zero-based final position; 0 is bottom |
-| `update_layer` | `layer_id`, optional `visible: boolean`, optional `opacity: number` | Update visibility and/or opacity |
-| `paste_cells` | `layer_id`, `frame_ids: string[]`, `width`, `height`, `pixels: [r,g,b,a][]`, `opacity` | Paste whole-canvas row-major RGBA bytes into selected cells; reuses exact palette colors or appends missing colors |
-| `copy_cells` | `layer_id`, `source_frame_id`, `frame_ids: string[]` | Copy source cell into targets without intentional links; later drawing detaches |
-| `clear_cells` | `layer_id`, `frame_ids: string[]` | Empty selected cells and detach links without erasing unselected partners |
-| `link_cells` | `layer_id`, `source_frame_id`, `frame_ids: string[]`, new `link_id` | Source and targets share source cel/opacity in an explicit layer-local link group |
-| `unlink_cells` | `layer_id`, `frame_ids: string[]` | Remove intentional links; future drawing uses copy-on-write |
+| `list` | No mutation fields | Read ordered layers, stable IDs and current properties |
+| `create` | `name`, optional `index`, `layer_id` | Add a transparent flat layer on every frame |
+| `duplicate` | Target, `name`, optional `index`, `new_layer_id` | Independent cel copies |
+| `delete` | Target | Remove, retaining at least one layer |
+| `rename` | Target, `name` | Change name while preserving ID |
+| `reorder` | Target, `index` | Move to zero-based final bottom-to-top position |
+| `set` | Target, `visible` and/or `opacity` | Update visibility or opacity 0..1 |
+| `batch` | `ops:[{op,...}]` | One atomic transaction of single-layer commands |
 
-Cell target arrays must be nonempty. Paste dimensions must equal the canvas, pixel count must equal width × height, and byte channels are 0–255. Cell edits reject locked layers. `update_layer` does not expose a lock-setting field.
+Creation allocates never-used IDs unless an explicit valid never-used ID is supplied. Existing native `paste_cells`, `clear_cells`, `copy_cells`, `link_cells`, `unlink_cells` also use direct `op` and their exact discovered fields (stable layer/frame IDs, never implicit selection). They remain independent cell/link capabilities, not group support. The old `operation:{type:...}` wrapper is removed.
 
-### `edit_frame`
+### `frame`
 
-Arguments: `project_id`, `expected_revision`, `operation: FrameOperation`.
+Targets use a one-based `frame` position or `frame_id`, mutually exclusively. Missing targets are legal only on single-frame documents. Structural `index` remains zero-based. Positions bind to the starting revision, even after earlier reorder operations in the batch. Newly created frames are returned as IDs and may be used by ID later in that batch.
 
-| Operation `type` | Fields beyond `type` | Effect |
+| `op` | Fields | Behavior |
 | --- | --- | --- |
-| `add_frame` | New `frame_id`, `duration_ms`, optional `index` | Add transparent frame; default append |
-| `duplicate_frame` | Source `frame_id`, new `new_frame_id`, optional `index` | Copy duration/annotations/cels independently; default after source; clears duplicate links |
-| `remove_frame` | `frame_id` | Remove frame; cannot remove last frame |
-| `reorder_frame` | `frame_id`, `index` | Move to zero-based final position |
-| `rename_frame` | `frame_id`, nonblank `name` | Set frame display-name metadata; stable ID stays unchanged |
-| `set_frame_duration` | `frame_id`, `duration_ms` | Set positive finite duration |
+| `list` | No mutation fields | Read ordered IDs, positions and timing |
+| `add` | Optional `count` (default 1), `duration_ms` (default 100), `index`, `frame_id` | Add transparent frames; explicit ID requires count 1 |
+| `duplicate` | Target, optional `count`, `index`, `new_frame_id` | Independent copies; explicit new ID requires count 1 |
+| `set_duration` | Target and `duration_ms`; or `frames:[positions]` with `duration_ms`/`durations`; or timeline-wide `durations:[ms,...]` | Positive finite milliseconds; array length must match targeted frames; one undo step |
+| `delete` | Target | Remove, retaining at least one frame |
+| `rename` | Target, `name` | Change display name |
+| `reorder` | Target, `index` | Move to zero-based final position |
+| `batch` | `ops:[{op,...}]` | One atomic transaction |
 
-Insertion accepts 0..count; reorder accepts 0..count-1. Existing tag membership is retained; edits producing non-contiguous tags are rejected. Duplicating a frame creates a hold, not new motion: draw changed poses explicitly.
+Insertions accept 0..count, reorders 0..count-1. IDs are allocated unless supplied explicitly. Duplicate copies are holds, not automatically generated motion. Existing tag constraints remain enforced.
 
 ### `edit_palette`
 
@@ -204,7 +209,7 @@ Both region tools use transforms `none`, `flip_horizontal`, `flip_vertical`, `ro
 
 ### `resize_canvas`
 
-Arguments: `project_id`, `expected_revision`, positive integer `width`, `height`. Resize every cel, anchoring pixels at the top left: smaller dimensions crop; larger dimensions pad transparently. Does not scale artwork. Preserves palette indices, stable IDs and timing. Returns updated project info. A changed size is one undo step; unchanged dimensions are a no-op. Invalid sizes/budgets or a stale revision leave artwork/history unchanged. This is a separate tool, not an `apply_edits` operation variant.
+Arguments: `project_id`, `expected_revision`, positive integer `width`, `height`. Resize every cel, anchoring pixels at the top left: smaller dimensions crop; larger dimensions pad transparently. Does not scale artwork. Preserves palette indices, stable IDs and timing. Returns updated project info. A changed size is one undo step; unchanged dimensions still advance revision and create one undo step. Invalid sizes/budgets or a stale revision leave artwork/history unchanged. This is a separate tool, not an `edit_batch` operation variant.
 
 ### `undo`
 
@@ -216,9 +221,9 @@ Arguments: `project_id`, `expected_revision`. Reapply one undone transaction, in
 
 ## Inspection and preview tools
 
-### `get_project_info`
+### `sprite_info`
 
-Arguments: `project_id`. Return canvas dimensions, destination, exact palette, ordered layers with IDs/names/visibility/opacity/locks/timelines, ordered frames with IDs/durations, revision and history availability/counts. This renders no image and changes no artwork. Use it to discover current targets and revision.
+Optional `project_id`. Returns current revision, dimensions, palette, ordered layers/frames with stable IDs and one-based frame positions, cel/link metadata, and history counts/limits. `color_model:"palette_index_with_rgba_entries"`, `palette_semantics:"exact_index"` and `upstream_color_modes:false` distinguish Pixen's model from upstream RGB/indexed modes. `index_zero_is_transparent` is computed from this project's palette alpha, never assumed. Duplicate RGBA slots retain their distinct indices.
 
 ### `get_pixels`
 
@@ -313,8 +318,8 @@ Arguments: `project_id`; optional ordered `frame_ids`, `layer_id`, `crop`, `alph
 Each object below is the `arguments` value for the named `tools/call`. Substitute the actual IDs/revisions returned by the server. The destination parent must already exist and the output filenames must be new.
 
 ```text
-create_project
-{"width":16,"height":16,"palette":["#00000000","#2048A0FF"],"output_path":"D:/Dev/1-codes/pixen/out/sprite.pixen"}
+sprite_manage
+{"op":"new","width":16,"height":16,"palette":["#00000000","#2048A0FF"],"output_path":"D:/Dev/1-codes/pixen/out/sprite.pixen"}
 
 draw
 {"project_id":"project-1","expected_revision":0,"frame_id":"frame-1","layer_id":"layer-1","operation":{"type":"rectangle","x":3,"y":4,"width":10,"height":8,"palette_index":1,"filled":true}}
@@ -337,7 +342,7 @@ For desktop-bound AI, use the shared editing/inspection tools; the app handles s
 ## Limits and troubleshooting
 
 - Keep complete JSON calls below 200 KiB for client compatibility. This is guidance for AI clients, not a 200 KiB server rejection threshold. Prefer shapes and dense `set_pixel_rows`; split large work into revision-checked batches. Earlier successful batches remain if a later batch fails.
-- On stale revision, fetch `get_project_info`, reconcile the current artwork, and use its revision. Do not blindly replay a possibly committed edit.
+- On stale revision, fetch `sprite_info`, reconcile the current artwork, and use its revision. Do not blindly replay a possibly committed edit.
 - `get_pixels` is limited to 4096 pixels. Contact sheets accept 1–64 frames. PNG output and review work have bounded budgets; reduce scale, crop, subset or image inclusion on a limit error.
 - History documents must serialize within 64 MiB. History and checkpoints are in-memory session state; recovery contains artwork, not the full protocol session/history/checkpoint store.
 - Old running binaries may expose fewer tools or stale descriptions, including `.pixloom` destination guidance. Current source uses `.pixen` / `.pixen.json`. Reconnect after rebuilding and inspect the running binary's schema.
@@ -347,8 +352,9 @@ For desktop-bound AI, use the shared editing/inspection tools; the app handles s
 | Source | Responsibility |
 | --- | --- |
 | [`core/bin/pixen-mcp.rs`](../../core/bin/pixen-mcp.rs) | CLI flags, storage setup, standalone/proxy entry points |
-| [`core/automation/mcp.rs`](../../core/automation/mcp.rs) | All 32 tool registrations, argument wrappers, responses, viewer/activity synchronization |
-| [`core/automation/mcp_desktop.rs`](../../core/automation/mcp_desktop.rs) | 27-tool allowlist, document-bound interception, authenticated local bridge |
+| [`core/automation/mcp.rs`](../../core/automation/mcp.rs) | Tool registrations, argument wrappers, responses, viewer/activity synchronization |
+| [`core/automation/mcp_workflows.rs`](../../core/automation/mcp_workflows.rs) | Workflow translation, discovery, addressing, schemas and structured results |
+| [`core/automation/mcp_desktop.rs`](../../core/automation/mcp_desktop.rs) | Document tool allowlist, document-bound interception, authenticated local bridge |
 | [`core/automation/session.rs`](../../core/automation/session.rs) | Project lifecycle, revisions, transactions, history, save/export, inspection |
 | [`core/document/edit.rs`](../../core/document/edit.rs) | Drawing/layer/frame operation schemas and executor |
 | [`core/document/edit_extra.rs`](../../core/document/edit_extra.rs) | Palette and region operation schemas/executor |

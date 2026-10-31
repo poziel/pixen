@@ -1,7 +1,7 @@
 ---
 name: new
 title: Create a sprite document
-description: Create a new Pixen document with the right canvas size, colour mode, palette and layer structure, so later work does not have to fight the setup. Use when starting fresh rather than editing an existing sprite.
+description: Create a new Pixen document with the right canvas size, explicit palette and layer structure, so later work does not have to fight the setup. Use when starting fresh rather than editing an existing sprite.
 ---
 
 # Create a sprite document
@@ -10,30 +10,30 @@ Set-up mistakes are expensive to undo: a canvas that is the wrong size means red
 
 ## Procedure
 
-1. **`preflight`.** Stop if not ready.
+1. **`preflight`.** Stop if not ready. Read new-tool metadata from structuredContent, carry the returned project_id and revision into edits, and refresh sprite_info after a stale revision. Use only operations preflight advertises.
 
 2. **Create the canvas.**
 
    ```
-   sprite_manage op="new" width=32 height=32 colorMode="rgb"
+   sprite_manage op="new" width=32 height=32 palette=["#00000000","#202030FF","#E0D0B0FF"] output_path="…/knight.pixen"
    ```
 
-   - Use **RGB** unless the user wants hard palette enforcement at the file level. Indexed mode makes the palette a hard constraint Pixen itself enforces — good for a strict retro target, awkward for iteration.
+   - Pixen stores palette indices with RGBA entries. There is no upstream RGB/indexed mode switch; index 0 is not necessarily transparent. Supply an explicit palette. In desktop mode omit output_path: the application owns the temporary destination.
    - Size to the game's grid if there is one: a 16×16 tile game wants character sprites that are a multiple of 16 in at least one dimension.
    - Leave headroom. A 32×32 canvas for a 28px-tall character gives room for a weapon raise or a jump squash without a later canvas resize.
 
 3. **Set the palette before drawing.**
 
    ```
-   palette op="preset" preset="pico8" replace=true
+   sprite_info
    ```
 
-   Or build one: `palette op="ramp" base="#c04030" steps=5` per material. See `rules://01-palette-and-color`.
+   Inspect the returned exact palette slots. Palette presets and ramps are planned capabilities; check preflight before calling them. Choose the intended colors explicitly at creation. See `rules://01-palette-and-color`.
 
 4. **Build the layer structure** in one batch, so it is one undo step:
 
    ```
-   layer batch=[
+   layer op="batch" expected_revision=<current revision> ops=[
      {op:"create", name:"sketch"},
      {op:"create", name:"base"},
      {op:"create", name:"shading"},
@@ -46,12 +46,12 @@ Set-up mistakes are expensive to undo: a canvas that is the wrong size means red
 5. **Save immediately**, so the user has a file and undo has an anchor:
 
    ```
-   sprite_manage op="save_as" path="…/knight.pixen"
+   save_project project_id=<returned project ID>
    ```
 
-   Ask where, or put it beside whatever project the user is working in.
+   Standalone uses the destination supplied at creation. Desktop Save/Save As belongs to the application; sprite_manage save_as is not implemented yet. Saving is separate from undo history.
 
-6. **Confirm** what you made in one line: size, mode, palette, layers.
+6. **Confirm** what you made in one line: size, palette-index model, palette, layers.
 
 ## Then
 
